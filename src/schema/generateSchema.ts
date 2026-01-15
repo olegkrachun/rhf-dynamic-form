@@ -1,8 +1,43 @@
 import { ZodObject, type ZodTypeAny, z } from "zod";
-import type { FormConfiguration } from "../types";
+import type { FieldElement, FormConfiguration, JsonLogicRule } from "../types";
 import { flattenFields } from "../utils";
+import { evaluateCondition } from "../validation";
 import { buildFieldSchema } from "./fieldSchemas";
 import { setNestedSchema } from "./nestedPaths";
+
+/**
+ * Represents a field with a JSON Logic validation condition.
+ */
+interface FieldCondition {
+  /** Dot-notation path to the field (e.g., "source.phone") */
+  fieldPath: string;
+  /** JSON Logic rule to evaluate */
+  condition: JsonLogicRule;
+  /** Error message to display when condition fails */
+  message: string;
+}
+
+/**
+ * Extract all JSON Logic validation conditions from fields.
+ *
+ * @param fields - Array of field elements
+ * @returns Array of field conditions to evaluate
+ */
+function collectConditions(fields: FieldElement[]): FieldCondition[] {
+  const conditions: FieldCondition[] = [];
+
+  for (const field of fields) {
+    if (field.validation?.condition) {
+      conditions.push({
+        fieldPath: field.name,
+        condition: field.validation.condition,
+        message: field.validation.message || "Validation failed",
+      });
+    }
+  }
+
+  return conditions;
+}
 
 /**
  * Generated schema type - a Zod object schema.
@@ -62,7 +97,35 @@ export function generateZodSchema(config: FormConfiguration): GeneratedSchema {
     setNestedSchema(schemaShape, field.name, fieldSchema);
   }
 
-  return z.object(schemaShape);
+  // Create base schema
+  let schema: ZodObject<Record<string, ZodTypeAny>> = z.object(schemaShape);
+
+  // Collect JSON Logic conditions from fields
+  const conditions = collectConditions(fields);
+
+  // If there are JSON Logic conditions, add superRefine for cross-field validation
+  if (conditions.length > 0) {
+    schema = schema.superRefine((data, ctx) => {
+      for (const { fieldPath, condition, message } of conditions) {
+        // Evaluate the JSON Logic condition against full form data
+        const isValid = evaluateCondition(
+          condition,
+          data as Record<string, unknown>
+        );
+
+        if (!isValid) {
+          // Add error at the specific field path
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message,
+            path: fieldPath.split("."),
+          });
+        }
+      }
+    }) as ZodObject<Record<string, ZodTypeAny>>;
+  }
+
+  return schema;
 }
 
 /**

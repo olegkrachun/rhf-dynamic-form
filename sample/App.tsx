@@ -18,7 +18,7 @@ const customComponents: CustomComponentRegistry = {
 
 /**
  * Sample form configuration demonstrating various field types, validation,
- * and container layouts (Phase 2).
+ * container layouts (Phase 2), and JSON Logic conditional validation (Phase 3).
  */
 const sampleFormConfig: FormConfiguration = {
   name: "Sample Form",
@@ -63,32 +63,54 @@ const sampleFormConfig: FormConfiguration = {
           type: "column",
           width: "calc(50% - 0.5rem)",
           elements: [
+            // Phase 3: Conditional validation with JSON Logic
+            // Phone is only validated when hasPhone is checked
+            {
+              type: "boolean",
+              name: "source.hasPhone",
+              label: "I have a phone number",
+            },
             {
               type: "phone",
               name: "source.phone",
               label: "Phone Number",
               placeholder: "1234567890",
               validation: {
-                pattern: "^[0-9]{10}$",
+                // JSON Logic condition: valid if hasPhone is false OR phone matches pattern
+                condition: {
+                  or: [
+                    { "!": { var: "source.hasPhone" } },
+                    {
+                      and: [
+                        { var: "source.hasPhone" },
+                        {
+                          regex_match: ["^[0-9]{10}$", { var: "source.phone" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
                 message: "Please enter a valid 10-digit phone number",
               },
-            },
-            {
-              type: "text",
-              name: "source.company",
-              label: "Company Name",
-              placeholder: "Enter company name (optional)",
             },
           ],
         },
       ],
     },
     {
+      type: "text",
+      name: "source.company",
+      label: "Company Name",
+      placeholder: "Enter company name (optional)",
+    },
+    {
       type: "boolean",
       name: "source.acceptTerms",
       label: "I accept the terms and conditions",
       validation: {
-        required: true,
+        // Phase 3: JSON Logic condition requiring checkbox to be checked
+        condition: { var: "source.acceptTerms" },
+        message: "You must accept the terms and conditions",
       },
     },
     {
@@ -130,7 +152,8 @@ export function App() {
       <header className="header">
         <h1>Dynamic Form Library - Sample</h1>
         <p>
-          Phase 1 &amp; 2: Field rendering with validation and container layouts
+          Phase 1-3: Field rendering, container layouts, and JSON Logic
+          validation
         </p>
       </header>
 

@@ -76,7 +76,7 @@ pnpm lint:fix     # Auto-fix lint errors
 
 - **Phase 1** ✅ - Core form rendering, field types, validation, nested paths
 - **Phase 2** ✅ - Container/column layout system, custom containers
-- **Phase 3** - Declarative validation with JSON Logic
+- **Phase 3** ✅ - Declarative validation with JSON Logic, visibility-aware resolver
 - **Phase 4** - Visibility control system
 - **Phase 5** - Advanced features (arrays, dependencies)
 
@@ -86,8 +86,11 @@ Tests are colocated with implementation files:
 - `src/parser/configParser.test.ts`
 - `src/schema/generateSchema.test.ts`
 - `src/schema/nestedPaths.test.ts`
+- `src/schema/jsonLogicValidation.test.ts`
 - `src/components/ContainerRenderer.test.tsx`
 - `src/components/ColumnRenderer.test.tsx`
+- `src/validation/jsonLogic.test.ts`
+- `src/resolver/visibilityAwareResolver.test.ts`
 
 Run with: `pnpm test`
 

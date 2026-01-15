@@ -1,10 +1,10 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import type React from "react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FormRenderer } from "./components";
 import { DynamicFormContext, type DynamicFormContextValue } from "./context";
 import { parseConfiguration } from "./parser";
+import { createVisibilityAwareResolver } from "./resolver";
 import { generateZodSchema } from "./schema";
 import type { DynamicFormProps, FormData } from "./types";
 import { getFieldNames, mergeDefaults } from "./utils";
@@ -57,6 +57,7 @@ export function DynamicForm({
   onReset,
   onError,
   mode = "onChange",
+  invisibleFieldValidation = "skip",
   className,
   style,
   id,
@@ -80,8 +81,8 @@ export function DynamicForm({
     return mergeDefaults(parsedConfig, initialData);
   }, [parsedConfig, initialData]);
 
-  // Step 4: Initialize visibility state (all visible for Phase 1)
-  const visibility = useMemo(() => {
+  // Step 4: Initialize visibility state (all visible for now, Phase 4 will add dynamic visibility)
+  const [visibility, setVisibility] = useState<Record<string, boolean>>(() => {
     const fieldNames = getFieldNames(parsedConfig.elements);
     return fieldNames.reduce(
       (acc, name) => {
@@ -90,16 +91,39 @@ export function DynamicForm({
       },
       {} as Record<string, boolean>
     );
+  });
+
+  // Re-initialize visibility when config changes
+  useEffect(() => {
+    const fieldNames = getFieldNames(parsedConfig.elements);
+    setVisibility(
+      fieldNames.reduce(
+        (acc, name) => {
+          acc[name] = true;
+          return acc;
+        },
+        {} as Record<string, boolean>
+      )
+    );
   }, [parsedConfig]);
 
-  // Step 5: Initialize react-hook-form with Zod resolver
+  // Step 5: Create visibility-aware resolver
+  const resolver = useMemo(() => {
+    return createVisibilityAwareResolver({
+      schema: zodSchema,
+      getVisibility: () => visibility,
+      invisibleFieldValidation,
+    });
+  }, [zodSchema, visibility, invisibleFieldValidation]);
+
+  // Step 6: Initialize react-hook-form with visibility-aware resolver
   const form = useForm<FormData>({
     defaultValues,
-    resolver: zodResolver(zodSchema),
+    resolver,
     mode,
   });
 
-  // Step 6: Subscribe to value changes for onChange callback
+  // Step 7: Subscribe to value changes for onChange callback
   useEffect(() => {
     if (!onChange) {
       return;
@@ -114,7 +138,7 @@ export function DynamicForm({
     return () => subscription.unsubscribe();
   }, [form, onChange]);
 
-  // Step 7: Subscribe to validation state changes
+  // Step 8: Subscribe to validation state changes
   useEffect(() => {
     if (!onValidationChange) {
       return;
@@ -129,7 +153,7 @@ export function DynamicForm({
     return () => subscription.unsubscribe();
   }, [form, onValidationChange]);
 
-  // Step 8: Create context value
+  // Step 9: Create context value
   const contextValue: DynamicFormContextValue = useMemo(
     () => ({
       form,
@@ -149,7 +173,7 @@ export function DynamicForm({
     ]
   );
 
-  // Step 9: Handle form submission
+  // Step 10: Handle form submission
   const handleSubmit = form.handleSubmit(
     // Success handler
     async (data) => {
@@ -161,7 +185,7 @@ export function DynamicForm({
     }
   );
 
-  // Step 10: Handle form reset
+  // Step 11: Handle form reset
   const handleReset = () => {
     form.reset(defaultValues);
     onReset?.();

@@ -104,7 +104,7 @@ export interface DynamicFormProps {
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
 
   /**
-   * Controls validation behavior for invisible fields (Phase 4).
+   * Controls validation behavior for invisible fields (Phase 3).
    * - 'skip': Do not validate invisible fields (default)
    * - 'validate': Validate all fields regardless of visibility
    * - 'warn': Validate but treat errors as warnings (non-blocking)

@@ -25,6 +25,13 @@ export {
   parseConfiguration,
   safeParseConfiguration,
 } from "./parser";
+// =============================================================================
+// Resolver (Phase 3 - Visibility-aware validation)
+// =============================================================================
+export {
+  createVisibilityAwareResolver,
+  type VisibilityAwareResolverOptions,
+} from "./resolver";
 export type { GeneratedSchema, InferSchemaType } from "./schema";
 // =============================================================================
 // Schema Generation (for advanced use cases)
@@ -104,7 +111,6 @@ export {
   isCustomFieldElement,
   isFieldElement,
 } from "./types";
-
 // =============================================================================
 // Utilities (for advanced use cases)
 // =============================================================================
@@ -115,3 +121,7 @@ export {
   mergeDefaults,
   setNestedValue,
 } from "./utils";
+// =============================================================================
+// Validation Utilities (Phase 3 - JSON Logic)
+// =============================================================================
+export { applyJsonLogic, evaluateCondition } from "./validation";
