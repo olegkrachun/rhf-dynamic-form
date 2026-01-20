@@ -57,6 +57,10 @@ export {
 // Types - Events
 // =============================================================================
 export type {
+  ApiOptionsSource,
+  ArrayFieldComponent,
+  ArrayFieldElement,
+  ArrayFieldProps,
   BaseFieldProps,
   BooleanFieldComponent,
   BooleanFieldElement,
@@ -77,6 +81,7 @@ export type {
   DateFieldElement,
   DateFieldProps,
   DynamicFormProps,
+  DynamicFormRef,
   ElementType,
   EmailFieldComponent,
   EmailFieldElement,
@@ -85,27 +90,40 @@ export type {
   FieldElement,
   FieldProps,
   FieldType,
+  FieldWrapperFunction,
+  FieldWrapperProps,
   FormConfiguration,
   FormData,
   FormElement,
   InvisibleFieldValidation,
   JsonLogicRule,
   LayoutElement,
+  MapOptionsSource,
   OnChangeHandler,
   OnErrorHandler,
   OnResetHandler,
   OnSubmitHandler,
   OnValidationChangeHandler,
+  OptionsSource,
   PhoneFieldComponent,
   PhoneFieldElement,
   PhoneFieldProps,
+  ResolverOptionsSource,
+  SearchOptionsSource,
+  SelectFieldComponent,
+  SelectFieldElement,
+  SelectFieldProps,
+  SelectOption,
+  StaticOptionsSource,
   TextFieldComponent,
   TextFieldElement,
   TextFieldProps,
   ValidationConfig,
+  ZodSchema,
 } from "./types";
 // Element type guards
 export {
+  isArrayFieldElement,
   isColumnElement,
   isContainerElement,
   isCustomFieldElement,
@@ -115,11 +133,13 @@ export {
 // Utilities (for advanced use cases)
 // =============================================================================
 export {
+  calculateVisibility,
   flattenFields,
   getFieldNames,
   getNestedValue,
   mergeDefaults,
   setNestedValue,
+  type VisibilityState,
 } from "./utils";
 // =============================================================================
 // Validation Utilities (Phase 3 - JSON Logic)

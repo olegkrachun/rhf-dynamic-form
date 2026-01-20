@@ -4,11 +4,17 @@
 export type {
   CustomComponentDefinition,
   DynamicFormProps,
+  DynamicFormRef,
+  FieldWrapperFunction,
+  FieldWrapperProps,
   FormConfiguration,
+  ZodSchema,
 } from "./config";
 
 // Element types
 export type {
+  ApiOptionsSource,
+  ArrayFieldElement,
   BooleanFieldElement,
   ColumnElement,
   ContainerElement,
@@ -20,11 +26,19 @@ export type {
   FieldType,
   FormElement,
   LayoutElement,
+  MapOptionsSource,
+  OptionsSource,
   PhoneFieldElement,
+  ResolverOptionsSource,
+  SearchOptionsSource,
+  SelectFieldElement,
+  SelectOption,
+  StaticOptionsSource,
   TextFieldElement,
 } from "./elements";
 
 export {
+  isArrayFieldElement,
   isColumnElement,
   isContainerElement,
   isCustomFieldElement,
@@ -41,6 +55,8 @@ export type {
 } from "./events";
 // Field component types
 export type {
+  ArrayFieldComponent,
+  ArrayFieldProps,
   BaseFieldComponent,
   BaseFieldProps,
   BooleanFieldComponent,
@@ -62,6 +78,8 @@ export type {
   FieldProps,
   PhoneFieldComponent,
   PhoneFieldProps,
+  SelectFieldComponent,
+  SelectFieldProps,
   TextFieldComponent,
   TextFieldProps,
 } from "./fields";

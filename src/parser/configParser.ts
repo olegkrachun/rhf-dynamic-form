@@ -50,7 +50,7 @@ export interface ParseResult {
  * }
  * ```
  */
-export function parseConfiguration(config: unknown): FormConfiguration {
+export const parseConfiguration = (config: unknown): FormConfiguration => {
   try {
     const validated = validateConfiguration(config);
     return validated as FormConfiguration;
@@ -65,7 +65,7 @@ export function parseConfiguration(config: unknown): FormConfiguration {
     }
     throw error;
   }
-}
+};
 
 /**
  * Safely parses and validates a form configuration without throwing.
@@ -85,7 +85,7 @@ export function parseConfiguration(config: unknown): FormConfiguration {
  * }
  * ```
  */
-export function safeParseConfiguration(config: unknown): ParseResult {
+export const safeParseConfiguration = (config: unknown): ParseResult => {
   const result = safeValidateConfiguration(config);
 
   if (result.success) {
@@ -102,4 +102,4 @@ export function safeParseConfiguration(config: unknown): ParseResult {
       return path ? `${path}: ${issue.message}` : issue.message;
     }),
   };
-}
+};

@@ -43,6 +43,23 @@ const mockFieldComponents: FieldComponentRegistry = {
       <input id={field.name} type="date" {...field} />
     </div>
   ),
+  select: ({ config, field }) => (
+    <div data-testid={`field-${config.name}`}>
+      <label htmlFor={field.name}>{config.label}</label>
+      <select id={field.name} {...field}>
+        {config.options?.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  ),
+  array: ({ config }) => (
+    <div data-testid={`field-${config.name}`}>
+      <span>{config.label} (array)</span>
+    </div>
+  ),
 };
 
 describe("ContainerRenderer", () => {

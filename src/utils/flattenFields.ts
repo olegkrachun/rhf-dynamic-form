@@ -33,10 +33,10 @@ import { isColumnElement, isContainerElement, isFieldElement } from "../types";
  * // Returns: [{ type: 'text', name: 'name' }, { type: 'email', name: 'email' }]
  * ```
  */
-export function flattenFields(elements: FormElement[]): FieldElement[] {
+export const flattenFields = (elements: FormElement[]): FieldElement[] => {
   const fields: FieldElement[] = [];
 
-  function processElement(element: FormElement): void {
+  const processElement = (element: FormElement): void => {
     if (isFieldElement(element)) {
       fields.push(element);
     } else if (isContainerElement(element)) {
@@ -44,26 +44,26 @@ export function flattenFields(elements: FormElement[]): FieldElement[] {
     } else if (isColumnElement(element)) {
       processColumn(element);
     }
-  }
+  };
 
-  function processContainer(container: ContainerElement): void {
+  const processContainer = (container: ContainerElement): void => {
     for (const column of container.columns) {
       processColumn(column);
     }
-  }
+  };
 
-  function processColumn(column: ColumnElement): void {
+  const processColumn = (column: ColumnElement): void => {
     for (const element of column.elements) {
       processElement(element);
     }
-  }
+  };
 
   for (const element of elements) {
     processElement(element);
   }
 
   return fields;
-}
+};
 
 /**
  * Gets all field names from a form configuration.
@@ -72,6 +72,6 @@ export function flattenFields(elements: FormElement[]): FieldElement[] {
  * @param elements - Array of form elements
  * @returns Array of field names (including nested paths like 'source.name')
  */
-export function getFieldNames(elements: FormElement[]): string[] {
+export const getFieldNames = (elements: FormElement[]): string[] => {
   return flattenFields(elements).map((field) => field.name);
-}
+};

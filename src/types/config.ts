@@ -1,5 +1,11 @@
-import type { CSSProperties } from "react";
-import type { FormElement } from "./elements";
+import type { CSSProperties, ReactNode } from "react";
+import type { ControllerFieldState, Resolver } from "react-hook-form";
+import type { ZodObject, ZodRawShape } from "zod";
+import type { FieldElement, FormElement } from "./elements";
+
+/** Type alias for Zod schema used in DynamicForm validation */
+export type ZodSchema<T extends ZodRawShape = ZodRawShape> = ZodObject<T>;
+
 import type {
   FormData,
   OnChangeHandler,
@@ -14,6 +20,49 @@ import type {
   FieldComponentRegistry,
 } from "./fields";
 import type { InvisibleFieldValidation } from "./validation";
+
+/**
+ * Props passed to the fieldWrapper function.
+ * Contains field metadata for custom wrapper implementations.
+ */
+export interface FieldWrapperProps {
+  /** Field path (e.g., "contact.email") */
+  name: string;
+
+  /** Raw field configuration from form config */
+  config: FieldElement;
+
+  /** react-hook-form field state (error, isDirty, isTouched, invalid) */
+  fieldState: ControllerFieldState;
+
+  /** Current field value */
+  value: unknown;
+
+  /** All current form values (for reading other fields) */
+  formValues: FormData;
+
+  /** Set any field value (for dependent field logic) */
+  setValue: (name: string, value: unknown) => void;
+}
+
+/**
+ * Function type for wrapping field components.
+ * Receives field metadata and the rendered field element.
+ *
+ * @example
+ * ```tsx
+ * const myFieldWrapper: FieldWrapperFunction = (props, children) => (
+ *   <div className="field-wrapper">
+ *     <Badge>{props.name}</Badge>
+ *     {children}
+ *   </div>
+ * );
+ * ```
+ */
+export type FieldWrapperFunction = (
+  props: FieldWrapperProps,
+  children: ReactNode
+) => ReactNode;
 
 /**
  * Custom component definition for advanced configuration.
@@ -94,6 +143,36 @@ export interface DynamicFormProps {
   onError?: OnErrorHandler;
 
   /**
+   * Optional: Custom react-hook-form resolver for validation.
+   * Use this to provide validation with any library (Zod, Yup, Joi, custom).
+   * If not provided and no schema prop, form runs without validation.
+   *
+   * @example
+   * ```tsx
+   * import { zodResolver } from '@hookform/resolvers/zod';
+   * import { z } from 'zod';
+   *
+   * const mySchema = z.object({ name: z.string().min(1) });
+   * <DynamicForm resolver={zodResolver(mySchema)} ... />
+   * ```
+   */
+  resolver?: Resolver<FormData>;
+
+  /**
+   * Optional: Zod schema for validation (convenience prop).
+   * Internally creates a visibility-aware resolver from this schema.
+   * Ignored if `resolver` prop is provided.
+   *
+   * @example
+   * ```tsx
+   * import { z } from 'zod';
+   * const schema = z.object({ name: z.string().min(1) });
+   * <DynamicForm schema={schema} ... />
+   * ```
+   */
+  schema?: ZodSchema;
+
+  /**
    * Validation mode for react-hook-form.
    * - 'onChange': Validate on every change (default)
    * - 'onBlur': Validate on blur
@@ -104,7 +183,8 @@ export interface DynamicFormProps {
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
 
   /**
-   * Controls validation behavior for invisible fields (Phase 3).
+   * Controls validation behavior for invisible fields.
+   * Only applies when using `schema` prop (not custom `resolver`).
    * - 'skip': Do not validate invisible fields (default)
    * - 'validate': Validate all fields regardless of visibility
    * - 'warn': Validate but treat errors as warnings (non-blocking)
@@ -122,4 +202,57 @@ export interface DynamicFormProps {
 
   /** Content to render after all form fields (e.g., submit button) */
   children?: React.ReactNode;
+
+  /**
+   * Optional wrapper function for each field.
+   * Receives field metadata and children, returns wrapped element.
+   * Use this for adding confidence indicators, status badges, edit tracking, etc.
+   *
+   * @example
+   * ```tsx
+   * <DynamicForm
+   *   fieldWrapper={(props, children) => (
+   *     <div className="field-wrapper">
+   *       <Badge>{props.config.label}</Badge>
+   *       {children}
+   *     </div>
+   *   )}
+   * />
+   * ```
+   */
+  fieldWrapper?: FieldWrapperFunction;
+}
+
+/**
+ * Ref interface for external form control.
+ * Access form methods from outside the component.
+ *
+ * @example
+ * ```tsx
+ * const formRef = useRef<DynamicFormRef>(null);
+ *
+ * // Reset city when country changes externally
+ * const handleCountryChange = (country: string) => {
+ *   formRef.current?.setValue('country', country);
+ *   formRef.current?.setValue('city', null);
+ * };
+ *
+ * <DynamicForm ref={formRef} ... />
+ * ```
+ */
+export interface DynamicFormRef {
+  /** Get all form values */
+  getValues: () => FormData;
+
+  /** Set a specific field value */
+  setValue: (name: string, value: unknown) => void;
+
+  /** Watch a specific field or all values */
+  watch: (name?: string) => unknown;
+
+  /** Reset form to initial values or provided values */
+  reset: (values?: FormData) => void;
+
+  /** Trigger validation for a specific field or all fields */
+  trigger: (name?: string) => Promise<boolean>;
 }

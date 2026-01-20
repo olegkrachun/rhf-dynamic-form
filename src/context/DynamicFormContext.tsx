@@ -4,6 +4,7 @@ import type {
   CustomComponentRegistry,
   CustomContainerRegistry,
   FieldComponentRegistry,
+  FieldWrapperFunction,
   FormConfiguration,
   FormData,
 } from "../types";
@@ -48,6 +49,12 @@ export interface DynamicFormContextValue {
    * For Phase 1, all fields are always visible.
    */
   visibility: Record<string, boolean>;
+
+  /**
+   * Optional wrapper function for each field.
+   * When provided, every field is wrapped with this function.
+   */
+  fieldWrapper?: FieldWrapperFunction;
 }
 
 /**

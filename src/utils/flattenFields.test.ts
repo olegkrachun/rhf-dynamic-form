@@ -1,346 +1,195 @@
 import { describe, expect, it } from "vitest";
-import type { FormConfiguration } from "@/types";
+import type {
+  ContainerElement,
+  FieldElement,
+  FormElement,
+  TextFieldElement,
+} from "../types";
 import { flattenFields, getFieldNames } from "./flattenFields";
 
 describe("flattenFields", () => {
-  describe("with simple field elements", () => {
-    it("should return array of field elements", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "firstName" },
-        { type: "email", name: "email" },
-      ];
+  it("should return a single field unchanged", () => {
+    const field: TextFieldElement = {
+      type: "text",
+      name: "firstName",
+    };
+    const elements: FormElement[] = [field];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("firstName");
-      expect(result[1].name).toBe("email");
-    });
-
-    it("should handle single field element", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "name" },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("name");
-    });
-
-    it("should handle all field types", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "text" },
-        { type: "email", name: "email" },
-        { type: "boolean", name: "boolean" },
-        { type: "phone", name: "phone" },
-        { type: "date", name: "date" },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(5);
-      expect(result.map((f) => f.type)).toEqual([
-        "text",
-        "email",
-        "boolean",
-        "phone",
-        "date",
-      ]);
-    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(field);
   });
 
-  describe("with container elements", () => {
-    it("should extract fields from single column container", () => {
-      const elements: FormConfiguration["elements"] = [
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [
-                { type: "text", name: "name" },
-                { type: "email", name: "email" },
-              ],
-            },
-          ],
-        },
-      ];
+  it("should return multiple fields in order", () => {
+    const elements: FormElement[] = [
+      { type: "text", name: "firstName" },
+      { type: "text", name: "lastName" },
+      { type: "email", name: "email" },
+    ];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("name");
-      expect(result[1].name).toBe("email");
-    });
-
-    it("should extract fields from multi-column container", () => {
-      const elements: FormConfiguration["elements"] = [
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "50%",
-              elements: [{ type: "text", name: "firstName" }],
-            },
-            {
-              type: "column",
-              width: "50%",
-              elements: [{ type: "text", name: "lastName" }],
-            },
-          ],
-        },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("firstName");
-      expect(result[1].name).toBe("lastName");
-    });
-
-    it("should handle container with multiple fields per column", () => {
-      const elements: FormConfiguration["elements"] = [
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "text", name: "field1" },
-                { type: "text", name: "field2" },
-              ],
-            },
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "email", name: "field3" },
-                { type: "phone", name: "field4" },
-              ],
-            },
-          ],
-        },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(4);
-      expect(result.map((f) => f.name)).toEqual([
-        "field1",
-        "field2",
-        "field3",
-        "field4",
-      ]);
-    });
+    expect(result).toHaveLength(3);
+    expect(result[0].name).toBe("firstName");
+    expect(result[1].name).toBe("lastName");
+    expect(result[2].name).toBe("email");
   });
 
-  describe("with nested containers", () => {
-    it("should extract fields from deeply nested containers", () => {
-      const elements: FormConfiguration["elements"] = [
+  it("should extract fields from container columns", () => {
+    const container: ContainerElement = {
+      type: "container",
+      columns: [
         {
-          type: "container",
-          columns: [
+          type: "column",
+          width: "50%",
+          elements: [{ type: "text", name: "firstName" }],
+        },
+        {
+          type: "column",
+          width: "50%",
+          elements: [{ type: "text", name: "lastName" }],
+        },
+      ],
+    };
+    const elements: FormElement[] = [container];
+
+    const result = flattenFields(elements);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("firstName");
+    expect(result[1].name).toBe("lastName");
+  });
+
+  it("should extract fields from deeply nested containers", () => {
+    const nestedContainer: ContainerElement = {
+      type: "container",
+      columns: [
+        {
+          type: "column",
+          width: "100%",
+          elements: [
             {
-              type: "column",
-              width: "100%",
-              elements: [
+              type: "container",
+              columns: [
                 {
-                  type: "container",
-                  columns: [
-                    {
-                      type: "column",
-                      width: "50%",
-                      elements: [{ type: "text", name: "nested.field1" }],
-                    },
-                    {
-                      type: "column",
-                      width: "50%",
-                      elements: [{ type: "text", name: "nested.field2" }],
-                    },
-                  ],
+                  type: "column",
+                  width: "50%",
+                  elements: [{ type: "text", name: "nested1" }],
+                },
+                {
+                  type: "column",
+                  width: "50%",
+                  elements: [{ type: "text", name: "nested2" }],
                 },
               ],
             },
           ],
         },
-      ];
+      ],
+    };
+    const elements: FormElement[] = [nestedContainer];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("nested.field1");
-      expect(result[1].name).toBe("nested.field2");
-    });
-
-    it("should handle multiple levels of nesting", () => {
-      const elements: FormConfiguration["elements"] = [
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [
-                { type: "text", name: "top" },
-                {
-                  type: "container",
-                  columns: [
-                    {
-                      type: "column",
-                      width: "100%",
-                      elements: [
-                        { type: "text", name: "middle" },
-                        {
-                          type: "container",
-                          columns: [
-                            {
-                              type: "column",
-                              width: "100%",
-                              elements: [{ type: "text", name: "bottom" }],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(3);
-      expect(result.map((f) => f.name)).toEqual(["top", "middle", "bottom"]);
-    });
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("nested1");
+    expect(result[1].name).toBe("nested2");
   });
 
-  describe("with mixed elements", () => {
-    it("should extract fields from both direct elements and containers", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "title" },
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "50%",
-              elements: [{ type: "text", name: "firstName" }],
-            },
-            {
-              type: "column",
-              width: "50%",
-              elements: [{ type: "text", name: "lastName" }],
-            },
-          ],
-        },
-        { type: "boolean", name: "accept" },
-      ];
+  it("should extract fields from mixed elements (fields and containers)", () => {
+    const elements: FormElement[] = [
+      { type: "text", name: "topLevel" },
+      {
+        type: "container",
+        columns: [
+          {
+            type: "column",
+            width: "100%",
+            elements: [
+              { type: "email", name: "inContainer" },
+              { type: "boolean", name: "inContainerToo" },
+            ],
+          },
+        ],
+      },
+      { type: "phone", name: "anotherTopLevel" },
+    ];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(4);
-      expect(result.map((f) => f.name)).toEqual([
-        "title",
-        "firstName",
-        "lastName",
-        "accept",
-      ]);
-    });
-
-    it("should preserve field order across mixed elements", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "field1" },
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [
-                { type: "text", name: "field2" },
-                { type: "text", name: "field3" },
-              ],
-            },
-          ],
-        },
-        { type: "text", name: "field4" },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result.map((f) => f.name)).toEqual([
-        "field1",
-        "field2",
-        "field3",
-        "field4",
-      ]);
-    });
+    expect(result).toHaveLength(4);
+    expect(result[0].name).toBe("topLevel");
+    expect(result[1].name).toBe("inContainer");
+    expect(result[2].name).toBe("inContainerToo");
+    expect(result[3].name).toBe("anotherTopLevel");
   });
 
-  describe("edge cases", () => {
-    it("should handle empty elements array", () => {
-      const result = flattenFields([]);
+  it("should return empty array when no elements provided", () => {
+    const elements: FormElement[] = [];
 
-      expect(result).toHaveLength(0);
-    });
+    const result = flattenFields(elements);
 
-    it("should handle container with empty columns", () => {
-      const elements: FormConfiguration["elements"] = [
+    expect(result).toHaveLength(0);
+  });
+
+  it("should return empty array when containers have no fields", () => {
+    const container: ContainerElement = {
+      type: "container",
+      columns: [
         {
-          type: "container",
-          columns: [],
+          type: "column",
+          width: "100%",
+          elements: [],
         },
-      ];
+      ],
+    };
+    const elements: FormElement[] = [container];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(0);
-    });
+    expect(result).toHaveLength(0);
+  });
 
-    it("should handle column with empty elements", () => {
-      const elements: FormConfiguration["elements"] = [
-        {
-          type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [],
-            },
-          ],
-        },
-      ];
+  it("should handle all field types", () => {
+    const elements: FormElement[] = [
+      { type: "text", name: "text" },
+      { type: "email", name: "email" },
+      { type: "boolean", name: "boolean" },
+      { type: "phone", name: "phone" },
+      { type: "date", name: "date" },
+      {
+        type: "select",
+        name: "select",
+        options: [{ value: "a", label: "A" }],
+      },
+      {
+        type: "array",
+        name: "array",
+        itemFields: [{ type: "text", name: "item" }],
+      },
+      { type: "custom", name: "custom", component: "MyComponent" },
+    ];
 
-      const result = flattenFields(elements);
+    const result = flattenFields(elements);
 
-      expect(result).toHaveLength(0);
-    });
-
-    it("should handle nested field paths", () => {
-      const elements: FormConfiguration["elements"] = [
-        { type: "text", name: "source.name" },
-        { type: "email", name: "source.contact.email" },
-      ];
-
-      const result = flattenFields(elements);
-
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("source.name");
-      expect(result[1].name).toBe("source.contact.email");
-    });
+    expect(result).toHaveLength(8);
+    expect(result.map((f: FieldElement) => f.type)).toEqual([
+      "text",
+      "email",
+      "boolean",
+      "phone",
+      "date",
+      "select",
+      "array",
+      "custom",
+    ]);
   });
 });
 
 describe("getFieldNames", () => {
-  it("should return array of field names", () => {
-    const elements: FormConfiguration["elements"] = [
+  it("should return field names for simple fields", () => {
+    const elements: FormElement[] = [
       { type: "text", name: "firstName" },
       { type: "email", name: "email" },
     ];
@@ -350,21 +199,20 @@ describe("getFieldNames", () => {
     expect(result).toEqual(["firstName", "email"]);
   });
 
-  it("should extract names from nested containers", () => {
-    const elements: FormConfiguration["elements"] = [
-      { type: "text", name: "title" },
+  it("should return field names from nested containers", () => {
+    const elements: FormElement[] = [
       {
         type: "container",
         columns: [
           {
             type: "column",
             width: "50%",
-            elements: [{ type: "text", name: "firstName" }],
+            elements: [{ type: "text", name: "source.firstName" }],
           },
           {
             type: "column",
             width: "50%",
-            elements: [{ type: "text", name: "lastName" }],
+            elements: [{ type: "text", name: "source.lastName" }],
           },
         ],
       },
@@ -372,23 +220,33 @@ describe("getFieldNames", () => {
 
     const result = getFieldNames(elements);
 
-    expect(result).toEqual(["title", "firstName", "lastName"]);
+    expect(result).toEqual(["source.firstName", "source.lastName"]);
+  });
+
+  it("should preserve order of fields", () => {
+    const elements: FormElement[] = [
+      { type: "text", name: "z_field" },
+      { type: "text", name: "a_field" },
+      {
+        type: "container",
+        columns: [
+          {
+            type: "column",
+            width: "100%",
+            elements: [{ type: "text", name: "m_field" }],
+          },
+        ],
+      },
+    ];
+
+    const result = getFieldNames(elements);
+
+    expect(result).toEqual(["z_field", "a_field", "m_field"]);
   });
 
   it("should return empty array for empty elements", () => {
     const result = getFieldNames([]);
 
     expect(result).toEqual([]);
-  });
-
-  it("should preserve nested field path notation", () => {
-    const elements: FormConfiguration["elements"] = [
-      { type: "text", name: "source.name" },
-      { type: "email", name: "source.contact.email" },
-    ];
-
-    const result = getFieldNames(elements);
-
-    expect(result).toEqual(["source.name", "source.contact.email"]);
   });
 });

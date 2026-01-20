@@ -15,11 +15,11 @@ import { flattenFields } from "./flattenFields";
  * // obj is now { source: { name: 'John' } }
  * ```
  */
-export function setNestedValue(
+export const setNestedValue = (
   obj: Record<string, unknown>,
   path: string,
   value: unknown
-): void {
+): void => {
   const parts = path.split(".");
   let current: Record<string, unknown> = obj;
 
@@ -39,7 +39,7 @@ export function setNestedValue(
   if (lastPart !== undefined) {
     current[lastPart] = value;
   }
-}
+};
 
 /**
  * Gets a value from a nested object using dot notation path.
@@ -55,10 +55,10 @@ export function setNestedValue(
  * getNestedValue(obj, 'source.email'); // undefined
  * ```
  */
-export function getNestedValue(
+export const getNestedValue = (
   obj: Record<string, unknown>,
   path: string
-): unknown {
+): unknown => {
   const parts = path.split(".");
   let current: unknown = obj;
 
@@ -74,7 +74,7 @@ export function getNestedValue(
   }
 
   return current;
-}
+};
 
 /**
  * Deep merge two objects. Source values override target values.
@@ -83,10 +83,10 @@ export function getNestedValue(
  * @param source - Object to merge in (takes precedence)
  * @returns New merged object
  */
-function deepMerge(
+const deepMerge = (
   target: Record<string, unknown>,
   source: Record<string, unknown>
-): Record<string, unknown> {
+): Record<string, unknown> => {
   const result: Record<string, unknown> = { ...target };
 
   for (const key in source) {
@@ -113,7 +113,7 @@ function deepMerge(
   }
 
   return result;
-}
+};
 
 /**
  * Gets the default value for a field based on its type.
@@ -121,7 +121,7 @@ function deepMerge(
  * @param field - Field element
  * @returns Appropriate default value for the field type
  */
-function getTypeDefault(field: FieldElement): unknown {
+const getTypeDefault = (field: FieldElement): unknown => {
   switch (field.type) {
     case "boolean":
       return false;
@@ -133,7 +133,7 @@ function getTypeDefault(field: FieldElement): unknown {
     default:
       return "";
   }
-}
+};
 
 /**
  * Merges configuration default values with initial data.
@@ -157,10 +157,10 @@ function getTypeDefault(field: FieldElement): unknown {
  * // Result: { source: { name: 'Provided Name', active: false } }
  * ```
  */
-export function mergeDefaults(
+export const mergeDefaults = (
   config: FormConfiguration,
   initialData?: FormData
-): FormData {
+): FormData => {
   const defaults: Record<string, unknown> = {};
   const fields = flattenFields(config.elements);
 
@@ -177,4 +177,4 @@ export function mergeDefaults(
   }
 
   return defaults;
-}
+};

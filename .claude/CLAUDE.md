@@ -66,33 +66,43 @@ pnpm lint:fix     # Auto-fix lint errors
 ## Key Types
 
 - `FormConfiguration` - Top-level form config with elements array
-- `FieldElement` - Union of all field types (text, email, boolean, phone, date, custom)
+- `FieldElement` - Union of all field types (text, email, boolean, phone, date, select, array, custom)
+- `SelectFieldElement` - Dropdown/multi-select with options
+- `ArrayFieldElement` - Repeatable field groups with itemFields template
 - `ContainerElement` - Layout container with columns
 - `ColumnElement` - Column with width and nested elements
 - `FieldComponentRegistry` - Maps field types to components
 - `CustomComponentRegistry` - Maps custom component names to implementations
+- `ZodSchema` - Type alias for external Zod schema prop
 
 ## Implementation Phases
 
 - **Phase 1** ✅ - Core form rendering, field types, validation, nested paths
 - **Phase 2** ✅ - Container/column layout system, custom containers
 - **Phase 3** ✅ - Declarative validation with JSON Logic, visibility-aware resolver
-- **Phase 4** - Visibility control system
-- **Phase 5** - Advanced features (arrays, dependencies)
+- **Phase 4** ✅ - Visibility control system (conditional field display)
+- **Phase 5** ✅ - Advanced features (select, arrays, field dependencies, flexible validation)
 
 ## Testing
 
-Tests are colocated with implementation files:
-- `src/parser/configParser.test.ts`
-- `src/schema/generateSchema.test.ts`
-- `src/schema/nestedPaths.test.ts`
-- `src/schema/jsonLogicValidation.test.ts`
-- `src/components/ContainerRenderer.test.tsx`
-- `src/components/ColumnRenderer.test.tsx`
-- `src/validation/jsonLogic.test.ts`
-- `src/resolver/visibilityAwareResolver.test.ts`
+Tests are colocated with implementation files (191 tests total):
+- `src/parser/configParser.test.ts` - Configuration parsing
+- `src/parser/configValidator.test.ts` - Config validation
+- `src/schema/generateSchema.test.ts` - Schema generation
+- `src/schema/fieldSchemas.test.ts` - Field schema builders
+- `src/schema/nestedPaths.test.ts` - Nested path handling
+- `src/schema/jsonLogicValidation.test.ts` - JSON Logic validation
+- `src/components/ContainerRenderer.test.tsx` - Container rendering
+- `src/components/ColumnRenderer.test.tsx` - Column rendering
+- `src/validation/jsonLogic.test.ts` - JSON Logic evaluation
+- `src/resolver/visibilityAwareResolver.test.ts` - Visibility-aware resolver
+- `src/utils/flattenFields.test.ts` - Field extraction
+- `src/utils/mergeDefaults.test.ts` - Default value merging
+- `src/utils/calculateVisibility.test.ts` - Visibility calculation
+- `src/utils/dependencies.test.ts` - Field dependencies
 
 Run with: `pnpm test`
+Coverage: `pnpm test -- --coverage`
 
 ---
 

@@ -5,6 +5,7 @@ import type {
   FieldValues,
 } from "react-hook-form";
 import type {
+  ArrayFieldElement,
   BaseFieldElement,
   BooleanFieldElement,
   ColumnElement,
@@ -14,8 +15,10 @@ import type {
   ElementType,
   EmailFieldElement,
   PhoneFieldElement,
+  SelectFieldElement,
   TextFieldElement,
 } from "./elements";
+import type { FormData } from "./events";
 
 /**
  * Base props passed to all field components.
@@ -23,7 +26,7 @@ import type {
  *
  * @example
  * ```tsx
- * const MyTextField: TextFieldComponent = ({ field, fieldState, config }) => (
+ * const MyTextField: TextFieldComponent = ({ field, fieldState, config, formValues }) => (
  *   <div>
  *     <label>{config.label}</label>
  *     <input {...field} />
@@ -45,6 +48,12 @@ export interface BaseFieldProps<
 
   /** Field configuration from form config */
   config: TConfig;
+
+  /** All current form values (for reading other fields, dependent logic) */
+  formValues: FormData;
+
+  /** Set any field value (for dependent field logic, cascading updates) */
+  setValue: (name: string, value: unknown) => void;
 }
 
 /**
@@ -93,6 +102,24 @@ export type DateFieldProps = BaseFieldProps<
 >;
 
 /**
+ * Props for select field component.
+ */
+export type SelectFieldProps = BaseFieldProps<
+  FieldValues,
+  FieldPath<FieldValues>,
+  SelectFieldElement
+>;
+
+/**
+ * Props for array field component.
+ */
+export type ArrayFieldProps = BaseFieldProps<
+  FieldValues,
+  FieldPath<FieldValues>,
+  ArrayFieldElement
+>;
+
+/**
  * Props for custom field components.
  * Custom components receive additional componentProps from configuration.
  */
@@ -136,6 +163,16 @@ export type PhoneFieldComponent = BaseFieldComponent<PhoneFieldProps>;
 export type DateFieldComponent = BaseFieldComponent<DateFieldProps>;
 
 /**
+ * Component type for select fields.
+ */
+export type SelectFieldComponent = BaseFieldComponent<SelectFieldProps>;
+
+/**
+ * Component type for array fields.
+ */
+export type ArrayFieldComponent = BaseFieldComponent<ArrayFieldProps>;
+
+/**
  * Component type for custom fields.
  */
 export type CustomFieldComponent = BaseFieldComponent<CustomFieldProps>;
@@ -145,7 +182,9 @@ export type StandardFieldComponent =
   | EmailFieldComponent
   | BooleanFieldComponent
   | PhoneFieldComponent
-  | DateFieldComponent;
+  | DateFieldComponent
+  | SelectFieldComponent
+  | ArrayFieldComponent;
 
 export type StandardFieldComponentType = Exclude<ElementType, "custom">;
 
@@ -156,6 +195,8 @@ export interface FieldComponentRegistry
   boolean: BooleanFieldComponent;
   phone: PhoneFieldComponent;
   date: DateFieldComponent;
+  select: SelectFieldComponent;
+  array: ArrayFieldComponent;
 }
 
 /**
@@ -172,6 +213,8 @@ export type FieldProps =
   | BooleanFieldProps
   | PhoneFieldProps
   | DateFieldProps
+  | SelectFieldProps
+  | ArrayFieldProps
   | CustomFieldProps;
 
 // ============================================================================

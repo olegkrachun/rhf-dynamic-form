@@ -1,13 +1,33 @@
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FormRenderer } from "./components";
 import { DynamicFormContext, type DynamicFormContextValue } from "./context";
 import { parseConfiguration } from "./parser";
 import { createVisibilityAwareResolver } from "./resolver";
 import { generateZodSchema } from "./schema";
-import type { DynamicFormProps, FormData } from "./types";
-import { getFieldNames, mergeDefaults } from "./utils";
+import type { DynamicFormProps, DynamicFormRef, FormData } from "./types";
+import {
+  buildDependencyMap,
+  calculateVisibility,
+  findFieldByName,
+  getFieldDefault,
+  mergeDefaults,
+} from "./utils";
+
+/**
+ * Props for the DynamicForm component including ref support.
+ */
+interface DynamicFormPropsWithRef extends DynamicFormProps {
+  /** Ref to access form methods externally */
+  ref?: React.Ref<DynamicFormRef>;
+}
 
 /**
  * DynamicForm - A configuration-driven form component.
@@ -45,7 +65,7 @@ import { getFieldNames, mergeDefaults } from "./utils";
  * </DynamicForm>
  * ```
  */
-export function DynamicForm({
+export const DynamicForm = ({
   config,
   initialData,
   fieldComponents,
@@ -56,24 +76,32 @@ export function DynamicForm({
   onValidationChange,
   onReset,
   onError,
+  resolver: externalResolver,
+  schema: externalSchema,
   mode = "onChange",
   invisibleFieldValidation = "skip",
   className,
   style,
   id,
   children,
-}: DynamicFormProps): React.ReactElement {
+  fieldWrapper,
+  ref,
+}: DynamicFormPropsWithRef): React.ReactElement => {
   // Step 1: Parse and validate configuration
   // This throws if the configuration is invalid
   const parsedConfig = useMemo(() => {
     return parseConfiguration(config);
   }, [config]);
 
-  // Step 2: Generate Zod schema from configuration
-  // Schema is generated once and memoized
-  const zodSchema = useMemo(() => {
+  // Step 2: Generate Zod schema from configuration (only if no external validation provided)
+  // This is lazy - only generated when needed for internal validation
+  const internalZodSchema = useMemo(() => {
+    // Skip internal schema generation if external resolver or schema provided
+    if (externalResolver || externalSchema) {
+      return null;
+    }
     return generateZodSchema(parsedConfig);
-  }, [parsedConfig]);
+  }, [parsedConfig, externalResolver, externalSchema]);
 
   // Step 3: Calculate default values
   // Merges config defaults with initialData
@@ -81,15 +109,11 @@ export function DynamicForm({
     return mergeDefaults(parsedConfig, initialData);
   }, [parsedConfig, initialData]);
 
-  // Step 4: Initialize visibility state (all visible for now, Phase 4 will add dynamic visibility)
+  // Step 4: Initialize visibility state based on default values
   const [visibility, setVisibility] = useState<Record<string, boolean>>(() => {
-    const fieldNames = getFieldNames(parsedConfig.elements);
-    return fieldNames.reduce(
-      (acc, name) => {
-        acc[name] = true;
-        return acc;
-      },
-      {} as Record<string, boolean>
+    return calculateVisibility(
+      parsedConfig.elements,
+      defaultValues as Record<string, unknown>
     );
   });
 
@@ -101,28 +125,51 @@ export function DynamicForm({
 
   // Re-initialize visibility when config changes
   useEffect(() => {
-    const fieldNames = getFieldNames(parsedConfig.elements);
     setVisibility(
-      fieldNames.reduce(
-        (acc, name) => {
-          acc[name] = true;
-          return acc;
-        },
-        {} as Record<string, boolean>
+      calculateVisibility(
+        parsedConfig.elements,
+        defaultValues as Record<string, unknown>
       )
     );
-  }, [parsedConfig]);
+  }, [parsedConfig, defaultValues]);
 
-  // Step 5: Create visibility-aware resolver
-  // NOTE: Only recreate when schema or validation mode changes, NOT visibility.
-  // Visibility changes are read dynamically via visibilityRef to avoid stale closures.
+  // Step 5: Create resolver with priority: external resolver > external schema > internal schema
+  // - If externalResolver provided: use it directly (full control to consumer)
+  // - If externalSchema provided: wrap with visibility-aware resolver
+  // - If internalZodSchema available: wrap with visibility-aware resolver
+  // - Otherwise: no validation (undefined resolver)
   const resolver = useMemo(() => {
-    return createVisibilityAwareResolver({
-      schema: zodSchema,
-      getVisibility: () => visibilityRef.current,
-      invisibleFieldValidation,
-    });
-  }, [zodSchema, invisibleFieldValidation]);
+    // Priority 1: External resolver - use as-is (consumer has full control)
+    if (externalResolver) {
+      return externalResolver;
+    }
+
+    // Priority 2: External Zod schema - wrap with visibility-aware resolver
+    if (externalSchema) {
+      return createVisibilityAwareResolver({
+        schema: externalSchema,
+        getVisibility: () => visibilityRef.current,
+        invisibleFieldValidation,
+      });
+    }
+
+    // Priority 3: Internal schema from config - wrap with visibility-aware resolver
+    if (internalZodSchema) {
+      return createVisibilityAwareResolver({
+        schema: internalZodSchema,
+        getVisibility: () => visibilityRef.current,
+        invisibleFieldValidation,
+      });
+    }
+
+    // No validation - return undefined
+    return undefined;
+  }, [
+    externalResolver,
+    externalSchema,
+    internalZodSchema,
+    invisibleFieldValidation,
+  ]);
 
   // Step 6: Initialize react-hook-form with visibility-aware resolver
   const form = useForm<FormData>({
@@ -131,7 +178,73 @@ export function DynamicForm({
     mode,
   });
 
-  // Step 7: Subscribe to value changes for onChange callback
+  // Step 7: Expose form methods via ref
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValues: () => form.getValues(),
+      setValue: (name: string, value: unknown) => form.setValue(name, value),
+      watch: (name?: string) => (name ? form.watch(name) : form.watch()),
+      reset: (values?: FormData) => form.reset(values ?? defaultValues),
+      trigger: (name?: string) => form.trigger(name),
+    }),
+    [form, defaultValues]
+  );
+
+  // Step 8: Build dependency map for cascading field resets
+  const dependencyMap = useMemo(
+    () => buildDependencyMap(parsedConfig.elements),
+    [parsedConfig]
+  );
+
+  // Track previous values for dependency change detection
+  const previousValuesRef = useRef<Record<string, unknown>>({});
+
+  // Step 9: Subscribe to value changes and recalculate visibility
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      const newVisibility = calculateVisibility(
+        parsedConfig.elements,
+        values as Record<string, unknown>
+      );
+      setVisibility(newVisibility);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, parsedConfig]);
+
+  // Step 10: Handle field dependencies - reset dependent fields when parent changes
+  useEffect(() => {
+    if (Object.keys(dependencyMap).length === 0) {
+      return;
+    }
+
+    const subscription = form.watch((values, { name }) => {
+      if (!(name && dependencyMap[name])) {
+        return;
+      }
+
+      const formValues = values as Record<string, unknown>;
+      const currentValue = formValues[name];
+      const previousValue = previousValuesRef.current[name];
+
+      if (currentValue === previousValue) {
+        return;
+      }
+
+      previousValuesRef.current[name] = currentValue;
+
+      for (const dependentName of dependencyMap[name]) {
+        const field = findFieldByName(parsedConfig.elements, dependentName);
+        if (field && field.resetOnParentChange !== false) {
+          form.setValue(dependentName, getFieldDefault(field));
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form, dependencyMap, parsedConfig]);
+
+  // Step 11: Subscribe to value changes for onChange callback
   useEffect(() => {
     if (!onChange) {
       return;
@@ -146,14 +259,13 @@ export function DynamicForm({
     return () => subscription.unsubscribe();
   }, [form, onChange]);
 
-  // Step 8: Subscribe to validation state changes
+  // Step 12: Subscribe to validation state changes
   useEffect(() => {
     if (!onValidationChange) {
       return;
     }
 
     const subscription = form.watch(() => {
-      // Trigger validation and get current state
       const { errors, isValid } = form.formState;
       onValidationChange(errors, isValid);
     });
@@ -161,7 +273,7 @@ export function DynamicForm({
     return () => subscription.unsubscribe();
   }, [form, onValidationChange]);
 
-  // Step 9: Create context value
+  // Step 13: Create context value
   const contextValue: DynamicFormContextValue = useMemo(
     () => ({
       form,
@@ -170,6 +282,7 @@ export function DynamicForm({
       customComponents,
       customContainers,
       visibility,
+      fieldWrapper,
     }),
     [
       form,
@@ -178,10 +291,11 @@ export function DynamicForm({
       customComponents,
       customContainers,
       visibility,
+      fieldWrapper,
     ]
   );
 
-  // Step 10: Handle form submission
+  // Step 11: Handle form submission
   const handleSubmit = form.handleSubmit(
     // Success handler
     async (data) => {
@@ -193,7 +307,7 @@ export function DynamicForm({
     }
   );
 
-  // Step 11: Handle form reset
+  // Step 12: Handle form reset
   const handleReset = () => {
     form.reset(defaultValues);
     onReset?.();
@@ -216,7 +330,7 @@ export function DynamicForm({
       </DynamicFormContext.Provider>
     </FormProvider>
   );
-}
+};
 
 DynamicForm.displayName = "DynamicForm";
 

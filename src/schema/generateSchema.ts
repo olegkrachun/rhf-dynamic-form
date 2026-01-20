@@ -23,7 +23,7 @@ interface FieldCondition {
  * @param fields - Array of field elements
  * @returns Array of field conditions to evaluate
  */
-function collectConditions(fields: FieldElement[]): FieldCondition[] {
+const collectConditions = (fields: FieldElement[]): FieldCondition[] => {
   const conditions: FieldCondition[] = [];
 
   for (const field of fields) {
@@ -37,7 +37,7 @@ function collectConditions(fields: FieldElement[]): FieldCondition[] {
   }
 
   return conditions;
-}
+};
 
 /**
  * Generated schema type - a Zod object schema.
@@ -82,7 +82,9 @@ export type GeneratedSchema = ZodObject<Record<string, ZodTypeAny>>;
  * }); // Valid
  * ```
  */
-export function generateZodSchema(config: FormConfiguration): GeneratedSchema {
+export const generateZodSchema = (
+  config: FormConfiguration
+): GeneratedSchema => {
   // Extract all field elements (flattening any containers/columns)
   const fields = flattenFields(config.elements);
 
@@ -126,7 +128,7 @@ export function generateZodSchema(config: FormConfiguration): GeneratedSchema {
   }
 
   return schema;
-}
+};
 
 /**
  * Infer the TypeScript type from a generated schema.
@@ -152,10 +154,10 @@ export type InferSchemaType<T extends GeneratedSchema> = z.infer<T>;
  * @param prefix - Current path prefix (used in recursion)
  * @returns Array of all field paths
  */
-export function getSchemaFieldPaths(
+export const getSchemaFieldPaths = (
   schema: ZodObject<Record<string, ZodTypeAny>>,
   prefix = ""
-): string[] {
+): string[] => {
   const paths: string[] = [];
   const shape = schema.shape;
 
@@ -174,4 +176,4 @@ export function getSchemaFieldPaths(
   }
 
   return paths;
-}
+};

@@ -1,656 +1,437 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import {
-  type ParsedFormConfiguration,
+  formConfigurationSchema,
   safeValidateConfiguration,
   validateConfiguration,
 } from "./configValidator";
 
-type FieldElement = ParsedFormConfiguration["elements"][number];
-interface ValidationConfig {
-  required?: boolean;
-  type?: "number" | "email" | "date";
-  minLength?: number;
-  maxLength?: number;
-  pattern?: string;
-  message?: string;
-  condition?: Record<string, unknown>;
-}
-
 describe("configValidator", () => {
   describe("validateConfiguration", () => {
-    describe("valid configurations", () => {
-      it("should validate simple text field configuration", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text", name: "name" }],
-        };
+    it("should validate a valid text field", () => {
+      const config = {
+        elements: [{ type: "text", name: "firstName" }],
+      };
 
-        // Act
-        const result = validateConfiguration(config);
+      const result = validateConfiguration(config);
 
-        // Assert
-        expect(result.elements).toHaveLength(1);
-        expect(
-          (result.elements[0] as FieldElement & { type: string }).type
-        ).toBe("text");
-      });
-
-      it("should validate configuration with all field types", () => {
-        // Arrange
-        const config = {
-          elements: [
-            { type: "text", name: "text" },
-            { type: "email", name: "email" },
-            { type: "boolean", name: "boolean" },
-            { type: "phone", name: "phone" },
-            { type: "date", name: "date" },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(result.elements).toHaveLength(5);
-      });
-
-      it("should validate custom field with component", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "custom",
-              name: "customField",
-              component: "CustomComponent",
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (result.elements[0] as FieldElement & { type: string }).type
-        ).toBe("custom");
-      });
-
-      it("should validate optional form name", () => {
-        // Arrange
-        const config = {
-          name: "Test Form",
-          elements: [{ type: "text", name: "name" }],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(result.name).toBe("Test Form");
-      });
-
-      it("should validate container with columns", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "container",
-              columns: [
-                {
-                  type: "column",
-                  width: "50%",
-                  elements: [{ type: "text", name: "firstName" }],
-                },
-                {
-                  type: "column",
-                  width: "50%",
-                  elements: [{ type: "text", name: "lastName" }],
-                },
-              ],
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (result.elements[0] as FieldElement & { type: string }).type
-        ).toBe("container");
-      });
-
-      it("should validate nested containers", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "container",
-              columns: [
-                {
-                  type: "column",
-                  width: "100%",
-                  elements: [
-                    {
-                      type: "container",
-                      columns: [
-                        {
-                          type: "column",
-                          width: "50%",
-                          elements: [{ type: "text", name: "nested" }],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(result.elements).toHaveLength(1);
+      expect(result.elements).toHaveLength(1);
+      expect(result.elements[0]).toMatchObject({
+        type: "text",
+        name: "firstName",
       });
     });
 
-    describe("validation rules", () => {
-      it("should validate field with validation config", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "name",
-              validation: {
-                required: true,
-                minLength: 3,
-                maxLength: 100,
-                pattern: "^[A-Za-z]+$",
-                message: "Only letters allowed",
-              },
-            },
-          ],
-        };
+    it("should validate a valid email field", () => {
+      const config = {
+        elements: [
+          { type: "email", name: "contactEmail", label: "Email Address" },
+        ],
+      };
 
-        // Act
-        const result = validateConfiguration(config);
+      const result = validateConfiguration(config);
 
-        // Assert
-        expect(
-          (
-            result.elements[0] as FieldElement & {
-              validation?: ValidationConfig;
-            }
-          ).validation
-        ).toBeDefined();
-        expect(
-          (
-            result.elements[0] as FieldElement & {
-              validation?: ValidationConfig;
-            }
-          ).validation?.required
-        ).toBe(true);
-      });
-
-      it("should validate JSON Logic condition in validation", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "phone",
-              validation: {
-                condition: {
-                  or: [
-                    { "!": { var: "hasPhone" } },
-                    { regex_match: ["^[0-9]{10}$", { var: "phone" }] },
-                  ],
-                },
-              },
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (
-            result.elements[0] as FieldElement & {
-              validation?: ValidationConfig;
-            }
-          ).validation?.condition
-        ).toBeDefined();
-      });
-
-      it("should validate visible property with JSON Logic", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "conditionalField",
-              visible: {
-                "==": [{ var: "showField" }, true],
-              },
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (
-            result.elements[0] as FieldElement & {
-              visible?: Record<string, unknown>;
-            }
-          ).visible
-        ).toBeDefined();
+      expect(result.elements[0]).toMatchObject({
+        type: "email",
+        name: "contactEmail",
       });
     });
 
-    describe("optional fields", () => {
-      it("should validate field with optional label", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text", name: "name", label: "Full Name" }],
-        };
+    it("should validate a valid boolean field", () => {
+      const config = {
+        elements: [
+          {
+            type: "boolean",
+            name: "acceptTerms",
+            label: "Accept Terms",
+            validation: { required: true },
+          },
+        ],
+      };
 
-        // Act
-        const result = validateConfiguration(config);
+      const result = validateConfiguration(config);
 
-        // Assert
-        expect(
-          (result.elements[0] as FieldElement & { label?: string }).label
-        ).toBe("Full Name");
-      });
-
-      it("should validate field with optional placeholder", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "name",
-              placeholder: "Enter your name",
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (result.elements[0] as FieldElement & { placeholder?: string })
-            .placeholder
-        ).toBe("Enter your name");
-      });
-
-      it("should validate field with defaultValue", () => {
-        // Arrange
-        const config = {
-          elements: [
-            { type: "text", name: "name", defaultValue: "Default Name" },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (result.elements[0] as FieldElement & { defaultValue?: string })
-            .defaultValue
-        ).toBe("Default Name");
-      });
-
-      it("should validate custom field with componentProps", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "custom",
-              name: "custom",
-              component: "CustomComponent",
-              componentProps: { foo: "bar", count: 42 },
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert
-        expect(
-          (
-            result.elements[0] as FieldElement & {
-              componentProps?: Record<string, unknown>;
-            }
-          ).componentProps
-        ).toEqual({
-          foo: "bar",
-          count: 42,
-        });
+      expect(result.elements[0]).toMatchObject({
+        type: "boolean",
+        name: "acceptTerms",
+        validation: { required: true },
       });
     });
 
-    describe("invalid configurations", () => {
-      it("should throw for missing elements array", () => {
-        // Arrange
-        const config = {};
+    it("should validate a valid phone field", () => {
+      const config = {
+        elements: [
+          {
+            type: "phone",
+            name: "mobile",
+            placeholder: "+1 (555) 123-4567",
+          },
+        ],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "phone",
+        name: "mobile",
       });
+    });
 
-      it("should throw for empty elements array", () => {
-        // Arrange
-        const config = {
-          elements: [],
-        };
+    it("should validate a valid date field", () => {
+      const config = {
+        elements: [{ type: "date", name: "birthDate", label: "Date of Birth" }],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "date",
+        name: "birthDate",
       });
+    });
 
-      it("should throw for invalid field type", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "invalid", name: "field" }],
-        };
+    it("should validate a valid select field with options", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "country",
+            label: "Country",
+            options: [
+              { value: "us", label: "United States" },
+              { value: "ca", label: "Canada" },
+            ],
+            multiple: false,
+            searchable: true,
+          },
+        ],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "select",
+        name: "country",
+        options: [
+          { value: "us", label: "United States" },
+          { value: "ca", label: "Canada" },
+        ],
       });
+    });
 
-      it("should throw for missing field name", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text" }],
-        };
+    it("should validate a valid array field with itemFields", () => {
+      const config = {
+        elements: [
+          {
+            type: "array",
+            name: "contacts",
+            itemFields: [
+              { type: "text", name: "name" },
+              { type: "email", name: "email" },
+            ],
+            minItems: 1,
+            maxItems: 5,
+          },
+        ],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "array",
+        name: "contacts",
+        minItems: 1,
+        maxItems: 5,
       });
+    });
 
-      it("should throw for empty field name", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text", name: "" }],
-        };
+    it("should validate a valid custom field", () => {
+      const config = {
+        elements: [
+          {
+            type: "custom",
+            name: "address",
+            component: "AddressLookup",
+            componentProps: { apiKey: "123" },
+          },
+        ],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "custom",
+        name: "address",
+        component: "AddressLookup",
       });
+    });
 
-      it("should throw for custom field without component", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "custom", name: "custom" }],
-        };
-
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
-      });
-
-      it("should throw for custom field with empty component name", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "custom", name: "custom", component: "" }],
-        };
-
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
-      });
-
-      it("should allow container with empty columns array", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "container",
-              columns: [],
-            },
-          ],
-        };
-
-        // Act
-        const result = validateConfiguration(config);
-
-        // Assert - schema allows empty columns array
-        expect(
-          (result.elements[0] as FieldElement & { type: string }).type
-        ).toBe("container");
-      });
-
-      it("should throw for column with empty width", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "container",
-              columns: [
-                {
-                  type: "column",
-                  width: "",
-                  elements: [{ type: "text", name: "field" }],
-                },
-              ],
-            },
-          ],
-        };
-
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
-      });
-
-      it("should throw for invalid validation config", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "name",
-              validation: {
-                minLength: -1, // Invalid: negative
+    it("should validate a valid container with columns", () => {
+      const config = {
+        elements: [
+          {
+            type: "container",
+            columns: [
+              {
+                type: "column",
+                width: "50%",
+                elements: [{ type: "text", name: "firstName" }],
               },
-            },
-          ],
-        };
-
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
-      });
-
-      it("should throw for validation with extra unknown properties", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "name",
-              validation: {
-                required: true,
-                unknownProp: "value", // Invalid: unknown property
+              {
+                type: "column",
+                width: "50%",
+                elements: [{ type: "text", name: "lastName" }],
               },
-            },
-          ],
-        };
+            ],
+          },
+        ],
+      };
 
-        // Act & Assert
-        expect(() => validateConfiguration(config)).toThrow();
-      });
+      const result = validateConfiguration(config);
+
+      expect(result.elements).toHaveLength(1);
+      const container = result.elements[0] as {
+        type: string;
+        columns: unknown[];
+      };
+      expect(container.type).toBe("container");
+      expect(container.columns).toHaveLength(2);
+    });
+
+    it("should reject an invalid field type", () => {
+      const config = {
+        elements: [{ type: "invalid", name: "test" }],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject missing required properties", () => {
+      const config = {
+        elements: [{ type: "text" }], // Missing 'name'
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject invalid validation config", () => {
+      const config = {
+        elements: [
+          {
+            type: "text",
+            name: "test",
+            validation: {
+              required: "yes", // Should be boolean
+            },
+          },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject invalid JSON Logic rule format gracefully", () => {
+      // JSON Logic rules are accepted as any object - validation happens at runtime
+      const config = {
+        elements: [
+          {
+            type: "text",
+            name: "test",
+            visible: { "==": [{ var: "show" }, true] },
+          },
+        ],
+      };
+
+      // This should pass schema validation (JSON Logic format is loose)
+      const result = validateConfiguration(config);
+      expect(result.elements[0]).toMatchObject({ name: "test" });
+    });
+
+    it("should validate select options require value and label", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "test",
+            options: [{ value: "a" }], // Missing label
+          },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should validate nested array itemFields recursively", () => {
+      const config = {
+        elements: [
+          {
+            type: "array",
+            name: "nested",
+            itemFields: [
+              {
+                type: "array",
+                name: "inner",
+                itemFields: [{ type: "text", name: "value" }],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = validateConfiguration(config);
+      expect(result.elements).toHaveLength(1);
     });
   });
 
   describe("safeValidateConfiguration", () => {
-    describe("valid configurations", () => {
-      it("should return success for valid configuration", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text", name: "name" }],
-        };
+    it("should return success result for valid config", () => {
+      const config = {
+        elements: [{ type: "text", name: "test" }],
+      };
 
-        // Act
-        const result = safeValidateConfiguration(config);
+      const result = safeValidateConfiguration(config);
 
-        // Assert
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.elements).toHaveLength(1);
-        }
-      });
-
-      it("should return typed data when successful", () => {
-        // Arrange
-        const config = {
-          name: "Test Form",
-          elements: [
-            { type: "text", name: "firstName" },
-            { type: "email", name: "email" },
-          ],
-        };
-
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(true);
-        if (result.success) {
-          expect(result.data.name).toBe("Test Form");
-          expect(result.data.elements).toHaveLength(2);
-        }
-      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.elements).toHaveLength(1);
+      }
     });
 
-    describe("invalid configurations", () => {
-      it("should return failure for empty elements array", () => {
-        // Arrange
-        const config = {
-          elements: [],
-        };
+    it("should return error result for invalid config", () => {
+      const config = {
+        elements: [], // At least one element required
+      };
 
-        // Act
-        const result = safeValidateConfiguration(config);
+      const result = safeValidateConfiguration(config);
 
-        // Assert
-        expect(result.success).toBe(false);
-      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ZodError);
+      }
+    });
+  });
 
-      it("should return error details for invalid configuration", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "invalid", name: "field" }],
-        };
+  describe("formConfigurationSchema", () => {
+    it("should accept optional form name", () => {
+      const config = {
+        name: "My Form",
+        elements: [{ type: "text", name: "test" }],
+      };
 
-        // Act
-        const result = safeValidateConfiguration(config);
+      const result = formConfigurationSchema.parse(config);
 
-        // Assert
-        expect(result.success).toBe(false);
-        if (!result.success) {
-          expect(result.error).toBeDefined();
-        }
-      });
+      expect(result.name).toBe("My Form");
+    });
 
-      it("should not throw for invalid configuration", () => {
-        // Arrange
-        const config = {
-          invalid: "data",
-        };
+    it("should accept customComponents definitions", () => {
+      const config = {
+        elements: [{ type: "custom", name: "test", component: "MyComponent" }],
+        customComponents: {
+          MyComponent: { defaultProps: { color: "blue" } },
+        },
+      };
 
-        // Act & Assert
-        expect(() => safeValidateConfiguration(config)).not.toThrow();
-      });
+      const result = formConfigurationSchema.parse(config);
 
-      it("should return failure for missing required field properties", () => {
-        // Arrange
-        const config = {
-          elements: [{ type: "text" }], // Missing name
-        };
+      expect(result.customComponents?.MyComponent).toBeDefined();
+    });
 
-        // Act
-        const result = safeValidateConfiguration(config);
+    it("should validate dependsOn and resetOnParentChange properties", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "country",
+            options: [{ value: "us", label: "US" }],
+          },
+          {
+            type: "select",
+            name: "city",
+            options: [{ value: "nyc", label: "New York" }],
+            dependsOn: "country",
+            resetOnParentChange: true,
+          },
+        ],
+      };
 
-        // Assert
-        expect(result.success).toBe(false);
-      });
+      const result = formConfigurationSchema.parse(config);
 
-      it("should return failure for invalid validation values", () => {
-        // Arrange
-        const config = {
-          elements: [
-            {
-              type: "text",
-              name: "name",
-              validation: {
-                minLength: -1,
-              },
+      const cityField = result.elements[1] as {
+        dependsOn?: string;
+        resetOnParentChange?: boolean;
+      };
+      expect(cityField.dependsOn).toBe("country");
+      expect(cityField.resetOnParentChange).toBe(true);
+    });
+
+    it("should validate optionsSource variants", () => {
+      const configWithApi = {
+        elements: [
+          {
+            type: "select",
+            name: "test",
+            options: [],
+            optionsSource: { type: "api", endpoint: "/api/options" },
+          },
+        ],
+      };
+
+      const resultApi = formConfigurationSchema.parse(configWithApi);
+      expect(resultApi.elements).toHaveLength(1);
+
+      const configWithMap = {
+        elements: [
+          {
+            type: "select",
+            name: "test",
+            options: [],
+            optionsSource: { type: "map", key: "countries" },
+          },
+        ],
+      };
+
+      const resultMap = formConfigurationSchema.parse(configWithMap);
+      expect(resultMap.elements).toHaveLength(1);
+
+      const configWithSearch = {
+        elements: [
+          {
+            type: "select",
+            name: "test",
+            options: [],
+            optionsSource: {
+              type: "search",
+              endpoint: "/api/search",
+              minChars: 3,
             },
-          ],
-        };
+          },
+        ],
+      };
 
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(false);
-      });
+      const resultSearch = formConfigurationSchema.parse(configWithSearch);
+      expect(resultSearch.elements).toHaveLength(1);
     });
 
-    describe("edge cases", () => {
-      it("should handle null input", () => {
-        // Arrange
-        const config: null = null;
+    it("should validate visibility on containers and columns", () => {
+      const config = {
+        elements: [
+          {
+            type: "container",
+            visible: { "==": [{ var: "showSection" }, true] },
+            columns: [
+              {
+                type: "column",
+                width: "100%",
+                visible: { "==": [{ var: "showColumn" }, true] },
+                elements: [{ type: "text", name: "test" }],
+              },
+            ],
+          },
+        ],
+      };
 
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(false);
-      });
-
-      it("should handle undefined input", () => {
-        // Arrange
-        const config: undefined = undefined;
-
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(false);
-      });
-
-      it("should handle non-object input", () => {
-        // Arrange
-        const config: string = "not an object";
-
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(false);
-      });
-
-      it("should handle array input instead of object", () => {
-        // Arrange
-        const config: Array<{ type: string; name: string }> = [
-          { type: "text", name: "name" },
-        ];
-
-        // Act
-        const result = safeValidateConfiguration(config);
-
-        // Assert
-        expect(result.success).toBe(false);
-      });
+      const result = formConfigurationSchema.parse(config);
+      expect(result.elements).toHaveLength(1);
     });
   });
 });

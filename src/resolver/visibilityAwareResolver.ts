@@ -37,9 +37,9 @@ export interface VisibilityAwareResolverOptions<T extends ZodRawShape> {
  * const form = useForm({ resolver });
  * ```
  */
-export function createVisibilityAwareResolver<T extends ZodRawShape>(
+export const createVisibilityAwareResolver = <T extends ZodRawShape>(
   options: VisibilityAwareResolverOptions<T>
-): Resolver<FieldValues> {
+): Resolver<FieldValues> => {
   // biome-ignore lint/suspicious/noExplicitAny: zodResolver requires complex type gymnastics with Zod v4
   const baseResolver = zodResolver(options.schema as any);
 
@@ -81,4 +81,4 @@ export function createVisibilityAwareResolver<T extends ZodRawShape>(
       errors: filteredErrors,
     };
   };
-}
+};

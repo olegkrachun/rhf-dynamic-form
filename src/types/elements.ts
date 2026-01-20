@@ -4,6 +4,7 @@ import type { JsonLogicRule, ValidationConfig } from "./validation";
  * All supported element types in the form configuration.
  * Phase 1: text, email, boolean, phone, date, custom
  * Phase 2 adds: container, column
+ * Phase 3 adds: select, array
  */
 export type ElementType =
   | "text"
@@ -11,6 +12,8 @@ export type ElementType =
   | "boolean"
   | "phone"
   | "date"
+  | "select"
+  | "array"
   | "container"
   | "column"
   | "custom";
@@ -18,7 +21,14 @@ export type ElementType =
 /**
  * Field types that render input controls.
  */
-export type FieldType = "text" | "email" | "boolean" | "phone" | "date";
+export type FieldType =
+  | "text"
+  | "email"
+  | "boolean"
+  | "phone"
+  | "date"
+  | "select"
+  | "array";
 
 /**
  * Base interface for all field elements.
@@ -42,6 +52,12 @@ export interface BaseFieldElement {
 
   /** Conditional visibility rules using JSON Logic (Phase 4) */
   visible?: JsonLogicRule;
+
+  /** Field path this field depends on (for cascading selects, etc.) */
+  dependsOn?: string;
+
+  /** Reset this field when parent changes (default: true) */
+  resetOnParentChange?: boolean;
 }
 
 /**
@@ -80,6 +96,102 @@ export interface DateFieldElement extends BaseFieldElement {
 }
 
 /**
+ * Option for select field elements.
+ */
+export interface SelectOption {
+  /** Option value (stored in form data) */
+  value: string | number;
+
+  /** Display label */
+  label: string;
+
+  /** Disable this option */
+  disabled?: boolean;
+}
+
+/**
+ * Static options source - use config.options directly.
+ */
+export interface StaticOptionsSource {
+  type: "static";
+}
+
+/**
+ * Map options source - lookup from provided options map.
+ */
+export interface MapOptionsSource {
+  type: "map";
+  /** Key in the options map */
+  key: string;
+}
+
+/**
+ * API options source - fetch from endpoint.
+ */
+export interface ApiOptionsSource {
+  type: "api";
+  /** API endpoint URL */
+  endpoint: string;
+}
+
+/**
+ * Search options source - search as you type.
+ */
+export interface SearchOptionsSource {
+  type: "search";
+  /** API endpoint for search */
+  endpoint: string;
+  /** Minimum characters before searching (default: 2) */
+  minChars?: number;
+}
+
+/**
+ * Resolver options source - custom resolver function.
+ */
+export interface ResolverOptionsSource {
+  type: "resolver";
+  /** Name of the registered resolver */
+  name: string;
+}
+
+/**
+ * Describes how to resolve options for a select field.
+ * This is declarative - describes intent, not implementation.
+ * Actual data fetching is done by field component.
+ */
+export type OptionsSource =
+  | StaticOptionsSource
+  | MapOptionsSource
+  | ApiOptionsSource
+  | SearchOptionsSource
+  | ResolverOptionsSource;
+
+/**
+ * Select field element for dropdowns and multi-selects.
+ */
+export interface SelectFieldElement extends BaseFieldElement {
+  type: "select";
+
+  /** Available options (used when optionsSource is static or not specified) */
+  options: SelectOption[];
+
+  /** Describes how to resolve options */
+  optionsSource?: OptionsSource;
+
+  /** Allow selecting multiple values (default: false) */
+  multiple?: boolean;
+
+  /** Allow clearing selection (default: true) */
+  clearable?: boolean;
+
+  /** Allow searching/filtering options (default: false) */
+  searchable?: boolean;
+
+  /** Allow creating new options not in the list (default: false) */
+  creatable?: boolean;
+}
+
+/**
  * Custom component field element.
  * Allows rendering user-defined components.
  */
@@ -91,6 +203,29 @@ export interface CustomFieldElement extends BaseFieldElement {
 
   /** Props to pass to the custom component */
   componentProps?: Record<string, unknown>;
+}
+
+/**
+ * Array/repeater field element.
+ * Contains repeatable group of fields.
+ */
+export interface ArrayFieldElement extends BaseFieldElement {
+  type: "array";
+
+  /** Fields template for each item (can contain any field type) */
+  itemFields: FieldElement[];
+
+  /** Minimum items required */
+  minItems?: number;
+
+  /** Maximum items allowed */
+  maxItems?: number;
+
+  /** Label for add button */
+  addButtonLabel?: string;
+
+  /** Allow reordering items */
+  sortable?: boolean;
 }
 
 /**
@@ -131,6 +266,8 @@ export type FieldElement =
   | BooleanFieldElement
   | PhoneFieldElement
   | DateFieldElement
+  | SelectFieldElement
+  | ArrayFieldElement
   | CustomFieldElement;
 
 /**
@@ -146,40 +283,40 @@ export type FormElement = FieldElement | LayoutElement;
 /**
  * Type guard to check if an element is a field element.
  */
-export function isFieldElement(element: FormElement): element is FieldElement {
-  return (
-    element.type === "text" ||
-    element.type === "email" ||
-    element.type === "boolean" ||
-    element.type === "phone" ||
-    element.type === "date" ||
-    element.type === "custom"
-  );
-}
+export const isFieldElement = (element: FormElement): element is FieldElement =>
+  element.type === "text" ||
+  element.type === "email" ||
+  element.type === "boolean" ||
+  element.type === "phone" ||
+  element.type === "date" ||
+  element.type === "select" ||
+  element.type === "array" ||
+  element.type === "custom";
+
+/**
+ * Type guard to check if an element is an array field element.
+ */
+export const isArrayFieldElement = (
+  element: FormElement
+): element is ArrayFieldElement => element.type === "array";
 
 /**
  * Type guard to check if an element is a container element.
  */
-export function isContainerElement(
+export const isContainerElement = (
   element: FormElement
-): element is ContainerElement {
-  return element.type === "container";
-}
+): element is ContainerElement => element.type === "container";
 
 /**
  * Type guard to check if an element is a column element.
  */
-export function isColumnElement(
+export const isColumnElement = (
   element: FormElement
-): element is ColumnElement {
-  return element.type === "column";
-}
+): element is ColumnElement => element.type === "column";
 
 /**
  * Type guard to check if an element is a custom field element.
  */
-export function isCustomFieldElement(
+export const isCustomFieldElement = (
   element: FormElement
-): element is CustomFieldElement {
-  return element.type === "custom";
-}
+): element is CustomFieldElement => element.type === "custom";

@@ -20,7 +20,7 @@ import { DynamicFormContext, type DynamicFormContextValue } from "../context";
  * }
  * ```
  */
-export function useDynamicFormContext(): DynamicFormContextValue {
+export const useDynamicFormContext = (): DynamicFormContextValue => {
   const context = useContext(DynamicFormContext);
 
   if (!context) {
@@ -31,7 +31,7 @@ export function useDynamicFormContext(): DynamicFormContextValue {
   }
 
   return context;
-}
+};
 
 /**
  * Hook to safely access the DynamicForm context.
@@ -52,6 +52,6 @@ export function useDynamicFormContext(): DynamicFormContextValue {
  * }
  * ```
  */
-export function useDynamicFormContextSafe(): DynamicFormContextValue | null {
+export const useDynamicFormContextSafe = (): DynamicFormContextValue | null => {
   return useContext(DynamicFormContext);
-}
+};

@@ -5,7 +5,7 @@ import type { JsonLogicRule } from "../types";
  * Register custom JSON Logic operations.
  * Called once at module initialization.
  */
-function registerCustomOperations(): void {
+const registerCustomOperations = (): void => {
   /**
    * regex_match: Tests if a value matches a regex pattern.
    *
@@ -29,7 +29,7 @@ function registerCustomOperations(): void {
       }
     }
   );
-}
+};
 
 // Initialize custom operations at module load
 registerCustomOperations();
@@ -48,12 +48,12 @@ registerCustomOperations();
  * applyJsonLogic(rule, data); // true
  * ```
  */
-export function applyJsonLogic(
+export const applyJsonLogic = (
   rule: JsonLogicRule,
   data: Record<string, unknown>
-): unknown {
+): unknown => {
   return jsonLogic.apply(rule, data);
-}
+};
 
 /**
  * Evaluate a JSON Logic rule and return boolean result.
@@ -70,10 +70,10 @@ export function applyJsonLogic(
  * evaluateCondition(rule, { active: true, confirmed: false }); // false
  * ```
  */
-export function evaluateCondition(
+export const evaluateCondition = (
   rule: JsonLogicRule,
   data: Record<string, unknown>
-): boolean {
+): boolean => {
   const result = applyJsonLogic(rule, data);
   return Boolean(result);
-}
+};

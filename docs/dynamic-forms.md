@@ -60,6 +60,8 @@ As defined in the configuration schema:
 | `boolean` | Checkbox/toggle for boolean values |
 | `phone` | Phone number input |
 | `date` | Date picker input |
+| `select` | Dropdown/multi-select with options |
+| `array` | Repeatable field groups |
 | `container` | Layout container with columns |
 | `column` | Column within a container |
 | `custom` | User-defined custom component |
@@ -1088,7 +1090,103 @@ Layouts can be nested to create complex form structures:
 
 ### 8.1 Overview
 
-The library generates Zod schemas dynamically from form configuration at initialization time. This approach provides:
+The library supports flexible validation with three approaches, applied in priority order:
+
+1. **External Resolver** (`resolver` prop) - Full control with any validation library
+2. **External Zod Schema** (`schema` prop) - Your Zod schema with visibility-aware wrapping
+3. **Config-Driven** (default) - Auto-generated Zod schema from field `validation` configs
+
+If no validation is provided (no `resolver`, no `schema`, no `validation` in config), the form runs without validation.
+
+### 8.2 Validation Approaches
+
+#### Option 1: External Resolver (Full Control)
+
+Use any validation library (Yup, Joi, Vest, custom) by passing a react-hook-form resolver:
+
+```tsx
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+
+const schema = yup.object({
+  name: yup.string().required(),
+  email: yup.string().email().required(),
+});
+
+<DynamicForm
+  config={config}
+  resolver={yupResolver(schema)}
+  fieldComponents={fieldComponents}
+  onSubmit={handleSubmit}
+/>
+```
+
+#### Option 2: External Zod Schema (Visibility-Aware)
+
+Pass your own Zod schema - it will be wrapped with the visibility-aware resolver:
+
+```tsx
+import { z } from 'zod';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  phone: z.string().optional(),
+});
+
+<DynamicForm
+  config={config}
+  schema={schema}
+  invisibleFieldValidation="skip"
+  fieldComponents={fieldComponents}
+  onSubmit={handleSubmit}
+/>
+```
+
+#### Option 3: Config-Driven Validation (Default)
+
+Define validation rules in the form configuration - schemas are auto-generated:
+
+```tsx
+const config = {
+  elements: [
+    {
+      type: 'text',
+      name: 'name',
+      label: 'Name',
+      validation: { required: true, minLength: 2 }
+    },
+    {
+      type: 'email',
+      name: 'email',
+      label: 'Email',
+      validation: { required: true }
+    }
+  ]
+};
+
+<DynamicForm
+  config={config}
+  fieldComponents={fieldComponents}
+  onSubmit={handleSubmit}
+/>
+```
+
+#### Option 4: No Validation
+
+For forms that don't need validation:
+
+```tsx
+<DynamicForm
+  config={simpleConfig}
+  fieldComponents={fieldComponents}
+  onSubmit={handleSubmit}
+/>
+```
+
+### 8.3 Schema Generation Architecture
+
+The library can generate Zod schemas dynamically from form configuration. This provides:
 
 - **Type-safe validation** with automatic TypeScript inference
 - **Seamless react-hook-form integration** via `@hookform/resolvers/zod`
@@ -1096,7 +1194,7 @@ The library generates Zod schemas dynamically from form configuration at initial
 - **JSON Logic support** through Zod's `refine` and `superRefine` methods
 - **Stable schema** - generated once, visibility handled at validation time
 
-### 8.2 Dependencies
+### 8.4 Dependencies
 
 ```typescript
 import { z, ZodTypeAny, ZodObject } from 'zod';
@@ -1739,6 +1837,76 @@ function shallowEqual(
 }
 ```
 
+### 9.5 Field Dependencies
+
+The library supports cascading field dependencies where changing a parent field automatically resets dependent child fields.
+
+#### Configuration
+
+```typescript
+const config: FormConfiguration = {
+  elements: [
+    {
+      type: 'select',
+      name: 'country',
+      label: 'Country',
+      options: [
+        { value: 'us', label: 'United States' },
+        { value: 'ca', label: 'Canada' },
+      ],
+    },
+    {
+      type: 'select',
+      name: 'city',
+      label: 'City',
+      options: [], // Options loaded dynamically
+      dependsOn: 'country', // Depends on country field
+      resetOnParentChange: true, // Reset when country changes (default: true)
+    },
+  ],
+};
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `dependsOn` | `string` | - | Field path this field depends on |
+| `resetOnParentChange` | `boolean` | `true` | Reset to default when parent changes |
+
+#### Behavior
+
+1. When a parent field value changes, all dependent fields are automatically reset to their default values
+2. The reset respects `resetOnParentChange` - set to `false` to preserve values
+3. Chained dependencies work correctly (country → state → city)
+4. Dependencies are processed in a single form.watch subscription for efficiency
+
+#### Example: Cascading Selects
+
+```tsx
+// Sample SelectField component with dependency handling
+const SelectField: SelectFieldComponent = ({ field, fieldState, config, formValues }) => {
+  const parentValue = config.dependsOn
+    ? getNestedValue(formValues, config.dependsOn)
+    : null;
+
+  // Filter options based on parent value
+  const options = config.dependsOn && !parentValue
+    ? [] // No options when parent not selected
+    : filterOptionsByParent(config.options, parentValue);
+
+  const isDisabled = Boolean(config.dependsOn && !parentValue);
+
+  return (
+    <select {...field} disabled={isDisabled}>
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+};
+```
+
 ---
 
 ## 10. Event Handling
@@ -2249,6 +2417,10 @@ interface BaseFieldElement {
   defaultValue?: string | number | boolean | null;
   validation?: ValidationConfig;
   visible?: JsonLogicRule;
+  /** Field path this field depends on (for cascading selects) */
+  dependsOn?: string;
+  /** Reset this field when parent changes (default: true) */
+  resetOnParentChange?: boolean;
 }
 
 export interface TextFieldElement extends BaseFieldElement {
@@ -2277,12 +2449,48 @@ export interface CustomFieldElement extends BaseFieldElement {
   componentProps?: Record<string, unknown>;
 }
 
-export type FieldElement = 
-  | TextFieldElement 
-  | EmailFieldElement 
-  | BooleanFieldElement 
-  | PhoneFieldElement 
+export interface SelectOption {
+  value: string | number;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface SelectFieldElement extends BaseFieldElement {
+  type: 'select';
+  /** Available options */
+  options: SelectOption[];
+  /** Allow selecting multiple values (default: false) */
+  multiple?: boolean;
+  /** Allow clearing selection (default: true) */
+  clearable?: boolean;
+  /** Allow searching/filtering options (default: false) */
+  searchable?: boolean;
+  /** Allow creating new options (default: false) */
+  creatable?: boolean;
+}
+
+export interface ArrayFieldElement extends BaseFieldElement {
+  type: 'array';
+  /** Fields template for each item */
+  itemFields: FieldElement[];
+  /** Minimum items required */
+  minItems?: number;
+  /** Maximum items allowed */
+  maxItems?: number;
+  /** Label for add button */
+  addButtonLabel?: string;
+  /** Allow reordering items */
+  sortable?: boolean;
+}
+
+export type FieldElement =
+  | TextFieldElement
+  | EmailFieldElement
+  | BooleanFieldElement
+  | PhoneFieldElement
   | DateFieldElement
+  | SelectFieldElement
+  | ArrayFieldElement
   | CustomFieldElement;
 
 // ============================================
@@ -2373,6 +2581,14 @@ export interface CustomFieldProps extends BaseFieldProps {
   config: CustomFieldElement;
 }
 
+export interface SelectFieldProps extends BaseFieldProps {
+  config: SelectFieldElement;
+}
+
+export interface ArrayFieldProps extends BaseFieldProps {
+  config: ArrayFieldElement;
+}
+
 // ============================================
 // Component Types
 // ============================================
@@ -2382,6 +2598,8 @@ export type EmailFieldComponent = React.ComponentType<EmailFieldProps>;
 export type BooleanFieldComponent = React.ComponentType<BooleanFieldProps>;
 export type PhoneFieldComponent = React.ComponentType<PhoneFieldProps>;
 export type DateFieldComponent = React.ComponentType<DateFieldProps>;
+export type SelectFieldComponent = React.ComponentType<SelectFieldProps>;
+export type ArrayFieldComponent = React.ComponentType<ArrayFieldProps>;
 export type CustomFieldComponent = React.ComponentType<CustomFieldProps>;
 
 export interface FieldComponentRegistry {
@@ -2390,6 +2608,8 @@ export interface FieldComponentRegistry {
   boolean: BooleanFieldComponent;
   phone: PhoneFieldComponent;
   date: DateFieldComponent;
+  select?: SelectFieldComponent;
+  array?: ArrayFieldComponent;
 }
 
 export type CustomComponentRegistry = Record<string, CustomFieldComponent>;
@@ -2427,49 +2647,75 @@ export type OnErrorHandler = (errors: FieldErrors) => void;
 export interface DynamicFormProps {
   /** Form configuration */
   config: FormConfiguration;
-  
+
   /** Initial form data */
   initialData?: FormData;
-  
+
   /** Required: Field component implementations */
   fieldComponents: FieldComponentRegistry;
-  
+
   /** Optional: Custom field components */
   customComponents?: CustomComponentRegistry;
-  
+
   /** Optional: Custom container components */
   customContainers?: CustomContainerRegistry;
-  
+
   /** Called on successful form submission */
   onSubmit: OnSubmitHandler;
-  
+
   /** Called when form values change */
   onChange?: OnChangeHandler;
-  
+
   /** Called when validation state changes */
   onValidationChange?: OnValidationChangeHandler;
-  
+
   /** Called when form is reset */
   onReset?: OnResetHandler;
-  
+
   /** Called on submission errors */
   onError?: OnErrorHandler;
-  
+
+  /**
+   * Optional: Custom react-hook-form resolver for validation.
+   * Use this to provide validation with any library (Zod, Yup, Joi, custom).
+   * Takes priority over `schema` prop and config-driven validation.
+   * If not provided and no schema prop, uses config-driven validation.
+   */
+  resolver?: Resolver<FormData>;
+
+  /**
+   * Optional: External Zod schema for validation.
+   * Internally wrapped with visibility-aware resolver.
+   * Ignored if `resolver` prop is provided.
+   * Takes priority over config-driven validation.
+   */
+  schema?: ZodSchema;
+
   /** Validation mode */
   mode?: 'onChange' | 'onBlur' | 'onSubmit' | 'onTouched' | 'all';
-  
-  /** 
+
+  /**
    * Controls validation behavior for invisible fields.
+   * Only applies when using `schema` prop or config-driven validation.
    * - 'skip': Do not validate invisible fields (default)
    * - 'validate': Validate all fields regardless of visibility
    * - 'warn': Validate but treat errors as warnings (non-blocking)
    */
   invisibleFieldValidation?: InvisibleFieldValidation;
-  
+
   /** Form HTML attributes */
   className?: string;
   style?: React.CSSProperties;
   id?: string;
+
+  /** Content to render after all form fields (e.g., submit button) */
+  children?: React.ReactNode;
+
+  /**
+   * Optional wrapper function for each field.
+   * Use for adding indicators, badges, edit tracking, etc.
+   */
+  fieldWrapper?: FieldWrapperFunction;
 }
 
 // ============================================

@@ -18,11 +18,11 @@ import { ZodObject, type ZodTypeAny, z } from "zod";
  * // shape is now: { source: ZodObject({ name: ZodString, email: ZodString }) }
  * ```
  */
-export function setNestedSchema(
+export const setNestedSchema = (
   shape: Record<string, ZodTypeAny>,
   path: string,
   schema: ZodTypeAny
-): void {
+): void => {
   const parts = path.split(".");
 
   // Base case: single-level path (no nesting)
@@ -53,7 +53,7 @@ export function setNestedSchema(
     setNestedSchema(innerShape, remainingPath, schema);
     shape[first] = z.object(innerShape);
   }
-}
+};
 
 /**
  * Gets a schema from a nested shape using dot notation path.
@@ -62,10 +62,10 @@ export function setNestedSchema(
  * @param path - Dot-notation path
  * @returns The schema at the path, or undefined if not found
  */
-export function getNestedSchema(
+export const getNestedSchema = (
   shape: Record<string, ZodTypeAny>,
   path: string
-): ZodTypeAny | undefined {
+): ZodTypeAny | undefined => {
   const parts = path.split(".");
 
   if (parts.length === 1) {
@@ -80,7 +80,7 @@ export function getNestedSchema(
   }
 
   return getNestedSchema(existingSchema.shape, rest.join("."));
-}
+};
 
 /**
  * Creates a nested object structure from an array of paths.
@@ -95,9 +95,9 @@ export function getNestedSchema(
  * // Returns: { source: { name: undefined, email: undefined }, active: undefined }
  * ```
  */
-export function createNestedStructure(
+export const createNestedStructure = (
   paths: string[]
-): Record<string, unknown> {
+): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
 
   for (const path of paths) {
@@ -119,4 +119,4 @@ export function createNestedStructure(
   }
 
   return result;
-}
+};

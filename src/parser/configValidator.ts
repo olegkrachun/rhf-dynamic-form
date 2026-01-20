@@ -34,6 +34,8 @@ const baseFieldSchema = z.object({
     .optional(),
   validation: validationConfigSchema,
   visible: jsonLogicRuleSchema.optional(),
+  dependsOn: z.string().optional(),
+  resetOnParentChange: z.boolean().optional(),
 });
 
 /**
@@ -72,6 +74,43 @@ const dateFieldSchema = baseFieldSchema.extend({
 });
 
 /**
+ * Select option schema.
+ */
+const selectOptionSchema = z.object({
+  value: z.union([z.string(), z.number()]),
+  label: z.string(),
+  disabled: z.boolean().optional(),
+});
+
+/**
+ * Options source schema - describes how to resolve options.
+ */
+const optionsSourceSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("static") }),
+  z.object({ type: z.literal("map"), key: z.string() }),
+  z.object({ type: z.literal("api"), endpoint: z.string() }),
+  z.object({
+    type: z.literal("search"),
+    endpoint: z.string(),
+    minChars: z.number().optional(),
+  }),
+  z.object({ type: z.literal("resolver"), name: z.string() }),
+]);
+
+/**
+ * Select field element schema.
+ */
+const selectFieldSchema = baseFieldSchema.extend({
+  type: z.literal("select"),
+  options: z.array(selectOptionSchema),
+  optionsSource: optionsSourceSchema.optional(),
+  multiple: z.boolean().optional(),
+  clearable: z.boolean().optional(),
+  searchable: z.boolean().optional(),
+  creatable: z.boolean().optional(),
+});
+
+/**
  * Custom field element schema.
  */
 const customFieldSchema = baseFieldSchema.extend({
@@ -81,15 +120,30 @@ const customFieldSchema = baseFieldSchema.extend({
 });
 
 /**
+ * Array field element schema.
+ * Contains repeatable group of fields.
+ */
+const arrayFieldSchema = baseFieldSchema.extend({
+  type: z.literal("array"),
+  itemFields: z.lazy(() => z.array(fieldElementSchema)),
+  minItems: z.number().int().min(0).optional(),
+  maxItems: z.number().int().min(0).optional(),
+  addButtonLabel: z.string().optional(),
+  sortable: z.boolean().optional(),
+});
+
+/**
  * Field element schema - union of all field types.
  */
-const fieldElementSchema = z.discriminatedUnion("type", [
+const fieldElementSchema: z.ZodType<unknown> = z.discriminatedUnion("type", [
   textFieldSchema,
   emailFieldSchema,
   booleanFieldSchema,
   phoneFieldSchema,
   dateFieldSchema,
+  selectFieldSchema,
   customFieldSchema,
+  arrayFieldSchema,
 ]);
 
 /**
@@ -154,11 +208,11 @@ export type ParsedFormConfiguration = z.infer<typeof formConfigurationSchema>;
  * @returns Validated and typed configuration
  * @throws ZodError if validation fails
  */
-export function validateConfiguration(
+export const validateConfiguration = (
   config: unknown
-): ParsedFormConfiguration {
+): ParsedFormConfiguration => {
   return formConfigurationSchema.parse(config);
-}
+};
 
 /**
  * Safely validates a form configuration object without throwing.
@@ -166,6 +220,6 @@ export function validateConfiguration(
  * @param config - Configuration object to validate
  * @returns Result object with success status and data or error
  */
-export function safeValidateConfiguration(config: unknown) {
+export const safeValidateConfiguration = (config: unknown) => {
   return formConfigurationSchema.safeParse(config);
-}
+};

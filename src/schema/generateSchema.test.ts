@@ -199,4 +199,239 @@ describe("generateZodSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  describe("select field schema", () => {
+    it("should generate schema for single select field", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "select",
+            name: "country",
+            options: [
+              { value: "us", label: "United States" },
+              { value: "ca", label: "Canada" },
+            ],
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // String value should pass
+      expect(schema.safeParse({ country: "us" }).success).toBe(true);
+      // Number value should pass
+      expect(schema.safeParse({ country: 123 }).success).toBe(true);
+      // Null should pass (clearable)
+      expect(schema.safeParse({ country: null }).success).toBe(true);
+    });
+
+    it("should generate schema for multi-select field", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "select",
+            name: "tags",
+            options: [
+              { value: "tag1", label: "Tag 1" },
+              { value: "tag2", label: "Tag 2" },
+            ],
+            multiple: true,
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Array of strings should pass
+      expect(schema.safeParse({ tags: ["tag1", "tag2"] }).success).toBe(true);
+      // Empty array should pass
+      expect(schema.safeParse({ tags: [] }).success).toBe(true);
+      // Non-array should fail
+      expect(schema.safeParse({ tags: "tag1" }).success).toBe(false);
+    });
+
+    it("should validate required single select", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "select",
+            name: "status",
+            options: [{ value: "active", label: "Active" }],
+            validation: { required: true },
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Value should pass
+      expect(schema.safeParse({ status: "active" }).success).toBe(true);
+      // Null should fail
+      expect(schema.safeParse({ status: null }).success).toBe(false);
+    });
+
+    it("should validate required multi-select", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "select",
+            name: "categories",
+            options: [{ value: "cat1", label: "Category 1" }],
+            multiple: true,
+            validation: { required: true },
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Non-empty array should pass
+      expect(schema.safeParse({ categories: ["cat1"] }).success).toBe(true);
+      // Empty array should fail
+      expect(schema.safeParse({ categories: [] }).success).toBe(false);
+    });
+  });
+
+  describe("array field schema", () => {
+    it("should generate schema for array field with itemFields", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "array",
+            name: "contacts",
+            itemFields: [
+              { type: "text", name: "name" },
+              { type: "email", name: "email" },
+            ],
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      const validData = {
+        contacts: [
+          { name: "John", email: "john@example.com" },
+          { name: "Jane", email: "jane@example.com" },
+        ],
+      };
+      expect(schema.safeParse(validData).success).toBe(true);
+
+      // Empty array should pass
+      expect(schema.safeParse({ contacts: [] }).success).toBe(true);
+    });
+
+    it("should validate minItems on array field", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "array",
+            name: "items",
+            itemFields: [{ type: "text", name: "value" }],
+            minItems: 2,
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Too few items should fail
+      expect(schema.safeParse({ items: [{ value: "one" }] }).success).toBe(
+        false
+      );
+      // Exactly minItems should pass
+      expect(
+        schema.safeParse({ items: [{ value: "one" }, { value: "two" }] })
+          .success
+      ).toBe(true);
+    });
+
+    it("should validate maxItems on array field", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "array",
+            name: "items",
+            itemFields: [{ type: "text", name: "value" }],
+            maxItems: 2,
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Within limit should pass
+      expect(
+        schema.safeParse({ items: [{ value: "one" }, { value: "two" }] })
+          .success
+      ).toBe(true);
+      // Exceeding limit should fail
+      expect(
+        schema.safeParse({
+          items: [{ value: "one" }, { value: "two" }, { value: "three" }],
+        }).success
+      ).toBe(false);
+    });
+
+    it("should validate itemFields recursively", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "array",
+            name: "contacts",
+            itemFields: [
+              { type: "text", name: "name", validation: { required: true } },
+              { type: "email", name: "email" },
+            ],
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      // Invalid email in item should fail
+      const invalidEmail = {
+        contacts: [{ name: "John", email: "not-an-email" }],
+      };
+      expect(schema.safeParse(invalidEmail).success).toBe(false);
+
+      // Empty required field should fail
+      const emptyRequired = {
+        contacts: [{ name: "", email: "john@example.com" }],
+      };
+      expect(schema.safeParse(emptyRequired).success).toBe(false);
+    });
+
+    it("should handle nested array fields in containers", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "container",
+            columns: [
+              {
+                type: "column",
+                width: "100%",
+                elements: [
+                  {
+                    type: "array",
+                    name: "nested.contacts",
+                    itemFields: [{ type: "text", name: "name" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      const validData = {
+        nested: {
+          contacts: [{ name: "John" }, { name: "Jane" }],
+        },
+      };
+      expect(schema.safeParse(validData).success).toBe(true);
+    });
+  });
 });

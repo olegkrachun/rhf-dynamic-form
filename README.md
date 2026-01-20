@@ -8,10 +8,13 @@ Dynamic Forms enables rapid deployment of data collection forms by defining form
 
 **Key Benefits:**
 - Define forms as JSON configuration
-- Type-safe validation with Zod v4
+- Flexible validation: external resolver, Zod schema, or config-driven
 - Full react-hook-form integration
 - Nested field paths with dot notation
-- Conditional validation with JSON Logic
+- Conditional visibility and validation with JSON Logic
+- Field dependencies with cascading resets
+- Select fields with static/dynamic options
+- Array fields for repeatable groups
 - Extensible component architecture
 
 ## Installation
@@ -128,7 +131,9 @@ The library supports the following built-in field types:
 | `boolean` | Checkbox or toggle | `boolean` |
 | `phone` | Telephone number input | `string` |
 | `date` | Date picker | `string` |
-| `custom` | User-defined component | `any` |
+| `select` | Dropdown/multi-select with options | `string \| string[]` |
+| `array` | Repeatable field groups | `array` |
+| `custom` | User-defined component | `unknown` |
 
 ### Field Element Structure
 
@@ -353,21 +358,51 @@ interface DynamicFormProps {
   fieldComponents: FieldComponentRegistry;      // Component implementations
   onSubmit: (data: FormData) => void;          // Submit handler
 
-  // Optional
+  // Optional - Validation (priority order: resolver > schema > config-driven)
+  resolver?: Resolver<FormData>;                // Custom react-hook-form resolver (Yup, Joi, etc.)
+  schema?: ZodSchema;                           // External Zod schema (wrapped with visibility-aware resolver)
+
+  // Optional - Components
   initialData?: FormData;                       // Pre-fill form values
   customComponents?: CustomComponentRegistry;   // Custom field components
   customContainers?: CustomContainerRegistry;   // Custom layout containers
+
+  // Optional - Event handlers
   onChange?: (data: FormData, field: string) => void;
   onError?: (errors: unknown) => void;
   onReset?: () => void;
   onValidationChange?: (errors: unknown, isValid: boolean) => void;
+
+  // Optional - Form behavior
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
   invisibleFieldValidation?: "skip" | "validate" | "warn";
+  fieldWrapper?: FieldWrapperFunction;          // Wrap each field with custom component
+
+  // Optional - HTML attributes
   className?: string;
   style?: CSSProperties;
   id?: string;
   children?: React.ReactNode;                   // Submit button, etc.
 }
+```
+
+### Validation Options
+
+The library supports three approaches to validation:
+
+```tsx
+// Option 1: External resolver (full control - Yup, Joi, Vest, custom)
+import { yupResolver } from '@hookform/resolvers/yup';
+<DynamicForm resolver={yupResolver(yupSchema)} ... />
+
+// Option 2: External Zod schema (wrapped with visibility-aware resolver)
+<DynamicForm schema={myZodSchema} invisibleFieldValidation="skip" ... />
+
+// Option 3: Config-driven (auto-generated from field validation configs)
+<DynamicForm config={configWithValidation} ... />
+
+// Option 4: No validation (omit resolver, schema, and validation in config)
+<DynamicForm config={simpleConfig} ... />
 ```
 
 ### Hooks
@@ -413,12 +448,20 @@ export type {
   CustomComponentRegistry,
   CustomContainerRegistry,
   FormData,
+  ZodSchema,
+  // Field component types
   TextFieldComponent,
   EmailFieldComponent,
   BooleanFieldComponent,
   PhoneFieldComponent,
   DateFieldComponent,
+  SelectFieldComponent,
+  ArrayFieldComponent,
   CustomFieldComponent,
+  // Field element types
+  SelectFieldElement,
+  ArrayFieldElement,
+  SelectOption,
 } from 'dynamic-forms';
 
 // Utilities
@@ -426,6 +469,8 @@ export {
   parseConfiguration,
   safeParseConfiguration,
   generateZodSchema,
+  createVisibilityAwareResolver,
+  calculateVisibility,
   flattenFields,
   getFieldNames,
   mergeDefaults,
@@ -435,6 +480,7 @@ export {
   isContainerElement,
   isColumnElement,
   isCustomFieldElement,
+  isArrayFieldElement,
 } from 'dynamic-forms';
 ```
 
