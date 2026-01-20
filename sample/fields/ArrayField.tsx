@@ -87,7 +87,7 @@ const renderItemField = (
           >
             <option value="">Select...</option>
             {(itemField.options ?? []).map((opt) => (
-              <option key={opt.value} value={opt.value}>
+              <option disabled={opt.disabled} key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}

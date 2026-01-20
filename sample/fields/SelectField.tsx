@@ -29,6 +29,7 @@ const cityOptionsByCountry: Record<string, SelectOption[]> = {
 /**
  * Normalize select value for single vs multi-select.
  * Multi-select requires array of strings, single-select requires string.
+ * Handles both string and numeric option values by converting to strings.
  */
 const getSelectValue = (
   value: unknown,
@@ -38,9 +39,17 @@ const getSelectValue = (
     if (!Array.isArray(value)) {
       return [];
     }
-    return value.filter((v): v is string => typeof v === "string");
+    return value
+      .filter(
+        (v): v is string | number =>
+          typeof v === "string" || typeof v === "number"
+      )
+      .map((v) => String(v));
   }
-  return typeof value === "string" ? value : "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return "";
 };
 
 /**

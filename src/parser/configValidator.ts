@@ -120,8 +120,8 @@ const selectFieldSchema = baseFieldSchema
   })
   .refine(
     (data) => {
-      // Options are required when no optionsSource is provided
-      if (!data.optionsSource) {
+      // Options are required when no optionsSource is provided or when using static source
+      if (!data.optionsSource || data.optionsSource.type === "static") {
         return data.options !== undefined && data.options.length >= 0;
       }
       return true;
