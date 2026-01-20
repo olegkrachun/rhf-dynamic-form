@@ -44,8 +44,14 @@ export interface BaseFieldElement {
   /** Placeholder text (for text-based inputs) */
   placeholder?: string;
 
-  /** Default value for the field */
-  defaultValue?: string | number | boolean | null;
+  /** Default value for the field (arrays for multi-select, records for complex fields) */
+  defaultValue?:
+    | string
+    | number
+    | boolean
+    | null
+    | unknown[]
+    | Record<string, unknown>;
 
   /** Validation configuration */
   validation?: ValidationConfig;

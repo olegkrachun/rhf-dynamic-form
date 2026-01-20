@@ -30,7 +30,7 @@ const processLeafError = (
   path: string,
   visibility: Record<string, boolean>,
   warnMode: boolean
-): unknown | undefined => {
+): unknown => {
   const isVisible = visibility[path] !== false;
 
   if (isVisible) {
