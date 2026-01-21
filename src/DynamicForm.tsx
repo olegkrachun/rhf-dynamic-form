@@ -20,8 +20,10 @@ import {
   calculateVisibility,
   findFieldByName,
   getFieldDefault,
+  getNestedValue,
   getUpdatedVisibility,
   mergeDefaults,
+  setNestedValue,
 } from "./utils";
 
 interface DynamicFormPropsWithRef extends DynamicFormProps {
@@ -120,13 +122,18 @@ export const DynamicForm = ({
         return;
       }
 
-      const currentValue = formValues[fieldName];
-      const previousValue = previousValuesRef.current[fieldName];
+      // Use getNestedValue for nested paths like "source.country"
+      const currentValue = getNestedValue(formValues, fieldName);
+      const previousValue = getNestedValue(
+        previousValuesRef.current,
+        fieldName
+      );
       if (currentValue === previousValue) {
         return;
       }
 
-      previousValuesRef.current[fieldName] = currentValue;
+      // Update previousValuesRef using setNestedValue for nested paths
+      setNestedValue(previousValuesRef.current, fieldName, currentValue);
       for (const dep of dependents) {
         const field = findFieldByName(parsedConfig.elements, dep);
         if (field && field.resetOnParentChange !== false) {

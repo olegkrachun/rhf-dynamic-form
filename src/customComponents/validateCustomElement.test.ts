@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 import type { CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import type { CustomComponentRegistry } from "./types";
@@ -97,12 +97,15 @@ describe("validateCustomElement", () => {
   });
 
   it("includes available components in error message", () => {
-    expect.assertions(2);
     const element: CustomFieldElement = {
       type: "custom",
       name: "unknown",
       component: "Missing",
     };
+
+    expect(() =>
+      validateCustomElement(element, registry, "elements[0]")
+    ).toThrow(ConfigurationError);
 
     try {
       validateCustomElement(element, registry, "elements[0]");
@@ -115,12 +118,15 @@ describe("validateCustomElement", () => {
   });
 
   it("shows empty registry message when no components registered", () => {
-    expect.assertions(1);
     const element: CustomFieldElement = {
       type: "custom",
       name: "test",
       component: "Missing",
     };
+
+    expect(() => validateCustomElement(element, {}, "elements[0]")).toThrow(
+      ConfigurationError
+    );
 
     try {
       validateCustomElement(element, {}, "elements[0]");
@@ -132,13 +138,16 @@ describe("validateCustomElement", () => {
   });
 
   it("includes error path in validation errors", () => {
-    expect.assertions(2);
     const element: CustomFieldElement = {
       type: "custom",
       name: "rating",
       component: "RatingField",
       componentProps: { maxStars: -1 },
     };
+
+    expect(() =>
+      validateCustomElement(element, registry, "elements[5]")
+    ).toThrow(ConfigurationError);
 
     try {
       validateCustomElement(element, registry, "elements[5]");

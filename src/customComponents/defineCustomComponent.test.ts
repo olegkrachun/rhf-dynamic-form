@@ -1,6 +1,6 @@
 import type React from "react";
 import { describe, expect, it } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { defineCustomComponent } from "./defineCustomComponent";
 import type { CustomComponentRenderProps } from "./types";
 

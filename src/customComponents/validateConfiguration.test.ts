@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod/v4";
+import { z } from "zod";
 import type { CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import type { CustomComponentRegistry } from "./types";

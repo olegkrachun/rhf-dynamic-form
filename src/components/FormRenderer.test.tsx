@@ -2,53 +2,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
-import type { FieldComponentRegistry, FormConfiguration } from "../types";
-
-const mockFieldComponents: FieldComponentRegistry = {
-  text: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} {...field} />
-    </div>
-  ),
-  email: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="email" {...field} />
-    </div>
-  ),
-  boolean: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label>
-        <input type="checkbox" {...field} />
-        {config.label}
-      </label>
-    </div>
-  ),
-  phone: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="tel" {...field} />
-    </div>
-  ),
-  date: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="date" {...field} />
-    </div>
-  ),
-  select: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <select id={field.name} {...field} />
-    </div>
-  ),
-  array: ({ config }) => (
-    <div data-testid={`field-${config.name}`}>
-      <span>{config.label} (array)</span>
-    </div>
-  ),
-};
+import { mockFieldComponents } from "../test-utils/mockFieldComponents";
+import type { FormConfiguration } from "../types";
 
 describe("FormRenderer", () => {
   it("renders single element", () => {
