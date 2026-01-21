@@ -208,8 +208,11 @@ export interface DynamicFormRef {
   /** Set a specific field value */
   setValue: (name: string, value: unknown) => void;
 
-  /** Watch a specific field or all values */
-  watch: (name?: string) => unknown;
+  /** Watch all form values reactively */
+  watchAll: () => FormData;
+
+  /** Watch a specific field value reactively */
+  watchField: (name: string) => unknown;
 
   /** Reset form to initial values or provided values */
   reset: (values?: FormData) => void;

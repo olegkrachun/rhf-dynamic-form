@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useFormState } from "react-hook-form";
 import { FormRenderer } from "./components";
 import { DynamicFormContext, type DynamicFormContextValue } from "./context";
 import { validateCustomComponents } from "./customComponents";
@@ -97,7 +97,8 @@ export const DynamicForm = ({
     () => ({
       getValues: () => form.getValues(),
       setValue: (name: string, value: unknown) => form.setValue(name, value),
-      watch: (name?: string) => (name ? form.watch(name) : form.watch()),
+      watchAll: () => form.watch(),
+      watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
     }),
@@ -162,7 +163,9 @@ export const DynamicForm = ({
     return () => subscription.unsubscribe();
   }, [form, parsedConfig, dependencyMap]);
 
-  const { errors: formErrors, isValid: formIsValid } = form.formState;
+  const { errors: formErrors, isValid: formIsValid } = useFormState({
+    control: form.control,
+  });
 
   useEffect(() => {
     if (!onValidationChange) {
@@ -192,9 +195,8 @@ export const DynamicForm = ({
     ]
   );
 
-  const handleSubmit = form.handleSubmit(
-    async (data) => onSubmit(data),
-    (errors) => onError?.(errors)
+  const handleSubmit = form.handleSubmit(onSubmit, (errors) =>
+    onError?.(errors)
   );
 
   const handleReset = useCallback(() => {

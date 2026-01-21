@@ -3,7 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
-import type { CustomComponentRegistry, FormConfiguration } from "../types";
+import type {
+  CustomComponentRegistry,
+  FieldWrapperFunction,
+  FormConfiguration,
+} from "../types";
 
 describe("FieldRenderer", () => {
   describe("standard field rendering", () => {
@@ -150,10 +154,7 @@ describe("FieldRenderer", () => {
         elements: [{ type: "text", name: "wrapped", label: "Wrapped Field" }],
       };
 
-      const fieldWrapper = (
-        props: { name: string },
-        children: React.ReactNode
-      ) => (
+      const fieldWrapper: FieldWrapperFunction = (props, children) => (
         <div className="custom-wrapper" data-testid={`wrapper-${props.name}`}>
           {children}
         </div>
@@ -177,10 +178,7 @@ describe("FieldRenderer", () => {
         elements: [{ type: "text", name: "stateful", label: "Stateful Field" }],
       };
 
-      const fieldWrapper = (
-        props: { name: string; value: unknown },
-        children: React.ReactNode
-      ) => (
+      const fieldWrapper: FieldWrapperFunction = (props, children) => (
         <div data-testid={`wrapper-${props.name}`}>
           <span data-testid="wrapper-value">{String(props.value ?? "")}</span>
           {children}
