@@ -30,20 +30,31 @@ This library enables rapid deployment of data collection forms by defining form 
 ```
 src/
 ├── components/          # React components
-│   ├── DynamicForm.tsx  # Main form component
 │   ├── FormRenderer.tsx # Renders form elements
 │   ├── ElementRenderer.tsx # Routes to field/container renderers
-│   └── FieldRenderer.tsx   # Renders individual fields
+│   ├── FieldRenderer.tsx   # Renders individual fields
+│   ├── ContainerRenderer.tsx # Renders layout containers
+│   └── ColumnRenderer.tsx  # Renders columns
 ├── context/             # React context for form state
+├── customComponents/    # Custom component system (Phase 5)
+│   ├── types.ts         # CustomComponentDefinition, CustomComponentRenderProps
+│   ├── defineCustomComponent.ts # Type-safe component definition helper
+│   ├── validateCustomElement.ts # Single element validation
+│   ├── validateConfiguration.ts # Config-wide validation
+│   └── ConfigurationError.ts    # Error class with path context
 ├── hooks/               # Custom hooks (useDynamicFormContext)
 ├── parser/              # Configuration parsing and validation
+├── resolver/            # Visibility-aware Zod resolver
 ├── schema/              # Zod schema generation
 ├── types/               # TypeScript type definitions
 │   ├── elements.ts      # Field and layout element types
 │   ├── fields.ts        # Field component props and registries
 │   ├── config.ts        # Form configuration types
 │   └── events.ts        # Event handler types
-└── utils/               # Utilities (flattenFields, mergeDefaults)
+├── utils/               # Utilities (flattenFields, mergeDefaults, calculateVisibility)
+├── validation/          # JSON Logic evaluation
+├── DynamicForm.tsx      # Main form component
+└── index.ts             # Public exports
 
 sample/                  # Sample application
 ├── App.tsx              # Demo form with all field types
@@ -85,15 +96,31 @@ pnpm lint:fix     # Auto-fix lint errors
 
 ## Testing
 
-Tests are colocated with implementation files (191 tests total):
+Tests are colocated with implementation files (252 tests across 22 files):
+
+**Parser & Schema:**
 - `src/parser/configParser.test.ts` - Configuration parsing
 - `src/parser/configValidator.test.ts` - Config validation
 - `src/schema/generateSchema.test.ts` - Schema generation
 - `src/schema/fieldSchemas.test.ts` - Field schema builders
 - `src/schema/nestedPaths.test.ts` - Nested path handling
 - `src/schema/jsonLogicValidation.test.ts` - JSON Logic validation
+
+**Components:**
 - `src/components/ContainerRenderer.test.tsx` - Container rendering
 - `src/components/ColumnRenderer.test.tsx` - Column rendering
+- `src/components/ElementRenderer.test.tsx` - Element routing
+- `src/components/FieldRenderer.test.tsx` - Field rendering
+- `src/components/FormRenderer.test.tsx` - Form rendering
+
+**Custom Components:**
+- `src/customComponents/types.test.ts` - Type guards and utilities
+- `src/customComponents/defineCustomComponent.test.ts` - Component definition helper
+- `src/customComponents/ConfigurationError.test.ts` - Error class
+- `src/customComponents/validateCustomElement.test.ts` - Element validation
+- `src/customComponents/validateConfiguration.test.ts` - Config validation
+
+**Utils & Validation:**
 - `src/validation/jsonLogic.test.ts` - JSON Logic evaluation
 - `src/resolver/visibilityAwareResolver.test.ts` - Visibility-aware resolver
 - `src/utils/flattenFields.test.ts` - Field extraction

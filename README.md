@@ -2,6 +2,35 @@
 
 Configuration-driven form generation library for React with react-hook-form and Zod integration.
 
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference)
+  - [FormConfiguration](#formconfiguration)
+  - [Field Types](#field-types)
+  - [Validation Configuration](#validation-configuration)
+  - [Container Layout](#container-layout)
+- [Usage Examples](#usage-examples)
+  - [Nested Field Paths](#nested-field-paths)
+  - [Two-Column Layout](#two-column-layout)
+  - [Custom Field Component](#custom-field-component)
+  - [JSON Logic Conditional Validation](#json-logic-conditional-validation)
+- [API Reference](#api-reference)
+  - [DynamicForm Props](#dynamicform-props)
+  - [Validation Options](#validation-options)
+  - [Hooks](#hooks)
+  - [Exports](#exports)
+- [Creating Field Components](#creating-field-components)
+- [Development](#development)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
+---
+
 ## Overview
 
 Dynamic Forms enables rapid deployment of data collection forms by defining form structures, validations, and display logic through declarative JSON configurations. Instead of writing custom form components for each use case, describe your form as data and let the library handle rendering and validation.
@@ -243,25 +272,25 @@ const config: FormConfiguration = {
 
 ### Custom Field Component
 
-Register custom components for specialized inputs:
+Register custom components for specialized inputs. You can use simple components or fully typed definitions with Zod schema validation:
 
 ```tsx
-import type { CustomFieldComponent, CustomComponentRegistry } from 'dynamic-forms';
+import {
+  defineCustomComponent,
+  type CustomComponentRegistry,
+  type CustomComponentRenderProps,
+} from 'dynamic-forms';
+import { z } from 'zod/v4';
 
-// Define a custom rating field
-const RatingField: CustomFieldComponent = ({ field, config }) => {
-  const maxStars = (config.componentProps?.maxStars as number) ?? 5;
-
+// Option 1: Simple component
+const SimpleRating = ({ field, config, componentProps }: CustomComponentRenderProps) => {
+  const maxStars = (componentProps?.maxStars as number) ?? 5;
   return (
     <div>
       <label>{config.label}</label>
       <div>
         {Array.from({ length: maxStars }, (_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => field.onChange(i + 1)}
-          >
+          <button key={i} type="button" onClick={() => field.onChange(i + 1)}>
             {i < (field.value ?? 0) ? '★' : '☆'}
           </button>
         ))}
@@ -270,8 +299,27 @@ const RatingField: CustomFieldComponent = ({ field, config }) => {
   );
 };
 
+// Option 2: Type-safe definition with Zod schema validation
+const RatingField = defineCustomComponent({
+  component: ({ field, componentProps }) => (
+    <div className="rating">
+      {Array.from({ length: componentProps.maxStars }, (_, i) => (
+        <button key={i} type="button" onClick={() => field.onChange(i + 1)}>
+          {i < (field.value as number ?? 0) ? '★' : '☆'}
+        </button>
+      ))}
+    </div>
+  ),
+  propsSchema: z.object({
+    maxStars: z.number().int().min(1).max(10).default(5),
+  }),
+  defaultProps: { maxStars: 5 },
+  displayName: 'RatingField',
+});
+
 // Register custom components
 const customComponents: CustomComponentRegistry = {
+  SimpleRating,
   RatingField,
 };
 
@@ -283,7 +331,7 @@ const config: FormConfiguration = {
       name: "rating",
       label: "Rate our service",
       component: "RatingField",
-      componentProps: { maxStars: 5 },
+      componentProps: { maxStars: 10 }, // Validated against propsSchema
     },
   ],
 };
@@ -436,6 +484,12 @@ export { DynamicForm } from 'dynamic-forms';
 // Hooks
 export { useDynamicFormContext, useDynamicFormContextSafe } from 'dynamic-forms';
 
+// Custom Components
+export {
+  defineCustomComponent,        // Type-safe component definition helper
+  ConfigurationError,           // Error class for invalid configurations
+} from 'dynamic-forms';
+
 // Types
 export type {
   FormConfiguration,
@@ -449,6 +503,9 @@ export type {
   CustomContainerRegistry,
   FormData,
   ZodSchema,
+  // Custom component types
+  CustomComponentDefinition,
+  CustomComponentRenderProps,
   // Field component types
   TextFieldComponent,
   EmailFieldComponent,

@@ -1986,13 +1986,22 @@ function DynamicForm({ config, onSubmit, onError, ...props }: DynamicFormProps) 
 
 ### 11.1 Custom Field Components
 
-Register custom field components for specialized input types:
+The library provides a type-safe system for registering custom field components with optional prop validation using Zod schemas.
+
+#### Basic Custom Component
+
+Register a simple custom component:
 
 ```typescript
-// Define custom component
-const RichTextEditor: CustomFieldComponent = ({ field, fieldState, config }) => {
-  const { minHeight, toolbar } = config.componentProps || {};
-  
+import type { CustomComponentRenderProps } from 'dynamic-forms';
+
+// Define custom component with typed props
+const RichTextEditor = ({
+  field,
+  fieldState,
+  config,
+  componentProps,
+}: CustomComponentRenderProps<{ minHeight?: number; toolbar?: string[] }>) => {
   return (
     <div className="rich-text-field">
       {config.label && <label>{config.label}</label>}
@@ -2000,8 +2009,8 @@ const RichTextEditor: CustomFieldComponent = ({ field, fieldState, config }) => 
         value={field.value}
         onChange={field.onChange}
         onBlur={field.onBlur}
-        minHeight={minHeight as number}
-        toolbar={toolbar as string[]}
+        minHeight={componentProps.minHeight}
+        toolbar={componentProps.toolbar}
       />
       {fieldState.error && (
         <span className="error">{fieldState.error.message}</span>
@@ -2010,13 +2019,68 @@ const RichTextEditor: CustomFieldComponent = ({ field, fieldState, config }) => 
   );
 };
 
-// Register and use
+// Register as simple component
 const customComponents = {
   richText: RichTextEditor,
 };
+```
 
+#### Custom Component with Schema Validation
+
+Use `defineCustomComponent` for type-safe component definitions with prop validation:
+
+```typescript
+import { defineCustomComponent } from 'dynamic-forms';
+import { z } from 'zod/v4';
+
+// Define component with Zod schema for props validation
+const RatingField = defineCustomComponent({
+  component: ({ field, componentProps }) => (
+    <div className="rating-field">
+      {[...Array(componentProps.maxStars)].map((_, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => field.onChange(i + 1)}
+          className={i < (field.value as number) ? 'active' : ''}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  ),
+  propsSchema: z.object({
+    maxStars: z.number().int().min(1).max(10).default(5),
+    showValue: z.boolean().default(true),
+  }),
+  defaultProps: {
+    maxStars: 5,
+  },
+  displayName: 'RatingField',
+  description: 'Star rating input component',
+});
+
+// Register with full definition
+const customComponents = {
+  RatingField,
+};
+```
+
+#### Using Custom Components in Configuration
+
+```typescript
 const config = {
   elements: [
+    {
+      type: "custom",
+      component: "RatingField",
+      name: "rating",
+      label: "Rate your experience",
+      componentProps: {
+        maxStars: 10,
+        showValue: true,
+      },
+    },
     {
       type: "custom",
       component: "richText",
@@ -2024,17 +2088,57 @@ const config = {
       label: "Description",
       componentProps: {
         minHeight: 200,
-        toolbar: ["bold", "italic", "link"]
-      }
-    }
-  ]
+        toolbar: ["bold", "italic", "link"],
+      },
+    },
+  ],
 };
 
 <DynamicForm
   config={config}
   customComponents={customComponents}
   fieldComponents={fieldComponents}
+  onSubmit={handleSubmit}
 />
+```
+
+#### CustomComponentRenderProps Interface
+
+All custom components receive these props:
+
+```typescript
+interface CustomComponentRenderProps<TProps = Record<string, unknown>> {
+  /** react-hook-form field controller */
+  field: ControllerRenderProps;
+  /** Field validation state */
+  fieldState: ControllerFieldState;
+  /** Field configuration from JSON */
+  config: CustomFieldElement;
+  /** Validated component props (merged with defaults) */
+  componentProps: TProps;
+  /** Current form values */
+  formValues: FormData;
+  /** Function to set other field values */
+  setValue: (name: string, value: unknown) => void;
+}
+```
+
+#### Configuration Validation Errors
+
+Invalid component configurations throw `ConfigurationError`:
+
+```typescript
+import { ConfigurationError } from 'dynamic-forms';
+
+try {
+  // This will throw if RatingField.propsSchema validation fails
+  <DynamicForm config={config} customComponents={customComponents} />
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    console.error(`Error at ${error.path}: ${error.message}`);
+    console.error(`Component: ${error.component}`);
+  }
+}
 ```
 
 ### 11.2 Custom Container Components
@@ -2522,8 +2626,42 @@ export type FormElement = FieldElement | LayoutElement;
 // Configuration Types
 // ============================================
 
-export interface CustomComponentDefinition {
-  defaultProps?: Record<string, unknown>;
+export interface CustomComponentDefinition<
+  TProps extends Record<string, unknown> = Record<string, unknown>
+> {
+  /** The React component to render */
+  component: React.ComponentType<CustomComponentRenderProps<TProps>>;
+  /** Optional Zod schema to validate componentProps */
+  propsSchema?: ZodObject<ZodRawShape>;
+  /** Default values for componentProps */
+  defaultProps?: Partial<TProps>;
+  /** Human-readable description */
+  description?: string;
+  /** Display name for debugging */
+  displayName?: string;
+}
+
+export interface CustomComponentRenderProps<
+  TProps extends Record<string, unknown> = Record<string, unknown>
+> {
+  field: ControllerRenderProps;
+  fieldState: ControllerFieldState;
+  config: CustomFieldElement;
+  componentProps: TProps;
+  formValues: FormData;
+  setValue: (name: string, value: unknown) => void;
+}
+
+export type CustomComponentRegistry = Record<
+  string,
+  CustomComponentDefinition | React.ComponentType<CustomComponentRenderProps>
+>;
+
+export class ConfigurationError extends Error {
+  readonly path?: string;
+  readonly component?: string;
+  constructor(message: string, path?: string, component?: string);
+  static formatMessage(message: string, path?: string, component?: string): string;
 }
 
 export interface FormConfiguration {
