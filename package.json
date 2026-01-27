@@ -1,7 +1,17 @@
 {
-  "name": "dynamic-forms",
+  "name": "rhf-dynamic-forms",
   "version": "1.0.0",
   "description": "Configuration-driven form generation library for React",
+  "author": "Oleh Krachun",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olegkrachun/dynamic-forms.git"
+  },
+  "homepage": "https://github.com/olegkrachun/dynamic-forms#readme",
+  "bugs": {
+    "url": "https://github.com/olegkrachun/dynamic-forms/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -16,6 +26,10 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsdown",
@@ -36,8 +50,6 @@
     "zod",
     "react-hook-form"
   ],
-  "author": "",
-  "license": "ISC",
   "packageManager": "pnpm@10.28.0",
   "peerDependencies": {
     "react": "^19.2.3",

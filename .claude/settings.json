@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm dlx ultracite fix"
+            "command": "pnpm lint:fix"
           }
         ]
       }

@@ -27,6 +27,7 @@ Configuration-driven form generation library for React with react-hook-form and 
 - [Creating Field Components](#creating-field-components)
 - [Development](#development)
 - [Tech Stack](#tech-stack)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -631,6 +632,60 @@ pnpm dev
 - **Vitest** - Testing
 - **tsdown** - Library bundling (ESM + CJS)
 - **Vite** - Dev server
+
+## Contributing
+
+### Branch Naming Convention
+
+Create branches using the format: `type/description`
+
+| Type | Purpose | Example |
+|------|---------|---------|
+| `feat/` | New features | `feat/custom-validators` |
+| `fix/` | Bug fixes | `fix/nested-path-resolution` |
+| `refactor/` | Code refactoring | `refactor/schema-generation` |
+| `docs/` | Documentation | `docs/api-reference` |
+| `chore/` | Maintenance tasks | `chore/update-dependencies` |
+| `test/` | Test additions/fixes | `test/array-field-coverage` |
+
+### Commit Messages
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and changelog generation.
+
+**Format:**
+```
+type(scope): description
+
+[optional body]
+```
+
+**Examples:**
+```bash
+feat(schema): add support for custom validators
+fix(components): resolve visibility calculation bug
+refactor(parser): simplify configuration parsing logic
+docs(readme): add contributing guidelines
+chore(deps): update react-hook-form to v7.72
+test(utils): add edge case tests for flattenFields
+```
+
+| Type | Description | Version Bump |
+|------|-------------|--------------|
+| `feat` | New feature | Minor (1.0.0 → 1.1.0) |
+| `fix` | Bug fix | Patch (1.0.0 → 1.0.1) |
+| `feat!` or `BREAKING CHANGE` | Breaking change | Major (1.0.0 → 2.0.0) |
+| `docs`, `chore`, `refactor`, `test` | Non-release changes | None |
+
+For detailed release workflow, see [docs/release-workflow.md](docs/release-workflow.md).
+
+### Pull Request Process
+
+1. Create a branch from `main` using the naming convention above
+2. Make your changes with conventional commit messages
+3. Ensure all checks pass: `pnpm test && pnpm typecheck && pnpm lint`
+4. Open a pull request to `main`
+5. Address review feedback
+6. Squash and merge (or rebase) when approved
 
 ## License
 
