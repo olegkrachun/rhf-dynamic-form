@@ -1,6 +1,6 @@
 {
   "name": "rhf-dynamic-forms",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Configuration-driven form generation library for React",
   "author": "Oleh Krachun",
   "license": "MIT",
