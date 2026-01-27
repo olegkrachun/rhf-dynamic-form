@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-environment/action.yaml
+      - uses: ./.github/actions/setup-environment
 
       - name: Build package
         run: pnpm build
