@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: install-dependencies
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
 
       - name: Types check
@@ -23,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: install-dependencies
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
 
       - name: Lint
@@ -32,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: install-dependencies
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-environment
 
       - name: Run tests
