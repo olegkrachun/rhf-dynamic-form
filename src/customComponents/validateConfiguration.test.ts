@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import type { CustomComponentRegistry } from "./types";
@@ -14,7 +15,7 @@ describe("validateCustomComponents", () => {
   const registry: CustomComponentRegistry = {
     RatingField: {
       component: MockComponent,
-      defaultProps: { maxStars: 5 },
+      propsSchema: z.object({ maxStars: z.number().default(5) }),
     },
     Other: AnotherMockComponent,
   };

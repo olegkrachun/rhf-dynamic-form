@@ -105,7 +105,7 @@ function isColumnElement(element: FormElement): element is ColumnElement {
  * Collect all custom elements from a form configuration.
  * Returns elements with normalized componentProps (defaults to empty object).
  *
- * @remarks For full validation including defaultProps merging, pass the config
+ * @remarks For full validation including propsSchema checks, pass the config
  * through validateCustomComponents first.
  */
 export function getValidatedCustomElements(
