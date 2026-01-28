@@ -198,12 +198,15 @@ const columnElementSchema = z.object({
 
 /**
  * Container element schema (for Phase 2).
+ * Uses passthrough() to preserve custom properties like containerMeta.
  */
-const containerElementSchema = z.object({
-  type: z.literal("container"),
-  columns: z.array(columnElementSchema),
-  visible: jsonLogicRuleSchema.optional(),
-});
+const containerElementSchema = z
+  .object({
+    type: z.literal("container"),
+    columns: z.array(columnElementSchema),
+    visible: jsonLogicRuleSchema.optional(),
+  })
+  .passthrough();
 
 /**
  * Custom component definition schema.
