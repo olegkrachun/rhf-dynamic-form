@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 import type { CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import type { CustomComponentRegistry } from "./types";
@@ -11,15 +10,9 @@ import {
 const MockComponent = () => null;
 
 describe("validateCustomElement", () => {
-  const propsSchema = z.object({
-    maxStars: z.number().int().min(1).max(10),
-    showValue: z.boolean().default(true),
-  });
-
   const registry: CustomComponentRegistry = {
     RatingField: {
       component: MockComponent,
-      propsSchema,
       defaultProps: { maxStars: 5 },
     },
     SimpleComponent: MockComponent,
@@ -37,9 +30,7 @@ describe("validateCustomElement", () => {
 
     expect(result.componentProps).toEqual({
       maxStars: 10,
-      showValue: true,
     });
-    expect(result.__definition).toBeDefined();
   });
 
   it("merges default props with provided props", () => {
@@ -58,7 +49,7 @@ describe("validateCustomElement", () => {
     });
   });
 
-  it("works with raw component (no schema)", () => {
+  it("works with raw component (no definition)", () => {
     const element: CustomFieldElement = {
       type: "custom",
       name: "simple",
@@ -76,19 +67,6 @@ describe("validateCustomElement", () => {
       type: "custom",
       name: "unknown",
       component: "UnknownComponent",
-    };
-
-    expect(() =>
-      validateCustomElement(element, registry, "elements[0]")
-    ).toThrow(ConfigurationError);
-  });
-
-  it("throws for invalid props", () => {
-    const element: CustomFieldElement = {
-      type: "custom",
-      name: "rating",
-      component: "RatingField",
-      componentProps: { maxStars: 100 },
     };
 
     expect(() =>
@@ -137,12 +115,11 @@ describe("validateCustomElement", () => {
     }
   });
 
-  it("includes error path in validation errors", () => {
+  it("includes error path for unknown component", () => {
     const element: CustomFieldElement = {
       type: "custom",
       name: "rating",
-      component: "RatingField",
-      componentProps: { maxStars: -1 },
+      component: "Missing",
     };
 
     expect(() =>
@@ -153,7 +130,7 @@ describe("validateCustomElement", () => {
       validateCustomElement(element, registry, "elements[5]");
     } catch (error) {
       expect((error as ConfigurationError).path).toBe("elements[5]");
-      expect((error as ConfigurationError).component).toBe("RatingField");
+      expect((error as ConfigurationError).component).toBe("Missing");
     }
   });
 });

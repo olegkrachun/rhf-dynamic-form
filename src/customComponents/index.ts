@@ -1,6 +1,5 @@
 // Custom component types and utilities
 export { ConfigurationError } from "./ConfigurationError";
-export { defineCustomComponent } from "./defineCustomComponent";
 export type {
   CustomComponentDefinition,
   CustomComponentRegistry,

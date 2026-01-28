@@ -61,7 +61,6 @@ export type FieldWrapperFunction = (
 ) => ReactNode;
 
 // Note: CustomComponentDefinition is exported from customComponents module
-// for full definition support with propsSchema validation
 
 /**
  * Root form configuration object.

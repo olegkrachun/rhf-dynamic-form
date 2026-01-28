@@ -41,7 +41,6 @@ describe("types", () => {
 
       expect(result.component).toBe(MockComponent);
       expect(result.displayName).toBe("TestComponent");
-      expect(result.propsSchema).toBeUndefined();
       expect(result.defaultProps).toBeUndefined();
     });
 

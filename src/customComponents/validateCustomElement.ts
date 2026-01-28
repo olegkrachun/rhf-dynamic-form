@@ -1,14 +1,12 @@
 import type { CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import {
-  type CustomComponentDefinition,
   type CustomComponentRegistry,
   normalizeComponentDefinition,
 } from "./types";
 
 export interface ValidatedCustomElement extends CustomFieldElement {
   componentProps: Record<string, unknown>;
-  __definition?: CustomComponentDefinition;
 }
 
 /**
@@ -42,35 +40,9 @@ export function validateCustomElement(
     ...element.componentProps,
   };
 
-  if (definition.propsSchema) {
-    const result = definition.propsSchema.safeParse(mergedProps);
-
-    if (!result.success) {
-      const componentName = definition.displayName || element.component;
-      const errors = result.error.issues
-        .map(
-          (issue) => `  - ${issue.path.join(".") || "root"}: ${issue.message}`
-        )
-        .join("\n");
-
-      throw new ConfigurationError(
-        `Invalid props for "${componentName}" at ${path}:\n${errors}`,
-        path,
-        element.component
-      );
-    }
-
-    return {
-      ...element,
-      componentProps: result.data as Record<string, unknown>,
-      __definition: definition,
-    };
-  }
-
   return {
     ...element,
     componentProps: mergedProps,
-    __definition: definition,
   };
 }
 

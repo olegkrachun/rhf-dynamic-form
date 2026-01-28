@@ -2,7 +2,6 @@ import type {
   ControllerFieldState,
   ControllerRenderProps,
 } from "react-hook-form";
-import type { ZodObject, ZodRawShape } from "zod";
 import type { CustomFieldElement } from "../types/elements";
 import type { FormData } from "../types/events";
 
@@ -21,7 +20,6 @@ export interface CustomComponentDefinition<
   TProps extends Record<string, unknown> = Record<string, unknown>,
 > {
   component: React.ComponentType<CustomComponentRenderProps<TProps>>;
-  propsSchema?: ZodObject<ZodRawShape>;
   defaultProps?: Partial<TProps>;
   description?: string;
   displayName?: string;

@@ -11,7 +11,6 @@ export { DynamicFormContext } from "./context";
 // Custom Components (Phase 5)
 // =============================================================================
 export type { CustomComponentRenderProps } from "./customComponents";
-export { defineCustomComponent } from "./customComponents";
 // Main Component
 export { DynamicForm, default } from "./DynamicForm";
 // =============================================================================

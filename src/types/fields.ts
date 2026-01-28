@@ -200,7 +200,6 @@ export interface FieldComponentRegistry
 }
 
 // Note: CustomComponentRegistry is exported from customComponents module
-// for full definition support with propsSchema validation
 
 /**
  * Union type for all field props.
