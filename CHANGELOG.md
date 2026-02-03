@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/olegkrachun/dynamic-form/compare/rhf-dynamic-forms-v1.1.0...rhf-dynamic-forms-v1.2.0) (2026-02-03)
+
+
+### Features
+
+* **schema:** use looseObject to preserve unknown properties during validation ([6e35512](https://github.com/olegkrachun/dynamic-form/commit/6e35512794f6a96955d21bc8f3e45da9913038ec))
+
+
+### Bug Fixes
+
+* **lint:** Fixed lint errors in dev server configuration ([fd32b8c](https://github.com/olegkrachun/dynamic-form/commit/fd32b8c999604c6273affd26c6e088f3e4e6a370))
+* **lint:** Fixed lint errors in dev server configuration ([f586f71](https://github.com/olegkrachun/dynamic-form/commit/f586f71a2db362e4f0b36c8b797ca26fdb53f7cc))
+* **parser:** preserve custom properties on container elements ([91a8708](https://github.com/olegkrachun/dynamic-form/commit/91a870896d0e2241dee3d27fc6e3a5d0adbe85c2))
+* **parser:** preserve custom properties on container elements ([5b81bc7](https://github.com/olegkrachun/dynamic-form/commit/5b81bc716b87ff862ca2e009b96c15797fe3f678))
+* type errors ([0e52381](https://github.com/olegkrachun/dynamic-form/commit/0e5238123e4cb83926fe07b87c139161fc58105c))
+
 ## [1.1.0](https://github.com/olegkrachun/dynamic-form/compare/rhf-dynamic-forms-v1.0.0...rhf-dynamic-forms-v1.1.0) (2026-01-27)
 
 
