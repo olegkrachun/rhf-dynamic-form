@@ -40,13 +40,13 @@ The Dynamic Form Library is a configuration-driven form generation system for Re
 
 ### 1.3 Technology Stack
 
-- **Runtime**: React 18+
+- **Runtime**: React 19
 - **Language**: TypeScript 5+
 - **Form Management**: react-hook-form
-- **Schema Validation**: Zod (dynamic schema generation from configuration)
+- **Schema Validation**: Zod v4 (dynamic schema generation from configuration)
 - **Form Resolver**: @hookform/resolvers/zod
 - **Validation Engine**: JSON Logic (json-logic-js) for complex conditional rules
-- **Build Tool**: Vite/Rollup
+- **Build Tool**: tsdown (ESM + CJS), Vite (dev server)
 - **Testing**: Vitest + React Testing Library
 
 ### 1.4 Supported Field Types
@@ -555,7 +555,7 @@ The library uses [react-hook-form](https://react-hook-form.com/) as its foundati
 ```typescript
 import { useForm, FormProvider, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { z } from 'zod/v4';
 ```
 
 ### 5.3 Form Context Setup

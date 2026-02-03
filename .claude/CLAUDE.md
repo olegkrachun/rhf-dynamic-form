@@ -46,11 +46,14 @@ src/
 ├── parser/              # Configuration parsing and validation
 ├── resolver/            # Visibility-aware Zod resolver
 ├── schema/              # Zod schema generation
+├── test-utils/          # Test utilities
+│   └── mockFieldComponents.tsx # Mock field components for testing
 ├── types/               # TypeScript type definitions
 │   ├── elements.ts      # Field and layout element types
 │   ├── fields.ts        # Field component props and registries
 │   ├── config.ts        # Form configuration types
-│   └── events.ts        # Event handler types
+│   ├── events.ts        # Event handler types
+│   └── validation.ts    # Validation-related types
 ├── utils/               # Utilities (flattenFields, mergeDefaults, calculateVisibility)
 ├── validation/          # JSON Logic evaluation
 ├── DynamicForm.tsx      # Main form component
@@ -96,7 +99,7 @@ pnpm lint:fix     # Auto-fix lint errors
 
 ## Testing
 
-Tests are colocated with implementation files (252 tests across 22 files):
+Tests are colocated with implementation files (256 tests across 22 files):
 
 **Parser & Schema:**
 - `src/parser/configParser.test.ts` - Configuration parsing

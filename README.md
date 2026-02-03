@@ -50,17 +50,17 @@ Dynamic Forms enables rapid deployment of data collection forms by defining form
 ## Installation
 
 ```bash
-npm install dynamic-forms
+npm install rhf-dynamic-forms
 # or
-pnpm add dynamic-forms
+pnpm add rhf-dynamic-forms
 # or
-yarn add dynamic-forms
+yarn add rhf-dynamic-forms
 ```
 
 **Peer Dependencies:**
 
 ```bash
-npm install react react-dom
+npm install react@^19 react-dom@^19
 ```
 
 ## Quick Start
@@ -407,9 +407,6 @@ interface DynamicFormProps {
   fieldComponents: FieldComponentRegistry;      // Component implementations
   onSubmit: (data: FormData) => void;          // Submit handler
 
-  // Optional - Validation (priority order: resolver > schema > config-driven)
-  resolver?: Resolver<FormData>;                // Custom react-hook-form resolver (Yup, Joi, etc.)
-  schema?: ZodSchema;                           // External Zod schema (wrapped with visibility-aware resolver)
 
   // Optional - Components
   initialData?: FormData;                       // Pre-fill form values
@@ -432,6 +429,7 @@ interface DynamicFormProps {
   style?: CSSProperties;
   id?: string;
   children?: React.ReactNode;                   // Submit button, etc.
+  ref?: React.Ref<DynamicFormRef>;
 }
 ```
 
@@ -479,31 +477,42 @@ interface BaseFieldProps {
 ### Exports
 
 ```typescript
-// Components
-export { DynamicForm } from 'dynamic-forms';
+// Components & Context
+export { DynamicForm, DynamicFormContext } from 'rhf-dynamic-forms';
 
 // Hooks
-export { useDynamicFormContext, useDynamicFormContextSafe } from 'dynamic-forms';
+export { useDynamicFormContext, useDynamicFormContextSafe } from 'rhf-dynamic-forms';
 
 // Custom Components
 export {
   defineCustomComponent,        // Type-safe component definition helper
+} from 'rhf-dynamic-forms';
+
+// Parser
+export {
+  parseConfiguration,
+  safeParseConfiguration,
   ConfigurationError,           // Error class for invalid configurations
-} from 'dynamic-forms';
+} from 'rhf-dynamic-forms';
 
 // Types
 export type {
+  // Core configuration types
   FormConfiguration,
   FormElement,
   FieldElement,
   ContainerElement,
   ColumnElement,
   ValidationConfig,
+  FormData,
+  // Component props
+  DynamicFormProps,
+  DynamicFormRef,
+  DynamicFormContextValue,
+  // Registry types
   FieldComponentRegistry,
   CustomComponentRegistry,
   CustomContainerRegistry,
-  FormData,
-  ZodSchema,
   // Custom component types
   CustomComponentDefinition,
   CustomComponentRenderProps,
@@ -520,26 +529,27 @@ export type {
   SelectFieldElement,
   ArrayFieldElement,
   SelectOption,
-} from 'dynamic-forms';
+} from 'rhf-dynamic-forms';
 
 // Utilities
 export {
-  parseConfiguration,
-  safeParseConfiguration,
   generateZodSchema,
   createVisibilityAwareResolver,
   calculateVisibility,
   flattenFields,
   getFieldNames,
   mergeDefaults,
+  getNestedValue,
+  setNestedValue,
   applyJsonLogic,
   evaluateCondition,
+  // Type guards
   isFieldElement,
   isContainerElement,
   isColumnElement,
   isCustomFieldElement,
   isArrayFieldElement,
-} from 'dynamic-forms';
+} from 'rhf-dynamic-forms';
 ```
 
 ## Creating Field Components
