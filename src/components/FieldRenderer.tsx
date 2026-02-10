@@ -32,7 +32,8 @@ const CustomFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { customComponents } = useDynamicFormContext();
+  const { components } = useDynamicFormContext();
+  const customComponents = components.custom ?? {};
 
   if (config.type !== "custom") {
     return null;
@@ -44,7 +45,7 @@ const CustomFieldRenderer = ({
   if (!entry) {
     console.warn(
       `No custom component registered for: "${customConfig.component}". ` +
-        "Make sure to pass it in the customComponents prop."
+        "Make sure to pass it in components.custom."
     );
     return null;
   }
@@ -76,15 +77,15 @@ const StandardFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { fieldComponents } = useDynamicFormContext();
-  const FieldComponent = fieldComponents[
+  const { components } = useDynamicFormContext();
+  const FieldComponent = components.fields[
     config.type as StandardFieldComponentType
   ] as BaseFieldComponent;
 
   if (!FieldComponent) {
     console.warn(
       `No field component registered for type: "${config.type}". ` +
-        "Make sure to provide all field types in the fieldComponents prop."
+        "Make sure to provide all field types in components.fields."
     );
     return null;
   }

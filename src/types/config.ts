@@ -1,9 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ControllerFieldState } from "react-hook-form";
-import type {
-  CustomComponentDefinition,
-  CustomComponentRegistry,
-} from "../customComponents";
+import type { CustomComponentDefinition } from "../customComponents";
 import type { FieldElement, FormElement } from "./elements";
 
 import type {
@@ -14,7 +11,7 @@ import type {
   OnSubmitHandler,
   OnValidationChangeHandler,
 } from "./events";
-import type { CustomContainerRegistry, FieldComponentRegistry } from "./fields";
+import type { ComponentRegistry } from "./fields";
 import type { InvisibleFieldValidation } from "./validation";
 
 /**
@@ -96,7 +93,10 @@ export interface FormConfiguration {
  * ```tsx
  * <DynamicForm
  *   config={formConfig}
- *   fieldComponents={myFieldComponents}
+ *   components={{
+ *     fields: myFieldComponents,
+ *     containers: { section: MySectionContainer },
+ *   }}
  *   onSubmit={(data) => console.log(data)}
  *   onChange={(data, field) => console.log(`${field} changed`)}
  * />
@@ -109,14 +109,11 @@ export interface DynamicFormProps {
   /** Initial form data to populate fields */
   initialData?: FormData;
 
-  /** Required: Field component implementations for each field type */
-  fieldComponents: FieldComponentRegistry;
-
-  /** Optional: Custom field components referenced by name in config */
-  customComponents?: CustomComponentRegistry;
-
-  /** Optional: Custom container components for layout customization (Phase 2) */
-  customContainers?: CustomContainerRegistry;
+  /**
+   * Unified component registry — single entry point for all visual implementations.
+   * Contains fields, custom components, and container components.
+   */
+  components: ComponentRegistry;
 
   /** Called on successful form submission with valid data */
   onSubmit: OnSubmitHandler;

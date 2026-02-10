@@ -1,9 +1,7 @@
 import { createContext } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type {
-  CustomComponentRegistry,
-  CustomContainerRegistry,
-  FieldComponentRegistry,
+  ComponentRegistry,
   FieldWrapperFunction,
   FormConfiguration,
   FormData,
@@ -26,29 +24,14 @@ export interface DynamicFormContextValue {
   config: FormConfiguration;
 
   /**
-   * Registered field components for each field type.
-   * These are provided by the consuming application.
+   * Unified component registry.
+   * Contains fields, custom components, containers, and column component.
    */
-  fieldComponents: FieldComponentRegistry;
+  components: ComponentRegistry;
 
   /**
-   * Registered custom components.
-   * These are referenced by name in 'custom' type elements.
-   */
-  customComponents: CustomComponentRegistry;
-
-  /**
-   * Registered custom container components (Phase 2).
-   * These can be used to customize container layout rendering.
-   * Use variant property on containers to select which custom container to use.
-   * Example: { default: GridContainer, section: SectionContainer }
-   */
-  customContainers: CustomContainerRegistry;
-
-  /**
-   * Current visibility state for all fields (Phase 4).
+   * Current visibility state for all fields.
    * Maps field names to their visibility (true = visible).
-   * For Phase 1, all fields are always visible.
    */
   visibility: Record<string, boolean>;
 

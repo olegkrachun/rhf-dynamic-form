@@ -70,9 +70,7 @@ export type {
   BooleanFieldComponent,
   BooleanFieldElement,
   BooleanFieldProps,
-  ColumnComponent,
-  ColumnElement,
-  ColumnProps,
+  ComponentRegistry,
   ContainerComponent,
   ContainerElement,
   ContainerProps,
@@ -128,7 +126,6 @@ export type {
 // Element type guards
 export {
   isArrayFieldElement,
-  isColumnElement,
   isContainerElement,
   isCustomFieldElement,
   isFieldElement,

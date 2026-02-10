@@ -2,9 +2,8 @@ import type { JsonLogicRule, ValidationConfig } from "./validation";
 
 /**
  * All supported element types in the form configuration.
- * Phase 1: text, email, boolean, phone, date, custom
- * Phase 2 adds: container, column
- * Phase 3 adds: select, array
+ * Fields: text, email, boolean, phone, date, select, array, custom
+ * Layout: container (columns are data inside containers, not standalone elements)
  */
 export type ElementType =
   | "text"
@@ -15,7 +14,6 @@ export type ElementType =
   | "select"
   | "array"
   | "container"
-  | "column"
   | "custom";
 
 /**
@@ -64,6 +62,13 @@ export interface BaseFieldElement {
 
   /** Reset this field when parent changes (default: true) */
   resetOnParentChange?: boolean;
+
+  /**
+   * Consumer-specific metadata.
+   * The engine does not interpret this — it passes it through to field components.
+   * Use for gridSpan, fieldClassName, confidence, readOnly, etc.
+   */
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -235,51 +240,37 @@ export interface ArrayFieldElement extends BaseFieldElement {
 }
 
 /**
- * Container element for grouping fields in columns (Phase 2).
- * Can also be used for sections with variant: 'section'.
+ * Container element — a layout wrapper looked up by `variant` in `ComponentRegistry.containers`.
+ *
+ * The engine only knows two things: field and container.
+ * What the container IS (column, section, row, grid, card) is decided by the consumer
+ * via the `variant` key and the component registered for that variant.
+ *
+ * @example
+ * ```json
+ * { "type": "container", "variant": "row", "children": [...] }
+ * { "type": "container", "variant": "column", "meta": { "width": "50%" }, "children": [...] }
+ * { "type": "container", "variant": "section", "meta": { "title": "Details" }, "children": [...] }
+ * ```
  */
 export interface ContainerElement {
   type: "container";
 
-  /** Container variant - determines which customContainer to use */
+  /** Variant name — looked up in `ComponentRegistry.containers[variant]` */
   variant?: string;
 
-  /** Unique identifier (used for sections) */
-  id?: string;
-
-  /** Title (used for sections) */
-  title?: string;
-
-  /** Icon name (used for sections) */
-  icon?: string;
-
-  /** Array of column elements (for default variant) */
-  columns?: ColumnElement[];
-
-  /** Child elements (for section variant) */
+  /** Child elements rendered by the engine inside this container */
   children?: FormElement[];
 
   /** Conditional visibility rules using JSON Logic */
   visible?: JsonLogicRule;
 
-  /** Allow any additional custom properties */
-  [key: string]: unknown;
-}
-
-/**
- * Column element within a container (Phase 2).
- */
-export interface ColumnElement {
-  type: "column";
-
-  /** Column width (e.g., '50%', '200px') */
-  width: string;
-
-  /** Nested elements within the column */
-  elements: FormElement[];
-
-  /** Conditional visibility rules using JSON Logic */
-  visible?: JsonLogicRule;
+  /**
+   * Consumer-specific metadata.
+   * The engine does not interpret this — it passes it through to container components.
+   * Use for width, title, icon, id, collapsible, className, gridSpan, etc.
+   */
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -298,10 +289,10 @@ export type FieldElement =
 /**
  * Union of all layout element types.
  */
-export type LayoutElement = ContainerElement | ColumnElement;
+export type LayoutElement = ContainerElement;
 
 /**
- * Union of all form element types.
+ * Union of all form element types (fields and containers).
  */
 export type FormElement = FieldElement | LayoutElement;
 
@@ -331,13 +322,6 @@ export const isArrayFieldElement = (
 export const isContainerElement = (
   element: FormElement
 ): element is ContainerElement => element.type === "container";
-
-/**
- * Type guard to check if an element is a column element.
- */
-export const isColumnElement = (
-  element: FormElement
-): element is ColumnElement => element.type === "column";
 
 /**
  * Type guard to check if an element is a custom field element.

@@ -23,8 +23,14 @@ const validationConfigSchema = z
   .optional();
 
 /**
+ * Consumer-specific metadata schema.
+ * Accepts any key-value pairs — the engine does not interpret these.
+ */
+const metaSchema = z.record(z.string(), z.unknown()).optional();
+
+/**
  * Base field element schema (common properties).
- * Uses catchall() to preserve custom properties like fieldClassName.
+ * Consumer metadata goes in `meta` — no catchall needed.
  */
 const baseFieldSchema = z
   .object({
@@ -45,6 +51,7 @@ const baseFieldSchema = z
     visible: jsonLogicRuleSchema.optional(),
     dependsOn: z.string().optional(),
     resetOnParentChange: z.boolean().optional(),
+    meta: metaSchema,
   })
   .catchall(z.unknown());
 
@@ -143,10 +150,11 @@ const customFieldSchema = baseFieldSchema.extend({
 
 /**
  * Forward declaration for formElementSchema (used in recursive schemas).
- * This allows columnElementSchema and containerElementSchema to reference it.
+ * Only fields and containers are top-level elements.
+ * Columns are data inside containers — not standalone elements.
  */
 const formElementSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([fieldElementSchema, columnElementSchema, containerElementSchema])
+  z.union([fieldElementSchema, containerElementSchema])
 );
 
 /**
@@ -187,30 +195,17 @@ const fieldElementSchema: z.ZodType<unknown> = z.discriminatedUnion("type", [
 ]);
 
 /**
- * Column element schema (for Phase 2, but defined here for type completeness).
- */
-const columnElementSchema = z.object({
-  type: z.literal("column"),
-  width: z.string().min(1, "Column width is required"),
-  elements: z.array(z.lazy(() => formElementSchema)),
-  visible: jsonLogicRuleSchema.optional(),
-});
-
-/**
- * Container element schema (for Phase 2).
- * Supports both column-based layout and section variant with children.
- * Uses catchall() to preserve custom properties.
+ * Container element schema.
+ * Variant determines which container component renders it.
+ * All layout-specific data (width, title, icon, etc.) goes in `meta`.
  */
 const containerElementSchema = z
   .object({
     type: z.literal("container"),
     variant: z.string().optional(),
-    id: z.string().optional(),
-    title: z.string().optional(),
-    icon: z.string().optional(),
-    columns: z.array(columnElementSchema).optional(),
     children: z.array(z.lazy(() => formElementSchema)).optional(),
     visible: jsonLogicRuleSchema.optional(),
+    meta: metaSchema,
   })
   .catchall(z.unknown());
 

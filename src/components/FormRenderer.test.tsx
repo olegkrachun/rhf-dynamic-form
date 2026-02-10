@@ -13,8 +13,8 @@ describe("FormRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -33,8 +33,8 @@ describe("FormRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -62,18 +62,20 @@ describe("FormRenderer", () => {
         { type: "text", name: "topField", label: "Top Field" },
         {
           type: "container",
-          columns: [
+          children: [
             {
-              type: "column",
-              width: "50%",
-              elements: [
+              type: "container",
+              variant: "column",
+              meta: { width: "50%" },
+              children: [
                 { type: "text", name: "leftField", label: "Left Field" },
               ],
             },
             {
-              type: "column",
-              width: "50%",
-              elements: [
+              type: "container",
+              variant: "column",
+              meta: { width: "50%" },
+              children: [
                 { type: "text", name: "rightField", label: "Right Field" },
               ],
             },
@@ -85,8 +87,8 @@ describe("FormRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -111,8 +113,8 @@ describe("FormRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -140,8 +142,8 @@ describe("FormRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );

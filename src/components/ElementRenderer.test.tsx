@@ -13,8 +13,8 @@ describe("ElementRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -28,11 +28,12 @@ describe("ElementRenderer", () => {
       elements: [
         {
           type: "container",
-          columns: [
+          children: [
             {
-              type: "column",
-              width: "100%",
-              elements: [
+              type: "container",
+              variant: "column",
+              meta: { width: "100%" },
+              children: [
                 { type: "text", name: "nested", label: "Nested Field" },
               ],
             },
@@ -43,8 +44,8 @@ describe("ElementRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -72,8 +73,8 @@ describe("ElementRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -98,8 +99,8 @@ describe("ElementRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );

@@ -33,9 +33,7 @@ interface DynamicFormPropsWithRef extends DynamicFormProps {
 export const DynamicForm = ({
   config,
   initialData,
-  fieldComponents,
-  customComponents = {},
-  customContainers = {},
+  components,
   onSubmit,
   onChange,
   onValidationChange,
@@ -50,6 +48,8 @@ export const DynamicForm = ({
   fieldWrapper,
   ref,
 }: DynamicFormPropsWithRef): React.ReactElement => {
+  const customComponents = components.custom ?? {};
+
   // Parse and validate configuration, including custom component props
   const parsedConfig = useMemo(() => {
     const parsed = parseConfiguration(config);
@@ -180,9 +180,7 @@ export const DynamicForm = ({
     () => ({
       form,
       config: parsedConfig,
-      fieldComponents,
-      customComponents,
-      customContainers,
+      components,
       visibility,
       fieldWrapper,
       isValid: formIsValid,
@@ -191,9 +189,7 @@ export const DynamicForm = ({
     [
       form,
       parsedConfig,
-      fieldComponents,
-      customComponents,
-      customContainers,
+      components,
       visibility,
       fieldWrapper,
       formIsValid,

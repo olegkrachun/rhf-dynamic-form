@@ -1,5 +1,3 @@
-export type { ColumnRendererProps } from "./ColumnRenderer";
-export { ColumnRenderer } from "./ColumnRenderer";
 export type { ContainerRendererProps } from "./ContainerRenderer";
 export { ContainerRenderer } from "./ContainerRenderer";
 export type { ElementRendererProps } from "./ElementRenderer";

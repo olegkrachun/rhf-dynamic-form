@@ -1,16 +1,26 @@
 import type { CustomContainerRegistry } from "../../src";
+import { ColumnContainer } from "./ColumnContainer";
 import { Container } from "./Container";
+import { RowContainer } from "./RowContainer";
+import { SectionContainer } from "./SectionContainer";
 
 /**
  * Sample container registry.
- * Custom containers are registered by name and can be used
- * to provide styled layout wrappers for form sections.
  *
- * The 'default' key is used when no specific container type is specified.
+ * Each variant maps to a container component:
+ * - "default"  → plain wrapper (no layout assumptions)
+ * - "row"      → horizontal flex row with gap
+ * - "column"   → vertical flex column with optional width
+ * - "section"  → titled card/fieldset with description
  */
 export const sampleContainerComponents: CustomContainerRegistry = {
   default: Container,
+  row: RowContainer,
+  column: ColumnContainer,
+  section: SectionContainer,
 };
 
-export { Column } from "./Column";
+export { ColumnContainer } from "./ColumnContainer";
 export { Container } from "./Container";
+export { RowContainer } from "./RowContainer";
+export { SectionContainer } from "./SectionContainer";

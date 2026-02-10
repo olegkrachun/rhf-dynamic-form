@@ -4,11 +4,11 @@ import type {
   FieldPath,
   FieldValues,
 } from "react-hook-form";
+import type { CustomComponentRegistry } from "../customComponents";
 import type {
   ArrayFieldElement,
   BaseFieldElement,
   BooleanFieldElement,
-  ColumnElement,
   ContainerElement,
   CustomFieldElement,
   DateFieldElement,
@@ -221,23 +221,12 @@ export type FieldProps =
 
 /**
  * Props for container components.
- * Containers wrap columns and provide layout structure.
+ * Container receives its config (with meta) and rendered children.
  */
 export interface ContainerProps {
-  /** Container configuration from form config */
+  /** Container configuration from form config (variant, meta, visible, etc.) */
   config: ContainerElement;
-  /** Column elements rendered as children */
-  children: React.ReactNode;
-}
-
-/**
- * Props for column components.
- * Columns wrap form elements and apply width styling.
- */
-export interface ColumnProps {
-  /** Column configuration from form config */
-  config: ColumnElement;
-  /** Form elements rendered as children */
+  /** Rendered child elements */
   children: React.ReactNode;
 }
 
@@ -247,22 +236,66 @@ export interface ColumnProps {
 export type ContainerComponent = React.ComponentType<ContainerProps>;
 
 /**
- * Component type for column layouts.
- */
-export type ColumnComponent = React.ComponentType<ColumnProps>;
-
-/**
- * Registry for custom container components referenced by name.
- * Allows users to provide custom container implementations.
+ * Registry for container components referenced by variant name.
  *
  * @example
  * ```tsx
- * const customContainers: CustomContainerRegistry = {
- *   card: CardContainer,
+ * const containers: CustomContainerRegistry = {
+ *   row: RowContainer,
+ *   column: ColumnContainer,
  *   section: SectionContainer,
  * };
  * ```
  */
 export type CustomContainerRegistry = Record<string, ContainerComponent>;
+
+// ============================================================================
+// Unified Component Registry
+// ============================================================================
+
+/**
+ * Single registry for all consumer-provided components.
+ * This is the only entry point for providing visual implementations to the engine.
+ *
+ * The engine looks at config elements and goes to the registry:
+ * - `{ type: "text" }`                            → `components.fields.text`
+ * - `{ type: "custom", component: "currency" }`   → `components.custom.currency`
+ * - `{ type: "container", variant: "section" }`    → `components.containers.section`
+ * - `{ type: "container", variant: "column" }`     → `components.containers.column`
+ * - `{ type: "container" }`                        → `components.containers.default` ?? bare Fragment
+ *
+ * @example
+ * ```tsx
+ * const components: ComponentRegistry = {
+ *   fields: {
+ *     text: MyTextField,
+ *     email: MyEmailField,
+ *     boolean: MyCheckbox,
+ *     phone: MyPhoneField,
+ *     date: MyDatePicker,
+ *     select: MyDropdown,
+ *     array: MyRepeater,
+ *   },
+ *   custom: {
+ *     currency: MyCurrencyField,
+ *   },
+ *   containers: {
+ *     row: MyRowContainer,
+ *     column: MyColumnContainer,
+ *     section: MySectionContainer,
+ *   },
+ * };
+ * ```
+ */
+export interface ComponentRegistry {
+  /** Required: implementations for each standard field type */
+  fields: FieldComponentRegistry;
+
+  /** Optional: custom field components (type: "custom", component: "name") */
+  custom?: CustomComponentRegistry;
+
+  /** Optional: container components looked up by variant name */
+  containers?: CustomContainerRegistry;
+}
 
 // ============================================================================

@@ -44,11 +44,12 @@ describe("validateCustomComponents", () => {
       elements: [
         {
           type: "container" as const,
-          columns: [
+          children: [
             {
-              type: "column" as const,
-              width: "100%",
-              elements: [
+              type: "container" as const,
+              variant: "column" as const,
+              meta: { width: "100%" },
+              children: [
                 {
                   type: "custom" as const,
                   name: "nested.rating",
@@ -64,9 +65,9 @@ describe("validateCustomComponents", () => {
     const result = validateCustomComponents(config, registry);
 
     const container = result.elements[0] as {
-      columns: Array<{ elements: CustomFieldElement[] }>;
+      children: Array<{ children: CustomFieldElement[] }>;
     };
-    const ratingElement = container.columns[0].elements[0];
+    const ratingElement = container.children[0].children[0];
     expect(ratingElement.componentProps).toEqual({ maxStars: 5 });
   });
 
@@ -88,11 +89,12 @@ describe("validateCustomComponents", () => {
       elements: [
         {
           type: "container" as const,
-          columns: [
+          children: [
             {
-              type: "column" as const,
-              width: "100%",
-              elements: [
+              type: "container" as const,
+              variant: "column" as const,
+              meta: { width: "100%" },
+              children: [
                 {
                   type: "custom" as const,
                   name: "bad",
@@ -182,11 +184,12 @@ describe("getValidatedCustomElements", () => {
       elements: [
         {
           type: "container" as const,
-          columns: [
+          children: [
             {
-              type: "column" as const,
-              width: "50%",
-              elements: [
+              type: "container" as const,
+              variant: "column" as const,
+              meta: { width: "50%" },
+              children: [
                 {
                   type: "custom" as const,
                   name: "nested1",
@@ -196,9 +199,10 @@ describe("getValidatedCustomElements", () => {
               ],
             },
             {
-              type: "column" as const,
-              width: "50%",
-              elements: [
+              type: "container" as const,
+              variant: "column" as const,
+              meta: { width: "50%" },
+              children: [
                 {
                   type: "custom" as const,
                   name: "nested2",
@@ -224,18 +228,20 @@ describe("getValidatedCustomElements", () => {
       elements: [
         {
           type: "container" as const,
-          columns: [
+          children: [
             {
-              type: "column" as const,
-              width: "100%",
-              elements: [
+              type: "container" as const,
+              variant: "column" as const,
+              meta: { width: "100%" },
+              children: [
                 {
                   type: "container" as const,
-                  columns: [
+                  children: [
                     {
-                      type: "column" as const,
-                      width: "100%",
-                      elements: [
+                      type: "container" as const,
+                      variant: "column" as const,
+                      meta: { width: "100%" },
+                      children: [
                         {
                           type: "custom" as const,
                           name: "deep",

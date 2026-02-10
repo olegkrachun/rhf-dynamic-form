@@ -103,11 +103,12 @@ describe("buildDependencyMap", () => {
       { type: "text", name: "trigger" },
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [
               {
                 type: "text",
                 name: "dependent",
@@ -142,11 +143,12 @@ describe("findFieldByName", () => {
     const elements: FormElement[] = [
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [{ type: "text", name: "nested" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [{ type: "text", name: "nested" }],
           },
         ],
       },

@@ -20,7 +20,6 @@ export type {
   ApiOptionsSource,
   ArrayFieldElement,
   BooleanFieldElement,
-  ColumnElement,
   ContainerElement,
   CustomFieldElement,
   DateFieldElement,
@@ -43,7 +42,6 @@ export type {
 
 export {
   isArrayFieldElement,
-  isColumnElement,
   isContainerElement,
   isCustomFieldElement,
   isFieldElement,
@@ -66,9 +64,8 @@ export type {
   BaseFieldProps,
   BooleanFieldComponent,
   BooleanFieldProps,
-  // Container component types (Phase 2)
-  ColumnComponent,
-  ColumnProps,
+  // Unified component registry
+  ComponentRegistry,
   ContainerComponent,
   ContainerProps,
   CustomContainerRegistry,

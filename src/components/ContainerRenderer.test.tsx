@@ -2,87 +2,22 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
+import { mockFieldComponents } from "../test-utils/mockFieldComponents";
 import type {
+  ComponentRegistry,
   ContainerComponent,
-  CustomContainerRegistry,
-  FieldComponentRegistry,
   FormConfiguration,
 } from "../types";
 
-// Mock field components
-const mockFieldComponents: FieldComponentRegistry = {
-  text: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} {...field} />
-    </div>
-  ),
-  email: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="email" {...field} />
-    </div>
-  ),
-  boolean: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label>
-        <input type="checkbox" {...field} />
-        {config.label}
-      </label>
-    </div>
-  ),
-  phone: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="tel" {...field} />
-    </div>
-  ),
-  date: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <input id={field.name} type="date" {...field} />
-    </div>
-  ),
-  select: ({ config, field }) => (
-    <div data-testid={`field-${config.name}`}>
-      <label htmlFor={field.name}>{config.label}</label>
-      <select id={field.name} {...field}>
-        {config.options?.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  ),
-  array: ({ config }) => (
-    <div data-testid={`field-${config.name}`}>
-      <span>{config.label} (array)</span>
-    </div>
-  ),
-};
-
 describe("ContainerRenderer", () => {
-  it("should render container with columns", () => {
+  it("should render container with children", () => {
     const config: FormConfiguration = {
       elements: [
         {
           type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "text", name: "firstName", label: "First Name" },
-              ],
-            },
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "text", name: "lastName", label: "Last Name" },
-              ],
-            },
+          children: [
+            { type: "text", name: "firstName", label: "First Name" },
+            { type: "text", name: "lastName", label: "Last Name" },
           ],
         },
       ],
@@ -90,8 +25,8 @@ describe("ContainerRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -102,21 +37,15 @@ describe("ContainerRenderer", () => {
     expect(screen.getByLabelText("Last Name")).toBeInTheDocument();
   });
 
-  it("should render nested elements within columns", () => {
+  it("should render nested elements within container", () => {
     const config: FormConfiguration = {
       elements: [
         {
           type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [
-                { type: "text", name: "name", label: "Name" },
-                { type: "email", name: "email", label: "Email" },
-                { type: "phone", name: "phone", label: "Phone" },
-              ],
-            },
+          children: [
+            { type: "text", name: "name", label: "Name" },
+            { type: "email", name: "email", label: "Email" },
+            { type: "phone", name: "phone", label: "Phone" },
           ],
         },
       ],
@@ -124,8 +53,8 @@ describe("ContainerRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -142,32 +71,22 @@ describe("ContainerRenderer", () => {
       </section>
     );
 
-    const customContainers: CustomContainerRegistry = {
-      default: CustomContainer,
+    const components: ComponentRegistry = {
+      fields: mockFieldComponents,
+      containers: { default: CustomContainer },
     };
 
     const config: FormConfiguration = {
       elements: [
         {
           type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "100%",
-              elements: [{ type: "text", name: "field1", label: "Field 1" }],
-            },
-          ],
+          children: [{ type: "text", name: "field1", label: "Field 1" }],
         },
       ],
     };
 
     render(
-      <DynamicForm
-        config={config}
-        customContainers={customContainers}
-        fieldComponents={mockFieldComponents}
-        onSubmit={vi.fn()}
-      />
+      <DynamicForm components={components} config={config} onSubmit={vi.fn()} />
     );
 
     expect(screen.getByTestId("custom-container")).toBeInTheDocument();
@@ -180,21 +99,9 @@ describe("ContainerRenderer", () => {
         { type: "text", name: "title", label: "Title" },
         {
           type: "container",
-          columns: [
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "text", name: "firstName", label: "First Name" },
-              ],
-            },
-            {
-              type: "column",
-              width: "50%",
-              elements: [
-                { type: "text", name: "lastName", label: "Last Name" },
-              ],
-            },
+          children: [
+            { type: "text", name: "firstName", label: "First Name" },
+            { type: "text", name: "lastName", label: "Last Name" },
           ],
         },
         { type: "boolean", name: "accept", label: "Accept Terms" },
@@ -203,8 +110,8 @@ describe("ContainerRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );
@@ -220,37 +127,19 @@ describe("ContainerRenderer", () => {
       elements: [
         {
           type: "container",
-          columns: [
+          children: [
             {
-              type: "column",
-              width: "100%",
-              elements: [
+              type: "container",
+              children: [
                 {
-                  type: "container",
-                  columns: [
-                    {
-                      type: "column",
-                      width: "50%",
-                      elements: [
-                        {
-                          type: "text",
-                          name: "nested.field1",
-                          label: "Nested Field 1",
-                        },
-                      ],
-                    },
-                    {
-                      type: "column",
-                      width: "50%",
-                      elements: [
-                        {
-                          type: "text",
-                          name: "nested.field2",
-                          label: "Nested Field 2",
-                        },
-                      ],
-                    },
-                  ],
+                  type: "text",
+                  name: "nested.field1",
+                  label: "Nested Field 1",
+                },
+                {
+                  type: "text",
+                  name: "nested.field2",
+                  label: "Nested Field 2",
                 },
               ],
             },
@@ -261,8 +150,8 @@ describe("ContainerRenderer", () => {
 
     render(
       <DynamicForm
+        components={{ fields: mockFieldComponents }}
         config={config}
-        fieldComponents={mockFieldComponents}
         onSubmit={vi.fn()}
       />
     );

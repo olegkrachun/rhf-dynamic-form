@@ -238,18 +238,20 @@ describe("mergeDefaults", () => {
       elements: [
         {
           type: "container",
-          columns: [
+          children: [
             {
-              type: "column",
-              width: "50%",
-              elements: [
+              type: "container",
+              variant: "column",
+              meta: { width: "50%" },
+              children: [
                 { type: "text", name: "firstName", defaultValue: "John" },
               ],
             },
             {
-              type: "column",
-              width: "50%",
-              elements: [
+              type: "container",
+              variant: "column",
+              meta: { width: "50%" },
+              children: [
                 { type: "text", name: "lastName", defaultValue: "Doe" },
               ],
             },
@@ -271,11 +273,12 @@ describe("mergeDefaults", () => {
       elements: [
         {
           type: "container",
-          columns: [
+          children: [
             {
-              type: "column",
-              width: "100%",
-              elements: [],
+              type: "container",
+              variant: "column",
+              meta: { width: "100%" },
+              children: [],
             },
           ],
         },

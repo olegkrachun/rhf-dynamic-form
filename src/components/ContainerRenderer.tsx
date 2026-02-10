@@ -1,6 +1,5 @@
 import { useDynamicFormContext } from "../hooks";
-import type { ContainerComponent, ContainerElement } from "../types";
-import { ColumnRenderer } from "./ColumnRenderer";
+import type { ContainerElement } from "../types";
 import { ElementRenderer } from "./ElementRenderer";
 
 /**
@@ -12,92 +11,43 @@ export interface ContainerRendererProps {
 }
 
 /**
- * Default container styles using flexbox.
- */
-const defaultContainerStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "16px",
-  flexWrap: "wrap",
-};
-
-/**
- * Default container component used when no custom container is provided.
- * Receives config and children props as per ContainerProps interface.
- */
-const DefaultContainer: ContainerComponent = ({ children }) => {
-  return <div style={defaultContainerStyle}>{children}</div>;
-};
-
-/**
- * Renders a container element with its columns or children.
+ * Renders a container element by delegating to a consumer-provided component.
  *
  * The ContainerRenderer:
- * 1. Checks visibility (Phase 4 - currently all containers are visible)
- * 2. Looks up custom container component by variant (default, section, etc.)
- * 3. Renders columns or children based on container type
+ * 1. Looks up container component by variant from components.containers
+ * 2. If no matching container registered, renders children directly (no wrapper)
+ * 3. Container component receives full config (including columns as data) and rendered children
  *
- * @example
- * ```tsx
- * // Column-based container (default)
- * <ContainerRenderer
- *   config={{
- *     type: 'container',
- *     columns: [
- *       { type: 'column', width: '50%', elements: [...] },
- *       { type: 'column', width: '50%', elements: [...] }
- *     ]
- *   }}
- * />
- *
- * // Section container with children
- * <ContainerRenderer
- *   config={{
- *     type: 'container',
- *     variant: 'section',
- *     id: 'case-information',
- *     title: 'Case Information',
- *     icon: 'faFileAlt',
- *     children: [...]
- *   }}
- * />
- * ```
+ * The engine renders only direct `children` elements.
+ * `columns` are passed as data in `config` — the container component decides layout.
  */
 export const ContainerRenderer: React.FC<ContainerRendererProps> = ({
   config,
 }) => {
-  const { customContainers } = useDynamicFormContext();
+  const { components } = useDynamicFormContext();
+  const containers = components.containers ?? {};
 
-  // Look for a custom container component by variant
-  // Falls back to 'default' if variant not specified or not found
+  // Engine renders only direct children elements
+  const renderedChildren =
+    config.children && config.children.length > 0
+      ? config.children.map((element, idx) => {
+          const key =
+            "name" in element && element.name
+              ? String(element.name)
+              : `element-${idx}`;
+          return <ElementRenderer config={element} key={key} />;
+        })
+      : null;
+
+  // Look up container component by variant
   const variant = config.variant ?? "default";
-  const ContainerComponent =
-    customContainers?.[variant] ??
-    customContainers?.default ??
-    DefaultContainer;
+  const ContainerComp = containers[variant] ?? containers.default;
 
-  // Render children based on container type
-  let renderedChildren: React.ReactNode;
-
-  if (config.children && config.children.length > 0) {
-    renderedChildren = config.children.map((element, idx) => {
-      const key =
-        "name" in element && element.name
-          ? String(element.name)
-          : `element-${idx}`;
-      return <ElementRenderer config={element} key={key} />;
-    });
-  } else if (config.columns && config.columns.length > 0) {
-    renderedChildren = config.columns.map((column, idx) => {
-      const key = `column-${idx}`;
-      return <ColumnRenderer config={column} key={key} />;
-    });
-  } else {
-    renderedChildren = null;
+  if (!ContainerComp) {
+    return <>{renderedChildren}</>;
   }
 
-  return (
-    <ContainerComponent config={config}>{renderedChildren}</ContainerComponent>
-  );
+  return <ContainerComp config={config}>{renderedChildren}</ContainerComp>;
 };
 
 ContainerRenderer.displayName = "ContainerRenderer";

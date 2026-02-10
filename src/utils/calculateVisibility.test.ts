@@ -79,11 +79,12 @@ describe("calculateVisibility", () => {
       const container: ContainerElement = {
         type: "container",
         visible: { "==": [{ var: "showSection" }, true] },
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [
               { type: "text", name: "childField" },
               { type: "email", name: "anotherChild" },
             ],
@@ -102,11 +103,12 @@ describe("calculateVisibility", () => {
       const container: ContainerElement = {
         type: "container",
         visible: { "==": [{ var: "showSection" }, true] },
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [{ type: "text", name: "childField" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [{ type: "text", name: "childField" }],
           },
         ],
       };
@@ -120,11 +122,12 @@ describe("calculateVisibility", () => {
     it("should handle container without visibility rule", () => {
       const container: ContainerElement = {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [{ type: "text", name: "childField" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [{ type: "text", name: "childField" }],
           },
         ],
       };
@@ -140,18 +143,20 @@ describe("calculateVisibility", () => {
     it("should mark children as invisible when column is invisible", () => {
       const container: ContainerElement = {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "50%",
+            type: "container",
+            variant: "column",
+            meta: { width: "50%" },
             visible: { "==": [{ var: "showLeft" }, true] },
-            elements: [{ type: "text", name: "leftField" }],
+            children: [{ type: "text", name: "leftField" }],
           },
           {
-            type: "column",
-            width: "50%",
+            type: "container",
+            variant: "column",
+            meta: { width: "50%" },
             visible: { "==": [{ var: "showRight" }, true] },
-            elements: [{ type: "text", name: "rightField" }],
+            children: [{ type: "text", name: "rightField" }],
           },
         ],
       };
@@ -170,12 +175,13 @@ describe("calculateVisibility", () => {
       const container: ContainerElement = {
         type: "container",
         visible: { "==": [{ var: "showAll" }, true] },
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
             visible: { "==": [{ var: "showColumn" }, true] },
-            elements: [{ type: "text", name: "nestedField" }],
+            children: [{ type: "text", name: "nestedField" }],
           },
         ],
       };
@@ -197,20 +203,22 @@ describe("calculateVisibility", () => {
       const deeplyNested: ContainerElement = {
         type: "container",
         visible: { "==": [{ var: "level1" }, true] },
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [
               {
                 type: "container",
                 visible: { "==": [{ var: "level2" }, true] },
-                columns: [
+                children: [
                   {
-                    type: "column",
-                    width: "100%",
+                    type: "container",
+                    variant: "column",
+                    meta: { width: "100%" },
                     visible: { "==": [{ var: "level3" }, true] },
-                    elements: [
+                    children: [
                       {
                         type: "text",
                         name: "deepField",
@@ -384,14 +392,15 @@ describe("calculateVisibility", () => {
       expect(result).toEqual({});
     });
 
-    it("should handle container with empty columns", () => {
+    it("should handle container with empty children", () => {
       const container: ContainerElement = {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [],
           },
         ],
       };

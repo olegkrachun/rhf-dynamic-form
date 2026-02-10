@@ -1,10 +1,9 @@
-import type { FormConfiguration } from "../types/config";
 import type {
-  ColumnElement,
   ContainerElement,
+  CustomComponentRegistry,
+  FormConfiguration,
   FormElement,
-} from "../types/elements";
-import type { CustomComponentRegistry } from "./types";
+} from "@/types";
 import {
   isCustomElement,
   type ValidatedCustomElement,
@@ -54,10 +53,6 @@ function validateElement(
     return validateContainer(element, registry, path);
   }
 
-  if (isColumnElement(element)) {
-    return validateColumn(element, registry, path);
-  }
-
   return element;
 }
 
@@ -66,41 +61,17 @@ function validateContainer(
   registry: CustomComponentRegistry,
   path: string
 ): ContainerElement {
-  const result = { ...container };
-
-  // Validate columns (default container)
-  if (container.columns) {
-    result.columns = container.columns.map((column, index) =>
-      validateColumn(column, registry, `${path}.columns[${index}]`)
-    );
+  if (!container.children) {
+    return container;
   }
 
-  // Validate children (section container)
-  if (container.children) {
-    result.children = validateElements(
+  return {
+    ...container,
+    children: validateElements(
       container.children,
       registry,
       `${path}.children`
-    );
-  }
-
-  return result;
-}
-
-function validateColumn(
-  column: ColumnElement,
-  registry: CustomComponentRegistry,
-  path: string
-): ColumnElement {
-  const validatedElements = validateElements(
-    column.elements,
-    registry,
-    `${path}.elements`
-  );
-
-  return {
-    ...column,
-    elements: validatedElements,
+    ),
   };
 }
 
@@ -108,16 +79,8 @@ function isContainerElement(element: FormElement): element is ContainerElement {
   return element.type === "container";
 }
 
-function isColumnElement(element: FormElement): element is ColumnElement {
-  return element.type === "column";
-}
-
 /**
  * Collect all custom elements from a form configuration.
- * Returns elements with normalized componentProps (defaults to empty object).
- *
- * @remarks For full validation including propsSchema checks, pass the config
- * through validateCustomComponents first.
  */
 export function getValidatedCustomElements(
   config: FormConfiguration
@@ -153,26 +116,7 @@ function collectFromElement(
     return;
   }
 
-  if (isContainerElement(element)) {
-    collectFromContainer(element, results);
-    return;
-  }
-
-  if (isColumnElement(element)) {
-    collectFromElements(element.elements, results);
-  }
-}
-
-function collectFromContainer(
-  container: ContainerElement,
-  results: ValidatedCustomElement[]
-): void {
-  if (container.columns) {
-    for (const column of container.columns) {
-      collectFromElements(column.elements, results);
-    }
-  }
-  if (container.children) {
-    collectFromElements(container.children, results);
+  if (isContainerElement(element) && element.children) {
+    collectFromElements(element.children, results);
   }
 }
