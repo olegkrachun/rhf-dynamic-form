@@ -57,6 +57,18 @@ export interface DynamicFormContextValue {
    * When provided, every field is wrapped with this function.
    */
   fieldWrapper?: FieldWrapperFunction;
+
+  /**
+   * Current form validity state.
+   * Reactive - updates when validation state changes.
+   */
+  isValid: boolean;
+
+  /**
+   * Current form errors.
+   * Reactive - updates when validation state changes.
+   */
+  errors: Record<string, unknown>;
 }
 
 /**

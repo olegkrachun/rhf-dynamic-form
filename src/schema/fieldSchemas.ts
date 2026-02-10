@@ -13,12 +13,16 @@ import type {
  * @returns Base Zod schema for the select field
  */
 const buildSelectSchema = (field: SelectFieldElement): ZodTypeAny => {
-  // Single select: string or number or null (for clearable)
-  // Multiple select: array of strings/numbers
+  // Single select: string or number or null (for clearable) or object with value
+  // Multiple select: array of strings/numbers or objects with value
+  const primitiveValue = z.union([z.string(), z.number()]);
+  // Some selects store full option objects like { code, value } or { value, label }
+  const objectValue = z.object({}).passthrough();
+
   if (field.multiple) {
-    return z.array(z.union([z.string(), z.number()]));
+    return z.array(z.union([primitiveValue, objectValue]));
   }
-  return z.union([z.string(), z.number(), z.null()]);
+  return z.union([primitiveValue, objectValue, z.null()]);
 };
 
 /**
@@ -261,6 +265,12 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
   // Apply validation rules if present
   if (field.validation) {
     schema = applyValidationRules(schema, field.validation, field);
+  }
+
+  // For non-required fields, allow null and undefined values
+  // This is important for optional text/phone/date fields that may have null data
+  if (isFieldOptional(field)) {
+    schema = schema.nullish();
   }
 
   return schema;

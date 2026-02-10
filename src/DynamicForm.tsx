@@ -101,6 +101,8 @@ export const DynamicForm = ({
       watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
+      getIsValid: () => form.formState.isValid,
+      getErrors: () => form.formState.errors,
     }),
     [form, defaultValues]
   );
@@ -183,6 +185,8 @@ export const DynamicForm = ({
       customContainers,
       visibility,
       fieldWrapper,
+      isValid: formIsValid,
+      errors: formErrors as Record<string, unknown>,
     }),
     [
       form,
@@ -192,6 +196,8 @@ export const DynamicForm = ({
       customContainers,
       visibility,
       fieldWrapper,
+      formIsValid,
+      formErrors,
     ]
   );
 

@@ -219,4 +219,10 @@ export interface DynamicFormRef {
 
   /** Trigger validation for a specific field or all fields */
   trigger: (name?: string) => Promise<boolean>;
+
+  /** Get current form validity state */
+  getIsValid: () => boolean;
+
+  /** Get current form errors */
+  getErrors: () => Record<string, unknown>;
 }
