@@ -428,8 +428,7 @@ interface CustomElement {
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of the form element or layout component",
-            "enum": ["text", "email", "boolean", "phone", "date", "container", "custom"]
+            "description": "The type of the form element or layout component. Common conventions: text, email, boolean, phone, date, select, array, container, custom. Any string is accepted — the engine is type-agnostic."
           },
           "name": {
             "type": "string",
@@ -962,19 +961,22 @@ Container variants are resolved through the `ComponentRegistry`:
 ```typescript
 function ContainerRenderer({ config }: { config: ContainerElement }) {
   const { components } = useDynamicFormContext();
+  const containers = components.containers ?? {};
 
-  // Resolve container component by variant
-  const ContainerComponent = config.variant
-    ? components.containers?.[config.variant] ?? DefaultContainer
-    : DefaultContainer;
+  // Resolve container component by variant (falls back to "default", then bare Fragment)
+  const variant = config.variant ?? "default";
+  const ContainerComp = containers[variant] ?? containers.default;
 
-  return (
-    <ContainerComponent config={config}>
-      {config.children?.map((child, index) => (
-        <ElementRenderer key={index} element={child} />
-      ))}
-    </ContainerComponent>
-  );
+  const renderedChildren = config.children?.map((child) => {
+    const key = "name" in child && child.name ? String(child.name) : `element-${child.type}`;
+    return <ElementRenderer config={child} key={key} />;
+  });
+
+  if (!ContainerComp) {
+    return <>{renderedChildren}</>;
+  }
+
+  return <ContainerComp config={config}>{renderedChildren}</ContainerComp>;
 }
 ```
 

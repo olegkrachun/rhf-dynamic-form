@@ -246,7 +246,7 @@ interface ContainerElement {
 - `{ type: "container", variant: "section" }` → `components.containers["section"]`
 - `{ type: "container", variant: "row" }` → `components.containers["row"]`
 - `{ type: "container", variant: "column" }` → `components.containers["column"]`
-- `{ type: "container" }` → `components.containers["default"]` ?? bare Fragment
+- `{ type: "container" }` → resolves to `components.containers["default"]`; if no `"default"` is registered, children render in a bare `<Fragment>` without any wrapper
 
 **Two-column row example:**
 

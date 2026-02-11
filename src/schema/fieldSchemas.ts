@@ -106,7 +106,12 @@ let activeSchemaMap: SchemaMap = { ...defaultSchemaMap };
 
 /**
  * Replace the active schema map.
- * Call this once at app startup to provide custom type → schema mappings.
+ * Call this **once at app startup** to provide custom type → schema mappings.
+ *
+ * **SSR warning:** Because `activeSchemaMap` is module-scoped, calling this
+ * per-request in SSR environments will affect all concurrent requests sharing
+ * the same module instance. Only call at startup (e.g. in a top-level init
+ * module), never inside request handlers or component renders.
  *
  * @param schemaMap - Custom schema map (merged with structural defaults)
  *
@@ -138,26 +143,29 @@ export const resetSchemaMap = (): void => {
  * Build the base Zod schema for a field.
  *
  * Detection order:
- * 1. Structural — `itemFields` → array schema, `options`/`multiple` → select schema
- * 2. Schema map — look up `field.type` in the active schema map
+ * 1. Schema map — look up `field.type` in the active schema map (consumer overrides win)
+ * 2. Structural — `itemFields` → array schema, `options`/`multiple` → select schema
  * 3. Fallback — `z.unknown()`
+ *
+ * Schema map is checked first so consumers can override structural heuristics
+ * (e.g. register a custom "select" factory that returns a different schema).
  *
  * @param field - The field element configuration
  * @returns Base Zod schema for the field type
  */
 const buildBaseSchema = (field: FieldElement): ZodTypeAny => {
-  // 1. Structural detection — select and array have required structural properties
+  // 1. Schema map lookup — configurable by consumers, checked first
+  const factory = activeSchemaMap[field.type];
+  if (factory) {
+    return factory(field);
+  }
+
+  // 2. Structural detection — select and array have required structural properties
   if ("itemFields" in field) {
     return buildArraySchema(field as ArrayFieldElement);
   }
   if ("options" in field || "multiple" in field) {
     return buildSelectSchema(field as SelectFieldElement);
-  }
-
-  // 2. Schema map lookup — configurable by consumers
-  const factory = activeSchemaMap[field.type];
-  if (factory) {
-    return factory(field);
   }
 
   // 3. Fallback — consumer-defined types without a schema factory
@@ -204,7 +212,12 @@ const applyStringValidation = (
       const regex = new RegExp(validation.pattern);
       result = result.regex(regex, validation.message || "Invalid format");
     } catch {
-      // Invalid regex — skip silently
+      // Invalid regex pattern — constraint silently dropped.
+      // This means validation will pass even though a pattern was configured.
+      console.warn(
+        `[dynamic-form] Invalid regex pattern "${validation.pattern}" — ` +
+          "pattern validation will be skipped for this field."
+      );
     }
   }
 

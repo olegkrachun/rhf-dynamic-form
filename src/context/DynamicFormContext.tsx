@@ -50,6 +50,10 @@ export interface DynamicFormContextValue {
   /**
    * Current form errors.
    * Reactive - updates when validation state changes.
+   *
+   * Intentionally typed as `Record<string, unknown>` (not react-hook-form's
+   * `FieldErrors`) to decouple the context interface from the form library.
+   * Consumers who need structured error access can use `form.formState.errors`.
    */
   errors: Record<string, unknown>;
 }

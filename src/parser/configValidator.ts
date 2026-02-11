@@ -154,6 +154,9 @@ const arrayFieldSchema = baseFieldSchema
  * by their specific schemas (select, custom, array).
  * The generic schema rejects these so they don't sneak through
  * with missing required properties.
+ *
+ * **Keep in sync** with the union members in `fieldElementSchema` below.
+ * If a new structurally-specific type is added to the union, add it here too.
  */
 const STRUCTURALLY_SPECIFIC_TYPES = new Set([
   "container",
