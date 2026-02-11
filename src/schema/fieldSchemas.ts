@@ -7,6 +7,16 @@ import type {
 } from "../types";
 
 /**
+ * Check if a Zod schema is string-based (ZodString or subclasses like ZodEmail).
+ * In Zod v4, `z.email()` returns a ZodEmail subclass that does NOT pass
+ * `instanceof z.ZodString`. We use the internal `_zod.def.type` discriminator
+ * which is `"string"` for all string-derived schemas.
+ */
+const isStringSchema = (schema: ZodTypeAny): boolean =>
+  // biome-ignore lint/suspicious/noExplicitAny: Zod v4 internal API — _zod.def.type is not in public types
+  (schema as any)?._zod?.def?.type === "string";
+
+/**
  * Schema factory function type.
  * Maps a field type string to a base Zod schema.
  */
@@ -36,7 +46,7 @@ export type SchemaMap = Record<string, SchemaFactory>;
 export const defaultSchemaMap: SchemaMap = {
   text: () => z.string(),
   phone: () => z.string(),
-  email: () => z.string().email("Invalid email address"),
+  email: () => z.email({ error: "Invalid email address" }),
   boolean: () => z.boolean(),
   date: () => z.string(),
 };
@@ -77,8 +87,9 @@ const buildArraySchema = (field: ArrayFieldElement): ZodTypeAny => {
     itemShape[itemField.name] = buildFieldSchema(itemField);
   }
 
-  // Create the item schema
-  let arraySchema = z.array(z.object(itemShape));
+  // Create the item schema — looseObject allows extra keys like the `id`
+  // property that react-hook-form's useFieldArray injects into every item.
+  let arraySchema = z.array(z.looseObject(itemShape));
 
   // Apply min/max constraints
   if (field.minItems !== undefined) {
@@ -293,9 +304,9 @@ const applyValidationRules = (
   validation: ValidationConfig,
   field: FieldElement
 ): ZodTypeAny => {
-  // String-based schemas
-  if (schema instanceof z.ZodString) {
-    return applyStringValidation(schema, validation);
+  // String-based schemas (ZodString, ZodEmail, and other string subclasses)
+  if (isStringSchema(schema)) {
+    return applyStringValidation(schema as z.ZodString, validation);
   }
 
   // Boolean schemas
@@ -341,10 +352,17 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
     schema = applyValidationRules(schema, field.validation, field);
   }
 
-  // For non-required fields, allow null and undefined values
-  // This is important for optional text/phone/date fields that may have null data
+  // For non-required fields, allow null, undefined, and empty string values.
+  // Empty strings are common in HTML forms — inputs default to "" rather than
+  // null/undefined, so optional string fields (especially email, phone) must
+  // accept "" without triggering format validation (e.g. .email()).
   if (isFieldOptional(field)) {
-    schema = schema.nullish();
+    if (isStringSchema(schema)) {
+      // Allow empty strings alongside valid values — HTML inputs default to ""
+      schema = z.union([z.literal(""), schema]).nullish();
+    } else {
+      schema = schema.nullish();
+    }
   }
 
   return schema;
