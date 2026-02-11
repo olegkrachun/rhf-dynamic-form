@@ -296,19 +296,17 @@ interface FormConfiguration {
 }
 ```
 
-### 4.2 Element Types Enum
+### 4.2 Element Types
 
-As defined in the specification:
+The engine is **type-agnostic** — `ElementType` is an open `string`, not a closed enum. Only `"container"` has special meaning (layout wrapper); everything else is treated as a field. Consumers can use any string as a field type.
 
 ```typescript
-type ElementType =
-  | 'text'
-  | 'email'
-  | 'boolean'
-  | 'phone'
-  | 'date'
-  | 'container'
-  | 'custom';
+// Engine definition — open-ended
+type ElementType = string;
+type FieldType = string;
+
+// Well-known conventions (not enforced):
+// 'text', 'email', 'boolean', 'phone', 'date', 'select', 'array', 'custom'
 ```
 
 ### 4.3 Field Element Schema
@@ -2429,19 +2427,11 @@ import {
 export type JsonLogicRule = Record<string, unknown>;
 
 // ============================================
-// Element Types (as per specification)
+// Element Types (open-ended — engine is type-agnostic)
 // ============================================
 
-export type ElementType =
-  | 'text'
-  | 'email'
-  | 'boolean'
-  | 'phone'
-  | 'date'
-  | 'container'
-  | 'custom';
-
-export type FieldType = 'text' | 'email' | 'boolean' | 'phone' | 'date';
+export type ElementType = string;  // Any string; only "container" has special meaning
+export type FieldType = string;    // Any string except "container"
 
 // ============================================
 // Validation Types

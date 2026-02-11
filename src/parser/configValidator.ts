@@ -101,7 +101,7 @@ const selectFieldSchema = baseFieldSchema
   .refine(
     (data) => {
       if (!data.optionsSource || data.optionsSource.type === "static") {
-        return data.options !== undefined && data.options.length >= 0;
+        return data.options !== undefined;
       }
       return true;
     },

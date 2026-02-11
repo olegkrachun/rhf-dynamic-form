@@ -25,7 +25,7 @@ export interface DynamicFormContextValue {
 
   /**
    * Unified component registry.
-   * Contains fields, custom components, containers, and column component.
+   * Contains fields, custom components, and container variants.
    */
   components: ComponentRegistry;
 

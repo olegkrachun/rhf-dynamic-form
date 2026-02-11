@@ -48,7 +48,9 @@ export function App() {
 
   const handleError = (errors: unknown) => {
     const id = nextId.current++;
-    const count = Object.keys(errors as Record<string, unknown>).length;
+    const errorObj =
+      errors !== null && typeof errors === "object" ? errors : {};
+    const count = Object.keys(errorObj).length;
     setChangeLog((prev) => [
       {
         id,

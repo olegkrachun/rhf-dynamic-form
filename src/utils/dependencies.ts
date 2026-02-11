@@ -78,7 +78,8 @@ export const getFieldTypeDefault = (field: FieldElement): unknown => {
     return "multiple" in field && field.multiple ? [] : null;
   }
 
-  // Boolean fields
+  // Boolean fields — well-known convention for default reset value.
+  // Consumer-defined boolean-like types should set `defaultValue` explicitly.
   if (field.type === "boolean") {
     return false;
   }

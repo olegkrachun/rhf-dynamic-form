@@ -3,6 +3,7 @@ export {
   buildFieldSchema,
   defaultSchemaMap,
   isFieldOptional,
+  resetSchemaMap,
   setSchemaMap,
 } from "./fieldSchemas";
 

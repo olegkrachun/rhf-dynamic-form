@@ -126,6 +126,15 @@ export const setSchemaMap = (schemaMap: SchemaMap): void => {
 };
 
 /**
+ * Reset the active schema map back to `defaultSchemaMap`.
+ * Useful for test isolation and SSR environments where module-level
+ * state must not leak between requests or test cases.
+ */
+export const resetSchemaMap = (): void => {
+  activeSchemaMap = { ...defaultSchemaMap };
+};
+
+/**
  * Build the base Zod schema for a field.
  *
  * Detection order:
@@ -283,11 +292,9 @@ const applyValidationRules = (
 
   // Select fields — detected structurally by the presence of `options` or `multiple`
   if ("options" in field || "multiple" in field) {
-    return applySelectValidation(
-      schema,
-      validation,
-      ("multiple" in field && (field as SelectFieldElement).multiple) ?? false
-    );
+    const isMultiple =
+      "multiple" in field && Boolean((field as SelectFieldElement).multiple);
+    return applySelectValidation(schema, validation, isMultiple);
   }
 
   // Unknown/consumer-defined types — no standard validation applied

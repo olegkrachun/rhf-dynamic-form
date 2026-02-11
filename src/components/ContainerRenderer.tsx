@@ -16,10 +16,10 @@ export interface ContainerRendererProps {
  * The ContainerRenderer:
  * 1. Looks up container component by variant from components.containers
  * 2. If no matching container registered, renders children directly (no wrapper)
- * 3. Container component receives full config (including columns as data) and rendered children
+ * 3. Container component receives full config (including meta data) and rendered children
  *
  * The engine renders only direct `children` elements.
- * `columns` are passed as data in `config` — the container component decides layout.
+ * All layout-specific data is passed via `config.meta` — the container component decides layout.
  */
 export const ContainerRenderer: React.FC<ContainerRendererProps> = ({
   config,

@@ -98,6 +98,7 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 - `SchemaMap` - `Record<string, SchemaFactory>` — configurable type→schema mapping
 - `defaultSchemaMap` - Well-known type defaults (text, email, boolean, phone, date)
 - `setSchemaMap()` - Replace active schema map at app startup
+- `resetSchemaMap()` - Reset to defaults (test isolation / SSR safety)
 
 ## Implementation Phases
 

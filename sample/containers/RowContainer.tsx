@@ -5,7 +5,8 @@ import type { ContainerComponent } from "../../src";
  * Reads `gap` from meta (default: "1rem").
  */
 export const RowContainer: ContainerComponent = ({ config, children }) => {
-  const gap = (config.meta?.gap as string) ?? "1rem";
+  const rawGap = config.meta?.gap;
+  const gap = typeof rawGap === "string" ? rawGap : "1rem";
 
   return (
     <div

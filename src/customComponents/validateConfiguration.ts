@@ -4,6 +4,7 @@ import type {
   FormConfiguration,
   FormElement,
 } from "@/types";
+import { isContainerElement } from "@/types";
 import {
   isCustomElement,
   type ValidatedCustomElement,
@@ -73,10 +74,6 @@ function validateContainer(
       `${path}.children`
     ),
   };
-}
-
-function isContainerElement(element: FormElement): element is ContainerElement {
-  return element.type === "container";
 }
 
 /**

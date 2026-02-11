@@ -25,7 +25,6 @@ Configuration-driven form engine for React with react-hook-form and Zod integrat
 - [API Reference](#api-reference)
   - [DynamicForm Props](#dynamicform-props)
   - [ComponentRegistry](#componentregistry)
-  - [Validation Options](#validation-options)
   - [Hooks](#hooks)
   - [Exports](#exports)
 - [Creating Field Components](#creating-field-components)
@@ -524,7 +523,7 @@ export type {
 };
 
 // Schema (configurable type → schema mapping)
-export { buildFieldSchema, generateZodSchema, defaultSchemaMap, setSchemaMap };
+export { buildFieldSchema, generateZodSchema, defaultSchemaMap, setSchemaMap, resetSchemaMap };
 
 // Utilities
 export {

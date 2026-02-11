@@ -2,7 +2,7 @@ import type { ContainerComponent } from "../../src";
 
 /**
  * Section container — renders a titled card-like section.
- * Reads `title`, `description`, `collapsible` from meta.
+ * Reads `title` and `description` from meta.
  */
 export const SectionContainer: ContainerComponent = ({ config, children }) => {
   const title = config.meta?.title as string | undefined;
