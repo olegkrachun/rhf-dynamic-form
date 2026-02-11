@@ -198,7 +198,7 @@ const applyStringValidation = (
 
   // Required validation - must be non-empty string
   if (validation.required) {
-    result = result.min(1, "This field is required");
+    result = result.min(1, validation.message ?? "This field is required");
   }
 
   // Min length validation
@@ -250,7 +250,7 @@ const applyBooleanValidation = (
   // (e.g., accepting terms and conditions)
   if (validation.required) {
     return schema.refine((val) => val === true, {
-      message: "This field is required",
+      message: validation.message ?? "This field is required",
     });
   }
 
@@ -274,14 +274,14 @@ const applySelectValidation = (
   if (validation.required && isMultiple) {
     return (schema as z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>>).min(
       1,
-      "At least one selection is required"
+      validation.message ?? "At least one selection is required"
     );
   }
 
   // For single select "required" means not null
   if (validation.required && !isMultiple) {
     return schema.refine((val) => val !== null && val !== undefined, {
-      message: "This field is required",
+      message: validation.message ?? "This field is required",
     });
   }
 
@@ -367,11 +367,13 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
     // Required string fields: API may send null for empty values.
     // Accept null at the type level but reject it via refine so the error
     // message is "This field is required" instead of "expected string, received null".
+    const requiredMessage =
+      field.validation?.message ?? "This field is required";
     schema = schema
       .nullable()
       .refine(
         (val) => val !== null && val !== undefined && String(val).length > 0,
-        { message: "This field is required" }
+        { message: requiredMessage }
       );
   }
 
