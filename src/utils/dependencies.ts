@@ -58,23 +58,34 @@ export const findFieldByName = (
 };
 
 /**
- * Gets the default value for a field based on its type.
+ * Gets the default value for a field based on structural detection.
  * Used when resetting dependent fields.
+ *
+ * Uses field shape (presence of `itemFields`, `multiple`, etc.)
+ * instead of type strings so consumer-defined types get sensible defaults.
  *
  * @param field - Field element
  * @returns Default value appropriate for the field type
  */
 export const getFieldTypeDefault = (field: FieldElement): unknown => {
-  switch (field.type) {
-    case "boolean":
-      return false;
-    case "select":
-      return field.multiple ? [] : null;
-    case "array":
-      return [];
-    default:
-      return "";
+  // Array fields — detected by `itemFields`
+  if ("itemFields" in field) {
+    return [];
   }
+
+  // Select fields — detected by `options` or `multiple`
+  if ("options" in field || "multiple" in field) {
+    return "multiple" in field && field.multiple ? [] : null;
+  }
+
+  // Boolean fields — well-known convention for default reset value.
+  // Consumer-defined boolean-like types should set `defaultValue` explicitly.
+  if (field.type === "boolean") {
+    return false;
+  }
+
+  // Everything else (text, email, phone, date, consumer-defined, etc.)
+  return "";
 };
 
 /**

@@ -1,10 +1,10 @@
-import type { BooleanFieldComponent } from "../../src";
+import type { BaseFieldComponent } from "../../src";
 
 /**
  * Sample boolean (checkbox) field component.
  * This is a basic, unstyled implementation for testing and reference.
  */
-export const BooleanField: BooleanFieldComponent = ({
+export const BooleanField: BaseFieldComponent = ({
   field,
   fieldState,
   config,

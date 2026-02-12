@@ -1,9 +1,7 @@
 import { createContext } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type {
-  CustomComponentRegistry,
-  CustomContainerRegistry,
-  FieldComponentRegistry,
+  ComponentRegistry,
   FieldWrapperFunction,
   FormConfiguration,
   FormData,
@@ -26,27 +24,14 @@ export interface DynamicFormContextValue {
   config: FormConfiguration;
 
   /**
-   * Registered field components for each field type.
-   * These are provided by the consuming application.
+   * Unified component registry.
+   * Contains fields, custom components, and container variants.
    */
-  fieldComponents: FieldComponentRegistry;
+  components: ComponentRegistry;
 
   /**
-   * Registered custom components.
-   * These are referenced by name in 'custom' type elements.
-   */
-  customComponents: CustomComponentRegistry;
-
-  /**
-   * Registered custom container components (Phase 2).
-   * These can be used to customize container layout rendering.
-   */
-  customContainers: CustomContainerRegistry;
-
-  /**
-   * Current visibility state for all fields (Phase 4).
+   * Current visibility state for all fields.
    * Maps field names to their visibility (true = visible).
-   * For Phase 1, all fields are always visible.
    */
   visibility: Record<string, boolean>;
 
@@ -55,6 +40,22 @@ export interface DynamicFormContextValue {
    * When provided, every field is wrapped with this function.
    */
   fieldWrapper?: FieldWrapperFunction;
+
+  /**
+   * Current form validity state.
+   * Reactive - updates when validation state changes.
+   */
+  isValid: boolean;
+
+  /**
+   * Current form errors.
+   * Reactive - updates when validation state changes.
+   *
+   * Intentionally typed as `Record<string, unknown>` (not react-hook-form's
+   * `FieldErrors`) to decouple the context interface from the form library.
+   * Consumers who need structured error access can use `form.formState.errors`.
+   */
+  errors: Record<string, unknown>;
 }
 
 /**

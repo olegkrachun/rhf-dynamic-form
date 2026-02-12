@@ -1,4 +1,8 @@
-import type { SelectFieldComponent, SelectOption } from "../../src";
+import type {
+  BaseFieldComponent,
+  SelectFieldElement,
+  SelectOption,
+} from "../../src";
 import { getNestedValue } from "../../src";
 
 /**
@@ -57,12 +61,13 @@ const getSelectValue = (
  * This is a basic, unstyled implementation for testing and reference.
  * Supports dependsOn for cascading selects.
  */
-export const SelectField: SelectFieldComponent = ({
+export const SelectField: BaseFieldComponent = ({
   field,
   fieldState,
-  config,
+  config: baseConfig,
   formValues,
 }) => {
+  const config = baseConfig as SelectFieldElement;
   // Get parent value if dependsOn is set
   const parentValue = config.dependsOn
     ? getNestedValue(formValues, config.dependsOn)

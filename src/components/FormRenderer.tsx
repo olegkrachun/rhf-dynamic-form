@@ -33,9 +33,11 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ elements }) => {
         // Generate a stable key for each element
         // For fields, use the name; for containers, use index
         const key =
-          "name" in element && element.name ? element.name : `element-${index}`;
+          "name" in element && element.name
+            ? String(element.name)
+            : `element-${index}`;
 
-        return <ElementRenderer element={element} key={key} />;
+        return <ElementRenderer config={element} key={key} />;
       })}
     </>
   );

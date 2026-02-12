@@ -1,5 +1,10 @@
 import { useFormContext } from "react-hook-form";
-import type { ArrayFieldComponent, FieldElement } from "../../src";
+import type {
+  ArrayFieldElement,
+  BaseFieldComponent,
+  FieldElement,
+  SelectFieldElement,
+} from "../../src";
 
 /**
  * Get nested error from form errors object.
@@ -86,7 +91,7 @@ const renderItemField = (
             value={(currentValue as string) ?? ""}
           >
             <option value="">Select...</option>
-            {(itemField.options ?? []).map((opt) => (
+            {((itemField as SelectFieldElement).options ?? []).map((opt) => (
               <option disabled={opt.disabled} key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -124,11 +129,12 @@ const renderItemField = (
  * Sample array field component.
  * Renders actual form fields for each array item with validation errors.
  */
-export const ArrayField: ArrayFieldComponent = ({
+export const ArrayField: BaseFieldComponent = ({
   field,
   fieldState,
-  config,
+  config: baseConfig,
 }) => {
+  const config = baseConfig as ArrayFieldElement;
   const { formState } = useFormContext();
   const items = Array.isArray(field.value) ? field.value : [];
 

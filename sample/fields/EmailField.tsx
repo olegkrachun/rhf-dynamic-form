@@ -1,10 +1,10 @@
-import type { EmailFieldComponent } from "../../src";
+import type { BaseFieldComponent } from "../../src";
 
 /**
  * Sample email input field component.
  * This is a basic, unstyled implementation for testing and reference.
  */
-export const EmailField: EmailFieldComponent = ({
+export const EmailField: BaseFieldComponent = ({
   field,
   fieldState,
   config,

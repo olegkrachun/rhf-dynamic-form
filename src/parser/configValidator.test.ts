@@ -166,21 +166,23 @@ describe("configValidator", () => {
       });
     });
 
-    it("should validate a valid container with columns", () => {
+    it("should validate a valid container with children", () => {
       const config = {
         elements: [
           {
             type: "container",
-            columns: [
+            children: [
               {
-                type: "column",
-                width: "50%",
-                elements: [{ type: "text", name: "firstName" }],
+                type: "container",
+                variant: "column",
+                meta: { width: "50%" },
+                children: [{ type: "text", name: "firstName" }],
               },
               {
-                type: "column",
-                width: "50%",
-                elements: [{ type: "text", name: "lastName" }],
+                type: "container",
+                variant: "column",
+                meta: { width: "50%" },
+                children: [{ type: "text", name: "lastName" }],
               },
             ],
           },
@@ -192,18 +194,19 @@ describe("configValidator", () => {
       expect(result.elements).toHaveLength(1);
       const container = result.elements[0] as {
         type: string;
-        columns: unknown[];
+        children: unknown[];
       };
       expect(container.type).toBe("container");
-      expect(container.columns).toHaveLength(2);
+      expect(container.children).toHaveLength(2);
     });
 
-    it("should reject an invalid field type", () => {
+    it("should accept any field type string (type-agnostic engine)", () => {
       const config = {
-        elements: [{ type: "invalid", name: "test" }],
+        elements: [{ type: "textarea", name: "test" }],
       };
 
-      expect(() => validateConfiguration(config)).toThrow(ZodError);
+      const result = validateConfiguration(config);
+      expect(result.elements).toHaveLength(1);
     });
 
     it("should reject missing required properties", () => {
@@ -412,18 +415,19 @@ describe("configValidator", () => {
       expect(resultSearch.elements).toHaveLength(1);
     });
 
-    it("should validate visibility on containers and columns", () => {
+    it("should validate visibility on containers and column containers", () => {
       const config = {
         elements: [
           {
             type: "container",
             visible: { "==": [{ var: "showSection" }, true] },
-            columns: [
+            children: [
               {
-                type: "column",
-                width: "100%",
+                type: "container",
+                variant: "column",
+                meta: { width: "100%" },
                 visible: { "==": [{ var: "showColumn" }, true] },
-                elements: [{ type: "text", name: "test" }],
+                children: [{ type: "text", name: "test" }],
               },
             ],
           },

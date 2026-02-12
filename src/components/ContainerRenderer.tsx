@@ -1,6 +1,7 @@
 import { useDynamicFormContext } from "../hooks";
-import type { ContainerComponent, ContainerElement } from "../types";
-import { ColumnRenderer } from "./ColumnRenderer";
+import type { ContainerElement } from "../types";
+import { evaluateCondition } from "../validation";
+import { ElementRenderer } from "./ElementRenderer";
 
 /**
  * Props for the ContainerRenderer component.
@@ -11,63 +12,53 @@ export interface ContainerRendererProps {
 }
 
 /**
- * Default container styles using flexbox.
- */
-const defaultContainerStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "16px",
-  flexWrap: "wrap",
-};
-
-/**
- * Default container component used when no custom container is provided.
- * Receives config and children props as per ContainerProps interface.
- */
-const DefaultContainer: ContainerComponent = ({ children }) => {
-  return <div style={defaultContainerStyle}>{children}</div>;
-};
-
-/**
- * Renders a container element with its columns.
+ * Renders a container element by delegating to a consumer-provided component.
  *
  * The ContainerRenderer:
- * 1. Checks visibility (Phase 4 - currently all containers are visible)
- * 2. Looks up custom container component if specified
- * 3. Renders columns as children using ColumnRenderer
+ * 1. Evaluates container's `visible` rule — returns null if hidden
+ * 2. Looks up container component by variant from components.containers
+ * 3. If no matching container registered, renders children directly (no wrapper)
+ * 4. Container component receives full config (including meta data) and rendered children
  *
- * @example
- * ```tsx
- * <ContainerRenderer
- *   config={{
- *     type: 'container',
- *     columns: [
- *       { type: 'column', width: '50%', elements: [...] },
- *       { type: 'column', width: '50%', elements: [...] }
- *     ]
- *   }}
- * />
- * ```
+ * The engine renders only direct `children` elements.
+ * All layout-specific data is passed via `config.meta` — the container component decides layout.
  */
 export const ContainerRenderer: React.FC<ContainerRendererProps> = ({
   config,
 }) => {
-  const { customContainers } = useDynamicFormContext();
+  const { components, form } = useDynamicFormContext();
+  const containers = components.containers ?? {};
 
-  // Check visibility (Phase 4 - for now all containers are visible)
-  // In Phase 4, we'll evaluate config.visible using JSON Logic
+  // Enforce container-level visibility
+  if (config.visible) {
+    const formValues = form.getValues();
+    const isVisible = evaluateCondition(config.visible, formValues);
+    if (!isVisible) {
+      return null;
+    }
+  }
 
-  // Look for a custom container component
-  // Custom containers can be specified via a containerType property (future enhancement)
-  // For now, we use the default container
-  const ContainerComponent = customContainers?.default ?? DefaultContainer;
+  // Engine renders only direct children elements
+  const renderedChildren =
+    config.children && config.children.length > 0
+      ? config.children.map((element, idx) => {
+          const key =
+            "name" in element && element.name
+              ? String(element.name)
+              : `element-${idx}`;
+          return <ElementRenderer config={element} key={key} />;
+        })
+      : null;
 
-  // Columns are static within a container config and don't get reordered at runtime
-  const columns = config.columns.map((column, index) => (
-    // biome-ignore lint/suspicious/noArrayIndexKey: Columns don't have unique IDs in schema
-    <ColumnRenderer config={column} key={`column-${index}`} />
-  ));
+  // Look up container component by variant
+  const variant = config.variant ?? "default";
+  const ContainerComp = containers[variant] ?? containers.default;
 
-  return <ContainerComponent config={config}>{columns}</ContainerComponent>;
+  if (!ContainerComp) {
+    return <>{renderedChildren}</>;
+  }
+
+  return <ContainerComp config={config}>{renderedChildren}</ContainerComp>;
 };
 
 ContainerRenderer.displayName = "ContainerRenderer";

@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ConfigurationError,
-  parseConfiguration,
-  safeParseConfiguration,
-} from "./configParser";
+import { parseConfiguration, safeParseConfiguration } from "./configParser";
 
 describe("parseConfiguration", () => {
   it("should parse valid configuration", () => {
@@ -52,12 +48,13 @@ describe("parseConfiguration", () => {
     expect(result.elements[0].type).toBe("custom");
   });
 
-  it("should throw ConfigurationError for invalid element type", () => {
+  it("should accept any field type string (type-agnostic engine)", () => {
     const config = {
-      elements: [{ type: "invalid", name: "field1" }],
+      elements: [{ type: "rich-text", name: "field1" }],
     };
 
-    expect(() => parseConfiguration(config)).toThrow(ConfigurationError);
+    const result = parseConfiguration(config);
+    expect(result.elements).toHaveLength(1);
   });
 
   it("should throw for missing required field name", () => {
@@ -117,9 +114,9 @@ describe("safeParseConfiguration", () => {
     expect(result.config).toBeDefined();
   });
 
-  it("should return errors for invalid configuration", () => {
+  it("should return errors for invalid configuration (missing name)", () => {
     const config = {
-      elements: [{ type: "invalid", name: "field" }],
+      elements: [{ type: "text" }],
     };
 
     const result = safeParseConfiguration(config);

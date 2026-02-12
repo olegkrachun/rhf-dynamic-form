@@ -13,8 +13,8 @@ export interface ValidationConfig {
   /** Field is required - must have a non-empty value */
   required?: boolean;
 
-  /** Type-specific validation (for future use) */
-  type?: "number" | "email" | "date";
+  /** Type-specific validation hint (any string — engine does not enforce a closed set) */
+  type?: string;
 
   /** Minimum length for text fields */
   minLength?: number;

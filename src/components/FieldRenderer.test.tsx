@@ -3,11 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
-import type {
-  CustomComponentRegistry,
-  FieldWrapperFunction,
-  FormConfiguration,
-} from "../types";
+import type { FieldWrapperFunction, FormConfiguration } from "../types";
 
 describe("FieldRenderer", () => {
   describe("standard field rendering", () => {
@@ -18,8 +14,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -35,8 +31,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -52,8 +48,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -67,13 +63,13 @@ describe("FieldRenderer", () => {
       interface RatingProps {
         maxStars: number;
       }
-      const customComponents: CustomComponentRegistry = {
-        RatingField: ({ componentProps }: { componentProps: RatingProps }) => (
-          <div data-testid="custom-rating">
-            Stars: {componentProps.maxStars}
-          </div>
-        ),
-      };
+      const RatingField = ({
+        componentProps,
+      }: {
+        componentProps: RatingProps;
+      }) => (
+        <div data-testid="custom-rating">Stars: {componentProps.maxStars}</div>
+      );
 
       const config: FormConfiguration = {
         elements: [
@@ -88,9 +84,11 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{
+            fields: mockFieldComponents,
+            custom: { RatingField },
+          }}
           config={config}
-          customComponents={customComponents}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -115,8 +113,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -138,8 +136,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           onSubmit={vi.fn()}
         />
       );
@@ -162,8 +160,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           fieldWrapper={fieldWrapper}
           onSubmit={vi.fn()}
         />
@@ -187,8 +185,8 @@ describe("FieldRenderer", () => {
 
       render(
         <DynamicForm
+          components={{ fields: mockFieldComponents }}
           config={config}
-          fieldComponents={mockFieldComponents}
           fieldWrapper={fieldWrapper}
           initialData={{ stateful: "test-value" }}
           onSubmit={vi.fn()}

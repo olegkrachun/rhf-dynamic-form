@@ -468,11 +468,12 @@ describe("generateZodSchema", () => {
         elements: [
           {
             type: "container",
-            columns: [
+            children: [
               {
-                type: "column",
-                width: "100%",
-                elements: [
+                type: "container",
+                variant: "column",
+                meta: { width: "100%" },
+                children: [
                   {
                     type: "array",
                     name: "nested.contacts",

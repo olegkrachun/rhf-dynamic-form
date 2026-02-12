@@ -19,34 +19,29 @@ export type {
 export type {
   ApiOptionsSource,
   ArrayFieldElement,
-  BooleanFieldElement,
-  ColumnElement,
+  BaseFieldElement,
   ContainerElement,
   CustomFieldElement,
-  DateFieldElement,
   ElementType,
-  EmailFieldElement,
   FieldElement,
   FieldType,
   FormElement,
   LayoutElement,
   MapOptionsSource,
   OptionsSource,
-  PhoneFieldElement,
   ResolverOptionsSource,
   SearchOptionsSource,
   SelectFieldElement,
   SelectOption,
   StaticOptionsSource,
-  TextFieldElement,
 } from "./elements";
 
 export {
   isArrayFieldElement,
-  isColumnElement,
   isContainerElement,
   isCustomFieldElement,
   isFieldElement,
+  isSectionContainer,
 } from "./elements";
 // Event types
 export type {
@@ -63,28 +58,17 @@ export type {
   ArrayFieldProps,
   BaseFieldComponent,
   BaseFieldProps,
-  BooleanFieldComponent,
-  BooleanFieldProps,
-  // Container component types (Phase 2)
-  ColumnComponent,
-  ColumnProps,
+  // Unified component registry
+  ComponentRegistry,
   ContainerComponent,
   ContainerProps,
   CustomContainerRegistry,
   CustomFieldComponent,
   CustomFieldProps,
-  DateFieldComponent,
-  DateFieldProps,
-  EmailFieldComponent,
-  EmailFieldProps,
   FieldComponentRegistry,
   FieldProps,
-  PhoneFieldComponent,
-  PhoneFieldProps,
   SelectFieldComponent,
   SelectFieldProps,
-  TextFieldComponent,
-  TextFieldProps,
 } from "./fields";
 export type {
   InvisibleFieldValidation,

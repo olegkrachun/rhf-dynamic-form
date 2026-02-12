@@ -1,4 +1,11 @@
-export { buildFieldSchema, isFieldOptional } from "./fieldSchemas";
+export type { SchemaFactory, SchemaMap } from "./fieldSchemas";
+export {
+  buildFieldSchema,
+  defaultSchemaMap,
+  isFieldOptional,
+  resetSchemaMap,
+  setSchemaMap,
+} from "./fieldSchemas";
 
 export type {
   GeneratedSchema,

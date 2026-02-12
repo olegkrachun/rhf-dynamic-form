@@ -1,6 +1,6 @@
-import type React from "react";
+import type { FC } from "react";
 import type { FormElement } from "../types";
-import { isColumnElement, isContainerElement, isFieldElement } from "../types";
+import { isContainerElement, isFieldElement } from "../types";
 import { ContainerRenderer } from "./ContainerRenderer";
 import { FieldRenderer } from "./FieldRenderer";
 
@@ -8,53 +8,29 @@ import { FieldRenderer } from "./FieldRenderer";
  * Props for the ElementRenderer component.
  */
 export interface ElementRendererProps {
-  /** Form element configuration (field, container, or column) */
-  element: FormElement;
+  /** Form element configuration (field or container) */
+  config: FormElement;
 }
 
 /**
  * Dispatches rendering to the appropriate component based on element type.
  *
- * Supports field elements (Phase 1) and container/column layouts (Phase 2).
+ * The engine knows only two rendering paths:
+ * - field → FieldRenderer → components.fields[type] or components.custom[name]
+ * - container → ContainerRenderer → components.containers[variant]
  *
- * @example
- * ```tsx
- * // Field element
- * <ElementRenderer element={{ type: 'text', name: 'name', label: 'Name' }} />
- *
- * // Container element with columns
- * <ElementRenderer element={{
- *   type: 'container',
- *   columns: [
- *     { type: 'column', width: '50%', elements: [...] }
- *   ]
- * }} />
- * ```
+ * Columns are NOT rendered by the engine — they are data inside container config.
+ * The container component decides how to lay out its columns.
  */
-export const ElementRenderer: React.FC<ElementRendererProps> = ({
-  element,
-}) => {
-  // Field elements - render with FieldRenderer
-  if (isFieldElement(element)) {
-    return <FieldRenderer config={element} />;
+export const ElementRenderer: FC<ElementRendererProps> = ({ config }) => {
+  if (isFieldElement(config)) {
+    return <FieldRenderer config={config} />;
   }
 
-  // Container elements - Phase 2
-  if (isContainerElement(element)) {
-    return <ContainerRenderer config={element} />;
+  if (isContainerElement(config)) {
+    return <ContainerRenderer config={config} />;
   }
 
-  // Column elements - Phase 2 (shouldn't be rendered directly)
-  if (isColumnElement(element)) {
-    console.warn(
-      "Column elements should not be rendered directly. " +
-        "They should be children of a container element."
-    );
-    return null;
-  }
-
-  // Unknown element type
-  console.warn(`Unknown element type: ${(element as { type?: string }).type}`);
   return null;
 };
 

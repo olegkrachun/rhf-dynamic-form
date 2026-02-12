@@ -12,7 +12,7 @@ const jsonLogicRuleSchema = z.record(z.string(), z.unknown());
 const validationConfigSchema = z
   .object({
     required: z.boolean().optional(),
-    type: z.enum(["number", "email", "date"]).optional(),
+    type: z.string().optional(),
     minLength: z.number().int().min(0).optional(),
     maxLength: z.number().int().min(0).optional(),
     pattern: z.string().optional(),
@@ -23,62 +23,42 @@ const validationConfigSchema = z
   .optional();
 
 /**
+ * Consumer-specific metadata schema.
+ * Accepts any key-value pairs — the engine does not interpret these.
+ */
+const metaSchema = z.record(z.string(), z.unknown()).optional();
+
+/**
  * Base field element schema (common properties).
+ *
+ * The engine accepts ANY `type` string (except "container") as a field.
+ * Well-known types get structural refinement (select needs options,
+ * array needs itemFields, custom needs component), but unknown types
+ * pass through with just `type` + `name`.
  */
-const baseFieldSchema = z.object({
-  name: z.string().min(1, "Field name is required"),
-  label: z.string().optional(),
-  placeholder: z.string().optional(),
-  defaultValue: z
-    .union([
-      z.string(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.array(z.unknown()),
-      z.record(z.string(), z.unknown()),
-    ])
-    .optional(),
-  validation: validationConfigSchema,
-  visible: jsonLogicRuleSchema.optional(),
-  dependsOn: z.string().optional(),
-  resetOnParentChange: z.boolean().optional(),
-});
-
-/**
- * Text field element schema.
- */
-const textFieldSchema = baseFieldSchema.extend({
-  type: z.literal("text"),
-});
-
-/**
- * Email field element schema.
- */
-const emailFieldSchema = baseFieldSchema.extend({
-  type: z.literal("email"),
-});
-
-/**
- * Boolean field element schema.
- */
-const booleanFieldSchema = baseFieldSchema.extend({
-  type: z.literal("boolean"),
-});
-
-/**
- * Phone field element schema.
- */
-const phoneFieldSchema = baseFieldSchema.extend({
-  type: z.literal("phone"),
-});
-
-/**
- * Date field element schema.
- */
-const dateFieldSchema = baseFieldSchema.extend({
-  type: z.literal("date"),
-});
+const baseFieldSchema = z
+  .object({
+    type: z.string().min(1, "Field type is required"),
+    name: z.string().min(1, "Field name is required"),
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    defaultValue: z
+      .union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(z.unknown()),
+        z.record(z.string(), z.unknown()),
+      ])
+      .optional(),
+    validation: validationConfigSchema,
+    visible: jsonLogicRuleSchema.optional(),
+    dependsOn: z.string().optional(),
+    resetOnParentChange: z.boolean().optional(),
+    meta: metaSchema,
+  })
+  .catchall(z.unknown());
 
 /**
  * Select option schema.
@@ -120,9 +100,8 @@ const selectFieldSchema = baseFieldSchema
   })
   .refine(
     (data) => {
-      // Options are required when no optionsSource is provided or when using static source
       if (!data.optionsSource || data.optionsSource.type === "static") {
-        return data.options !== undefined && data.options.length >= 0;
+        return data.options !== undefined;
       }
       return true;
     },
@@ -131,12 +110,21 @@ const selectFieldSchema = baseFieldSchema
 
 /**
  * Custom field element schema.
+ * Requires a `component` name for registry lookup.
  */
 const customFieldSchema = baseFieldSchema.extend({
   type: z.literal("custom"),
   component: z.string().min(1, "Custom component name is required"),
   componentProps: z.record(z.string(), z.unknown()).optional(),
 });
+
+/**
+ * Forward declaration for formElementSchema (used in recursive schemas).
+ * The engine knows only two element kinds: field and container.
+ */
+const formElementSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([fieldElementSchema, containerElementSchema])
+);
 
 /**
  * Array field element schema.
@@ -162,51 +150,63 @@ const arrayFieldSchema = baseFieldSchema
   );
 
 /**
- * Field element schema - union of all field types.
+ * Types with structural requirements that MUST be validated
+ * by their specific schemas (select, custom, array).
+ * The generic schema rejects these so they don't sneak through
+ * with missing required properties.
+ *
+ * **Keep in sync** with the union members in `fieldElementSchema` below.
+ * If a new structurally-specific type is added to the union, add it here too.
  */
-const fieldElementSchema: z.ZodType<unknown> = z.discriminatedUnion("type", [
-  textFieldSchema,
-  emailFieldSchema,
-  booleanFieldSchema,
-  phoneFieldSchema,
-  dateFieldSchema,
-  selectFieldSchema,
-  customFieldSchema,
-  arrayFieldSchema,
+const STRUCTURALLY_SPECIFIC_TYPES = new Set([
+  "container",
+  "select",
+  "custom",
+  "array",
 ]);
 
 /**
- * Form element schema - for Phase 1, only field elements are supported.
- * Phase 2 will add container and column schemas.
+ * Generic field element schema.
  *
- * We use a lazy schema to allow for future recursive definitions
- * (containers containing columns containing elements).
+ * Accepts any field with `type` + `name` EXCEPT:
+ * - "container" (must be validated by containerElementSchema)
+ * - "select" (must be validated by selectFieldSchema — needs options)
+ * - "custom" (must be validated by customFieldSchema — needs component)
+ * - "array" (must be validated by arrayFieldSchema — needs itemFields)
  */
-const formElementSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([fieldElementSchema, containerElementSchema, columnElementSchema])
+const genericFieldSchema = baseFieldSchema.refine(
+  (data) => !STRUCTURALLY_SPECIFIC_TYPES.has(data.type),
+  { message: "This type requires specific structural properties" }
 );
 
 /**
- * Column element schema (for Phase 2, but defined here for type completeness).
+ * Field element schema — union of structurally-specific types + open-ended generic.
+ *
+ * Order matters: specific schemas (select, custom, array) are tried first
+ * so their structural requirements (options, component, itemFields) are enforced.
+ * The generic schema catches everything else — any `type` string is valid.
  */
-const columnElementSchema = z.object({
-  type: z.literal("column"),
-  width: z.string().min(1, "Column width is required"),
-  elements: z.array(z.lazy(() => formElementSchema)),
-  visible: jsonLogicRuleSchema.optional(),
-});
+const fieldElementSchema: z.ZodType<unknown> = z.union([
+  selectFieldSchema,
+  customFieldSchema,
+  arrayFieldSchema,
+  genericFieldSchema,
+]);
 
 /**
- * Container element schema (for Phase 2).
- * Uses passthrough() to preserve custom properties like containerMeta.
+ * Container element schema.
+ * Variant determines which container component renders it.
+ * All layout-specific data (width, title, icon, etc.) goes in `meta`.
  */
 const containerElementSchema = z
   .object({
     type: z.literal("container"),
-    columns: z.array(columnElementSchema),
+    variant: z.string().optional(),
+    children: z.array(z.lazy(() => formElementSchema)).optional(),
     visible: jsonLogicRuleSchema.optional(),
+    meta: metaSchema,
   })
-  .passthrough();
+  .catchall(z.unknown());
 
 /**
  * Custom component definition schema.

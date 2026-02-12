@@ -31,6 +31,9 @@ const processLeafError = (
   visibility: Record<string, boolean>,
   warnMode: boolean
 ): unknown => {
+  // Fields not in the visibility map (e.g. array item sub-fields like
+  // "claimantMembers.1.cpm_email") default to visible — only explicitly
+  // hidden fields (visibility[path] === false) should be filtered out.
   const isVisible = visibility[path] !== false;
 
   if (isVisible) {

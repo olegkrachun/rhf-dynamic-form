@@ -1,20 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type {
   ArrayFieldElement,
-  BooleanFieldElement,
+  BaseFieldElement,
   CustomFieldElement,
-  DateFieldElement,
-  EmailFieldElement,
-  PhoneFieldElement,
   SelectFieldElement,
-  TextFieldElement,
 } from "../types";
 import { buildFieldSchema, isFieldOptional } from "./fieldSchemas";
 
 describe("fieldSchemas", () => {
   describe("buildFieldSchema - basic types", () => {
     it("should build schema for text field", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "firstName",
       };
@@ -26,7 +22,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should build schema for email field with email validation", () => {
-      const field: EmailFieldElement = {
+      const field: BaseFieldElement = {
         type: "email",
         name: "contactEmail",
       };
@@ -38,7 +34,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should build schema for boolean field", () => {
-      const field: BooleanFieldElement = {
+      const field: BaseFieldElement = {
         type: "boolean",
         name: "isActive",
       };
@@ -51,7 +47,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should build schema for phone field", () => {
-      const field: PhoneFieldElement = {
+      const field: BaseFieldElement = {
         type: "phone",
         name: "mobile",
       };
@@ -63,7 +59,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should build schema for date field", () => {
-      const field: DateFieldElement = {
+      const field: BaseFieldElement = {
         type: "date",
         name: "birthDate",
       };
@@ -200,11 +196,32 @@ describe("fieldSchemas", () => {
       const invalidData = [{ name: "John", email: "not-an-email" }];
       expect(schema.safeParse(invalidData).success).toBe(false);
     });
+
+    it("should use array schema even when field type matches schema map", () => {
+      // Regression: field has type "text" (in schema map) but also has
+      // itemFields — structural detection must win over schema map lookup
+      const field = {
+        type: "text",
+        name: "parties",
+        itemFields: [
+          { type: "text", name: "name" },
+          { type: "email", name: "email" },
+        ],
+      } as unknown as ArrayFieldElement;
+
+      const schema = buildFieldSchema(field);
+
+      // Must accept arrays (not strings)
+      expect(
+        schema.safeParse([{ name: "John", email: "j@e.com" }]).success
+      ).toBe(true);
+      expect(schema.safeParse("some string").success).toBe(false);
+    });
   });
 
   describe("applyStringValidation", () => {
     it("should apply required validation (min 1 character)", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "name",
         validation: { required: true },
@@ -217,7 +234,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should apply minLength validation", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "username",
         validation: { minLength: 3 },
@@ -230,8 +247,28 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse("abcd").success).toBe(true);
     });
 
+    it("should accept null and undefined but enforce minLength for optional field", () => {
+      const field: BaseFieldElement = {
+        type: "text",
+        name: "nickname",
+        validation: { minLength: 3 },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Optional field (no required:true) should accept null and undefined
+      expect(schema.safeParse(null).success).toBe(true);
+      expect(schema.safeParse(undefined).success).toBe(true);
+
+      // But still reject strings shorter than minLength
+      expect(schema.safeParse("ab").success).toBe(false);
+
+      // And accept valid strings
+      expect(schema.safeParse("abc").success).toBe(true);
+    });
+
     it("should apply maxLength validation", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "code",
         validation: { maxLength: 5 },
@@ -244,7 +281,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should apply pattern validation with regex", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "zipCode",
         validation: { pattern: "^[0-9]{5}$", message: "Invalid zip code" },
@@ -258,7 +295,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should combine multiple string validations", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "code",
         validation: {
@@ -281,7 +318,7 @@ describe("fieldSchemas", () => {
 
   describe("applyBooleanValidation", () => {
     it("should apply required validation (must be true)", () => {
-      const field: BooleanFieldElement = {
+      const field: BaseFieldElement = {
         type: "boolean",
         name: "acceptTerms",
         validation: { required: true },
@@ -294,7 +331,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should allow false when not required", () => {
-      const field: BooleanFieldElement = {
+      const field: BaseFieldElement = {
         type: "boolean",
         name: "optIn",
       };
@@ -340,7 +377,7 @@ describe("fieldSchemas", () => {
 
   describe("isFieldOptional", () => {
     it("should return true when no validation config", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "optional",
       };
@@ -349,7 +386,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should return true when required is false", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "optional",
         validation: { required: false },
@@ -359,7 +396,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should return false when required is true", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "required",
         validation: { required: true },
@@ -369,7 +406,7 @@ describe("fieldSchemas", () => {
     });
 
     it("should return true when validation exists but required is not set", () => {
-      const field: TextFieldElement = {
+      const field: BaseFieldElement = {
         type: "text",
         name: "hasValidation",
         validation: { minLength: 3 },

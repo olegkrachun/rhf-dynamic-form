@@ -33,9 +33,7 @@ interface DynamicFormPropsWithRef extends DynamicFormProps {
 export const DynamicForm = ({
   config,
   initialData,
-  fieldComponents,
-  customComponents = {},
-  customContainers = {},
+  components,
   onSubmit,
   onChange,
   onValidationChange,
@@ -50,6 +48,8 @@ export const DynamicForm = ({
   fieldWrapper,
   ref,
 }: DynamicFormPropsWithRef): React.ReactElement => {
+  const customComponents = components.custom ?? {};
+
   // Parse and validate configuration, including custom component props
   const parsedConfig = useMemo(() => {
     const parsed = parseConfiguration(config);
@@ -101,6 +101,8 @@ export const DynamicForm = ({
       watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
+      getIsValid: () => form.formState.isValid,
+      getErrors: () => form.formState.errors,
     }),
     [form, defaultValues]
   );
@@ -111,6 +113,12 @@ export const DynamicForm = ({
   );
 
   const previousValuesRef = useRef<Record<string, unknown>>({});
+
+  /**
+   * Set of field names currently being reset by the dependency system.
+   * Watch events for these fields are suppressed to avoid duplicate onChange calls.
+   */
+  const resettingFieldsRef = useRef<Set<string>>(new Set());
 
   // Single watch subscription: visibility + dependency resets + onChange
   useEffect(() => {
@@ -138,6 +146,7 @@ export const DynamicForm = ({
       for (const dep of dependents) {
         const field = findFieldByName(parsedConfig.elements, dep);
         if (field && field.resetOnParentChange !== false) {
+          resettingFieldsRef.current.add(dep);
           form.setValue(dep, getFieldDefault(field));
         }
       }
@@ -153,6 +162,12 @@ export const DynamicForm = ({
       setVisibility((prev) => getUpdatedVisibility(prev, newVisibility));
 
       if (!name) {
+        return;
+      }
+
+      // Skip onChange for programmatic dependency resets to avoid duplicates
+      if (resettingFieldsRef.current.has(name)) {
+        resettingFieldsRef.current.delete(name);
         return;
       }
 
@@ -178,20 +193,20 @@ export const DynamicForm = ({
     () => ({
       form,
       config: parsedConfig,
-      fieldComponents,
-      customComponents,
-      customContainers,
+      components,
       visibility,
       fieldWrapper,
+      isValid: formIsValid,
+      errors: formErrors as Record<string, unknown>,
     }),
     [
       form,
       parsedConfig,
-      fieldComponents,
-      customComponents,
-      customContainers,
+      components,
       visibility,
       fieldWrapper,
+      formIsValid,
+      formErrors,
     ]
   );
 

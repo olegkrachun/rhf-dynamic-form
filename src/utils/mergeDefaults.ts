@@ -77,6 +77,28 @@ export const getNestedValue = (
 };
 
 /**
+ * Deep clones a value, ensuring arrays and objects are new instances.
+ * This prevents "Cannot assign to read only property" errors with frozen Redux state.
+ */
+const deepClone = (value: unknown): unknown => {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(deepClone);
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const key in value) {
+    if (Object.hasOwn(value as Record<string, unknown>, key)) {
+      result[key] = deepClone((value as Record<string, unknown>)[key]);
+    }
+  }
+  return result;
+};
+
+/**
  * Deep merge two objects. Source values override target values.
  *
  * @param target - Base object
@@ -107,7 +129,8 @@ const deepMerge = (
           sourceValue as Record<string, unknown>
         );
       } else {
-        result[key] = sourceValue;
+        // Deep clone arrays and other values to prevent frozen state issues
+        result[key] = deepClone(sourceValue);
       }
     }
   }
@@ -116,32 +139,41 @@ const deepMerge = (
 };
 
 /**
- * Gets the default value for a field based on its type.
+ * Gets the default value for a field based on structural detection.
+ *
+ * Uses field shape (presence of `multiple`, `itemFields`, etc.)
+ * instead of type strings so unknown/consumer-defined types still
+ * get a sensible default.
  *
  * @param field - Field element
  * @returns Appropriate default value for the field type
  */
 const getTypeDefault = (field: FieldElement): unknown => {
-  switch (field.type) {
-    case "boolean":
-      return false;
-    case "select":
-      return field.multiple ? [] : null;
-    case "array":
-      return [];
-    case "text":
-    case "email":
-    case "phone":
-    case "date":
-      return "";
-    default:
-      return "";
+  // Array fields — detected by `itemFields`
+  if ("itemFields" in field) {
+    return [];
   }
+
+  // Select fields — detected by `options` or `multiple`
+  if ("options" in field || "multiple" in field) {
+    return "multiple" in field && field.multiple ? [] : null;
+  }
+
+  // Boolean fields
+  if (field.type === "boolean") {
+    return false;
+  }
+
+  // Everything else (text, email, phone, date, consumer-defined, etc.)
+  return "";
 };
 
 /**
  * Merges configuration default values with initial data.
  * Priority: initialData > config.defaultValue > type default
+ *
+ * IMPORTANT: All values are deep cloned to prevent "Cannot assign to read only property"
+ * errors when working with frozen Redux state.
  *
  * @param config - Form configuration containing field definitions
  * @param initialData - Initial data provided by the user
@@ -177,7 +209,9 @@ export const mergeDefaults = (
 
   // Then merge with initial data (initial data takes precedence)
   if (initialData) {
-    return deepMerge(defaults, initialData as Record<string, unknown>);
+    // Deep clone the entire initialData first to ensure no frozen references
+    const clonedInitialData = deepClone(initialData) as Record<string, unknown>;
+    return deepMerge(defaults, clonedInitialData);
   }
 
   return defaults;

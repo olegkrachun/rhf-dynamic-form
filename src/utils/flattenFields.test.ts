@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type {
+  BaseFieldElement,
   ContainerElement,
   FieldElement,
   FormElement,
-  TextFieldElement,
 } from "../types";
 import { flattenFields, getFieldNames } from "./flattenFields";
 
 describe("flattenFields", () => {
   it("should return a single field unchanged", () => {
-    const field: TextFieldElement = {
+    const field: BaseFieldElement = {
       type: "text",
       name: "firstName",
     };
@@ -36,19 +36,21 @@ describe("flattenFields", () => {
     expect(result[2].name).toBe("email");
   });
 
-  it("should extract fields from container columns", () => {
+  it("should extract fields from container children", () => {
     const container: ContainerElement = {
       type: "container",
-      columns: [
+      children: [
         {
-          type: "column",
-          width: "50%",
-          elements: [{ type: "text", name: "firstName" }],
+          type: "container",
+          variant: "column",
+          meta: { width: "50%" },
+          children: [{ type: "text", name: "firstName" }],
         },
         {
-          type: "column",
-          width: "50%",
-          elements: [{ type: "text", name: "lastName" }],
+          type: "container",
+          variant: "column",
+          meta: { width: "50%" },
+          children: [{ type: "text", name: "lastName" }],
         },
       ],
     };
@@ -64,23 +66,26 @@ describe("flattenFields", () => {
   it("should extract fields from deeply nested containers", () => {
     const nestedContainer: ContainerElement = {
       type: "container",
-      columns: [
+      children: [
         {
-          type: "column",
-          width: "100%",
-          elements: [
+          type: "container",
+          variant: "column",
+          meta: { width: "100%" },
+          children: [
             {
               type: "container",
-              columns: [
+              children: [
                 {
-                  type: "column",
-                  width: "50%",
-                  elements: [{ type: "text", name: "nested1" }],
+                  type: "container",
+                  variant: "column",
+                  meta: { width: "50%" },
+                  children: [{ type: "text", name: "nested1" }],
                 },
                 {
-                  type: "column",
-                  width: "50%",
-                  elements: [{ type: "text", name: "nested2" }],
+                  type: "container",
+                  variant: "column",
+                  meta: { width: "50%" },
+                  children: [{ type: "text", name: "nested2" }],
                 },
               ],
             },
@@ -102,11 +107,12 @@ describe("flattenFields", () => {
       { type: "text", name: "topLevel" },
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [
               { type: "email", name: "inContainer" },
               { type: "boolean", name: "inContainerToo" },
             ],
@@ -136,11 +142,12 @@ describe("flattenFields", () => {
   it("should return empty array when containers have no fields", () => {
     const container: ContainerElement = {
       type: "container",
-      columns: [
+      children: [
         {
-          type: "column",
-          width: "100%",
-          elements: [],
+          type: "container",
+          variant: "column",
+          meta: { width: "100%" },
+          children: [],
         },
       ],
     };
@@ -203,16 +210,18 @@ describe("getFieldNames", () => {
     const elements: FormElement[] = [
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "50%",
-            elements: [{ type: "text", name: "source.firstName" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "50%" },
+            children: [{ type: "text", name: "source.firstName" }],
           },
           {
-            type: "column",
-            width: "50%",
-            elements: [{ type: "text", name: "source.lastName" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "50%" },
+            children: [{ type: "text", name: "source.lastName" }],
           },
         ],
       },
@@ -229,11 +238,12 @@ describe("getFieldNames", () => {
       { type: "text", name: "a_field" },
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [{ type: "text", name: "m_field" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [{ type: "text", name: "m_field" }],
           },
         ],
       },

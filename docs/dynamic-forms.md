@@ -32,7 +32,7 @@ The Dynamic Form Library is a configuration-driven form generation system for Re
 - **Configuration-Driven**: Define entire forms through JSON configuration
 - **JSON Logic Integration**: Declarative validation and visibility rules using JSON Logic
 - **Zod Schema Generation**: Dynamic Zod schema generation from configuration for type-safe validation
-- **Flexible Layout System**: Support for containers and columns
+- **Flexible Layout System**: Support for variant-based containers with nested children
 - **Extensible Architecture**: Plugin system for custom field types and containers
 - **React Hook Form Foundation**: Built on proven form management library
 - **Type Safety**: Full TypeScript support with comprehensive type definitions
@@ -51,20 +51,20 @@ The Dynamic Form Library is a configuration-driven form generation system for Re
 
 ### 1.4 Supported Field Types
 
-As defined in the configuration schema:
+The engine is **type-agnostic** — `type` is an open string, not a closed enum. Consumers can register components for any type string. The table below lists common conventions:
 
-| Type | Description |
-|------|-------------|
-| `text` | Single-line text input |
-| `email` | Email input with built-in validation |
-| `boolean` | Checkbox/toggle for boolean values |
-| `phone` | Phone number input |
-| `date` | Date picker input |
-| `select` | Dropdown/multi-select with options |
-| `array` | Repeatable field groups |
-| `container` | Layout container with columns |
-| `column` | Column within a container |
-| `custom` | User-defined custom component |
+| Type | Description | Schema Default |
+|------|-------------|----------------|
+| `text` | Single-line text input | `z.string()` |
+| `email` | Email input with built-in validation | `z.string().email()` |
+| `boolean` | Checkbox/toggle for boolean values | `z.boolean()` |
+| `phone` | Phone number input | `z.string()` |
+| `date` | Date picker input | `z.string()` |
+| `select` | Dropdown/multi-select with options | Structural (auto-detected) |
+| `array` | Repeatable field groups | Structural (auto-detected) |
+| `container` | Layout container with variant-based rendering | N/A (layout element) |
+| `custom` | User-defined custom component | `z.unknown()` |
+| *any string* | Consumer-defined type | `z.unknown()` (configurable via `setSchemaMap`) |
 
 ---
 
@@ -124,9 +124,8 @@ DynamicForm
 ├── FormProvider (react-hook-form)
 │   └── DynamicFormContext
 ├── FormRenderer
-│   ├── ContainerRenderer
-│   │   └── ColumnRenderer
-│   │       └── ElementRenderer
+│   ├── ContainerRenderer (resolves variant → container component)
+│   │   └── ElementRenderer (recurses into container children)
 │   └── ElementRenderer
 │       ├── FieldRenderer (uses registered field components)
 │       │   ├── [text] → User-provided component
@@ -247,7 +246,7 @@ The schema is generated once at initialization and remains stable. Visibility ch
 The library distinguishes between three main element categories:
 
 1. **Field Elements**: Input components that collect data (text, email, boolean, phone, date)
-2. **Layout Elements**: Structural components for organizing fields (container, column)
+2. **Layout Elements**: Structural components for organizing fields (container with variant-based rendering)
 3. **Custom Elements**: User-defined components for special requirements
 
 ### 3.6 Field Registry Pattern
@@ -255,18 +254,26 @@ The library distinguishes between three main element categories:
 The library does **not** provide built-in field implementations. Instead, it defines interfaces that consuming applications must implement and register:
 
 ```typescript
-// Application provides field components
-const fieldComponents: FieldComponentRegistry = {
-  text: MyTextInput,
-  email: MyEmailInput,
-  boolean: MyCheckbox,
-  phone: MyPhoneInput,
-  date: MyDatePicker,
+// Application provides field components via a unified ComponentRegistry
+const components: ComponentRegistry = {
+  fields: {
+    text: MyTextInput,
+    email: MyEmailInput,
+    boolean: MyCheckbox,
+    phone: MyPhoneInput,
+    date: MyDatePicker,
+  },
+  custom: {
+    richText: MyRichTextEditor,
+  },
+  containers: {
+    section: MySectionContainer,
+  },
 };
 
 <DynamicForm
   config={config}
-  fieldComponents={fieldComponents}
+  components={components}
 />
 ```
 
@@ -289,20 +296,17 @@ interface FormConfiguration {
 }
 ```
 
-### 4.2 Element Types Enum
+### 4.2 Element Types
 
-As defined in the specification:
+The engine is **type-agnostic** — `ElementType` is an open `string`, not a closed enum. Only `"container"` has special meaning (layout wrapper); everything else is treated as a field. Consumers can use any string as a field type.
 
 ```typescript
-type ElementType = 
-  | 'text' 
-  | 'email' 
-  | 'boolean' 
-  | 'phone' 
-  | 'date' 
-  | 'container' 
-  | 'column' 
-  | 'custom';
+// Engine definition — open-ended
+type ElementType = string;
+type FieldType = string;
+
+// Well-known conventions (not enforced):
+// 'text', 'email', 'boolean', 'phone', 'date', 'select', 'array', 'custom'
 ```
 
 ### 4.3 Field Element Schema
@@ -364,31 +368,25 @@ interface ValidationConfig {
 ```typescript
 interface ContainerElement {
   type: 'container';
-  
-  /** Array of column elements */
-  columns: ColumnElement[];
-  
+
+  /** Container variant for custom rendering (resolved via components.containers[variant]) */
+  variant?: string;
+
+  /** Nested child elements */
+  children?: FormElement[];
+
   /** Conditional visibility rules using JSON Logic */
   visible?: JsonLogicRule;
+
+  /** Consumer-specific metadata (e.g., width, title, description, icon, id) */
+  meta?: Record<string, unknown>;
 }
 ```
 
-### 4.6 Column Element Schema
-
-```typescript
-interface ColumnElement {
-  type: 'column';
-  
-  /** Column width (e.g., '50%') */
-  width: string;
-  
-  /** Nested elements within the column */
-  elements: FormElement[];
-  
-  /** Conditional visibility rules using JSON Logic */
-  visible?: JsonLogicRule;
-}
-```
+Container variants are resolved at render time through the `ComponentRegistry`:
+- If a `variant` is specified and a matching container component exists in `components.containers[variant]`, that component is used.
+- If no variant is specified or no matching container is found, a default container renderer is used.
+- The `meta` property carries consumer-specific data (such as `width`, `title`, `icon`, `id`, `description`) that container components can read from `config.meta`.
 
 ### 4.7 Custom Element Schema
 
@@ -430,8 +428,7 @@ interface CustomElement {
         "properties": {
           "type": {
             "type": "string",
-            "description": "The type of the form element or layout component",
-            "enum": ["text", "email", "boolean", "phone", "date", "container", "column", "custom"]
+            "description": "The type of the form element or layout component. Common conventions: text, email, boolean, phone, date, select, array, container, custom. Any string is accepted — the engine is type-agnostic."
           },
           "name": {
             "type": "string",
@@ -489,23 +486,21 @@ interface CustomElement {
           "placeholder": {
             "type": "string"
           },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/properties/elements/items"
-            },
-            "description": "Array of columns within a container"
-          },
-          "width": {
+          "variant": {
             "type": "string",
-            "description": "Width of the column (e.g., '50%')"
+            "description": "Container variant name (resolved via components.containers[variant])"
           },
-          "elements": {
+          "children": {
             "type": "array",
             "items": {
               "$ref": "#/properties/elements/items"
             },
-            "description": "Array of elements within layout components (like container or column)"
+            "description": "Nested child elements within a container"
+          },
+          "meta": {
+            "type": "object",
+            "description": "Consumer-specific metadata for containers (e.g., width, title, icon, id)",
+            "additionalProperties": true
           },
           "component": {
             "type": "string",
@@ -519,8 +514,6 @@ interface CustomElement {
         },
         "required": ["type"],
         "dependencies": {
-          "column": ["width", "elements"],
-          "container": ["columns"],
           "custom": ["component"]
         },
         "additionalProperties": false
@@ -564,18 +557,24 @@ import { z } from 'zod/v4';
 interface DynamicFormContextValue {
   /** react-hook-form methods */
   form: UseFormReturn<FormData>;
-  
+
   /** Parsed configuration */
   config: FormConfiguration;
-  
+
+  /** Unified component registry (fields, custom, containers) */
+  components: ComponentRegistry;
+
   /** Visibility state for all fields */
   visibility: Record<string, boolean>;
-  
-  /** Registered field components */
-  fieldComponents: FieldComponentRegistry;
-  
-  /** Registered custom components */
-  customComponents: CustomComponentRegistry;
+
+  /** Optional wrapper function for each field */
+  fieldWrapper?: FieldWrapperFunction;
+
+  /** Current form validity state (reactive) */
+  isValid: boolean;
+
+  /** Current form errors (reactive) */
+  errors: Record<string, unknown>;
 }
 
 const DynamicFormContext = createContext<DynamicFormContextValue | null>(null);
@@ -587,12 +586,12 @@ const DynamicFormContext = createContext<DynamicFormContextValue | null>(null);
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-function DynamicForm({ 
-  config, 
-  initialData, 
-  fieldComponents,
+function DynamicForm({
+  config,
+  initialData,
+  components,
   invisibleFieldValidation = 'skip',
-  ...props 
+  ...props
 }: DynamicFormProps) {
   // Generate Zod schema ONCE from configuration
   const zodSchema = useMemo(
@@ -601,13 +600,13 @@ function DynamicForm({
   );
 
   // Track visibility state
-  const [visibility, setVisibility] = useState<Record<string, boolean>>(() => 
+  const [visibility, setVisibility] = useState<Record<string, boolean>>(() =>
     calculateVisibility(config, initialData || {})
   );
 
   // Create visibility-aware resolver
   const resolver = useMemo(
-    () => createVisibilityAwareResolver(zodSchema, { 
+    () => createVisibilityAwareResolver(zodSchema, {
       visibility,
       validateInvisibleFields: invisibleFieldValidation === 'validate',
       mode: invisibleFieldValidation,
@@ -621,10 +620,10 @@ function DynamicForm({
     resolver,
     mode: props.mode || 'onChange',
   });
-  
+
   // Watch all fields for visibility calculations
   const watchedValues = form.watch();
-  
+
   // Update visibility when values change
   useEffect(() => {
     const newVisibility = calculateVisibility(config, watchedValues);
@@ -637,10 +636,10 @@ function DynamicForm({
   useEffect(() => {
     form.trigger();
   }, [visibility, form]);
-  
+
   return (
     <FormProvider {...form}>
-      <DynamicFormContext.Provider value={{ form, config, visibility, fieldComponents }}>
+      <DynamicFormContext.Provider value={{ form, config, visibility, components }}>
         <form onSubmit={form.handleSubmit(props.onSubmit)}>
           <FormRenderer elements={config.elements} />
         </form>
@@ -658,25 +657,25 @@ Field components receive react-hook-form's controller props:
 import { useController, UseControllerProps } from 'react-hook-form';
 
 function FieldRenderer({ config }: { config: FieldElement }) {
-  const { form, fieldComponents, visibility } = useDynamicFormContext();
-  
+  const { form, components, visibility } = useDynamicFormContext();
+
   // Skip rendering if not visible
   if (!visibility[config.name]) {
     return null;
   }
-  
+
   const { field, fieldState } = useController({
     name: config.name,
     control: form.control,
   });
-  
-  const FieldComponent = fieldComponents[config.type];
-  
+
+  const FieldComponent = components.fields[config.type];
+
   if (!FieldComponent) {
     console.warn(`No field component registered for type: ${config.type}`);
     return null;
   }
-  
+
   return (
     <FieldComponent
       field={field}
@@ -723,226 +722,142 @@ form.watch('source.name');
 
 ## 6. Field Component Interfaces
 
-The library defines interfaces for field components. **Consuming applications must provide implementations**.
+The engine is **type-agnostic** — it does not define per-type interfaces for standard fields. All field components use `BaseFieldComponent`. Only structurally-specific types (select, array, custom) have dedicated props types because they carry additional required properties.
+
+**Consuming applications must provide implementations** for each field type they use.
 
 ### 6.1 Base Field Props Interface
 
 ```typescript
-import { 
-  ControllerRenderProps, 
+import {
+  ControllerRenderProps,
   ControllerFieldState,
   FieldPath,
-  FieldValues 
+  FieldValues
 } from 'react-hook-form';
 
 /**
  * Base props passed to all field components.
  * Field components receive react-hook-form controller props.
  */
-interface BaseFieldProps<TFieldValues extends FieldValues = FieldValues> {
+interface BaseFieldProps<
+  TFieldValues extends FieldValues = FieldValues,
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+  TConfig extends BaseFieldElement = BaseFieldElement,
+> {
   /** react-hook-form field props (value, onChange, onBlur, name, ref) */
-  field: ControllerRenderProps<TFieldValues, FieldPath<TFieldValues>>;
-  
+  field: ControllerRenderProps<TFieldValues, TName>;
+
   /** react-hook-form field state (invalid, isTouched, isDirty, error) */
   fieldState: ControllerFieldState;
-  
+
   /** Field configuration from form config */
-  config: FieldElement;
+  config: TConfig;
+
+  /** All current form values (for reading other fields, dependent logic) */
+  formValues: FormData;
+
+  /** Set any field value (for dependent field logic, cascading updates) */
+  setValue: (name: string, value: unknown) => void;
 }
+
+/**
+ * Base component type — used for ALL field components.
+ */
+type BaseFieldComponent<TProps extends BaseFieldProps = BaseFieldProps> =
+  React.ComponentType<TProps>;
 ```
 
-### 6.2 Text Field Interface
+### 6.2 Standard Field Components
+
+All standard field components (text, email, boolean, phone, date, etc.) use `BaseFieldComponent`. The engine does not provide per-type interfaces for these — `config` is always `BaseFieldElement`.
+
+```tsx
+/**
+ * Example: Text field
+ */
+const TextInput: BaseFieldComponent = ({ field, fieldState, config }) => (
+  <div>
+    <label>{config.label}</label>
+    <input {...field} type="text" placeholder={config.placeholder} />
+    {fieldState.error && <span>{fieldState.error.message}</span>}
+  </div>
+);
+
+/**
+ * Example: Email field
+ */
+const EmailInput: BaseFieldComponent = ({ field, fieldState, config }) => (
+  <div>
+    <label>{config.label}</label>
+    <input {...field} type="email" placeholder={config.placeholder} />
+    {fieldState.error && <span>{fieldState.error.message}</span>}
+  </div>
+);
+
+/**
+ * Example: Boolean field
+ */
+const Checkbox: BaseFieldComponent = ({ field, fieldState, config }) => (
+  <div>
+    <label>
+      <input
+        type="checkbox"
+        checked={field.value}
+        onChange={(e) => field.onChange(e.target.checked)}
+        onBlur={field.onBlur}
+        name={field.name}
+        ref={field.ref}
+      />
+      {config.label}
+    </label>
+    {fieldState.error && <span>{fieldState.error.message}</span>}
+  </div>
+);
+```
+
+### 6.3 Structurally-Specific Field Props
+
+Only types with structural properties beyond `BaseFieldElement` have dedicated props types:
+
+```typescript
+/** Props for select field — config includes options, multiple, clearable, etc. */
+type SelectFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, SelectFieldElement>;
+
+/** Props for array field — config includes itemFields, minItems, maxItems, etc. */
+type ArrayFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, ArrayFieldElement>;
+
+/** Props for custom field — config includes component, componentProps, etc. */
+type CustomFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, CustomFieldElement>;
+```
+
+For select/array components, cast `config` to access extra properties:
+
+```tsx
+const SelectField: BaseFieldComponent = ({ field, fieldState, config: baseConfig }) => {
+  const config = baseConfig as SelectFieldElement;
+  return (
+    <div>
+      <label>{config.label}</label>
+      <select {...field}>
+        {config.options?.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      {fieldState.error && <span>{fieldState.error.message}</span>}
+    </div>
+  );
+};
+```
+
+### 6.4 Field Component Registry
 
 ```typescript
 /**
- * Props for text input field component.
- * 
- * @example
- * ```tsx
- * const TextInput: TextFieldComponent = ({ field, fieldState, config }) => (
- *   <div>
- *     <label>{config.label}</label>
- *     <input
- *       {...field}
- *       type="text"
- *       placeholder={config.placeholder}
- *     />
- *     {fieldState.error && <span>{fieldState.error.message}</span>}
- *   </div>
- * );
- * ```
+ * Open-ended registry mapping field type strings to component implementations.
+ * The engine does NOT enforce a fixed set — any string key is valid.
  */
-interface TextFieldProps extends BaseFieldProps {
-  config: TextFieldElement;
-}
-
-type TextFieldComponent = React.ComponentType<TextFieldProps>;
-```
-
-### 6.3 Email Field Interface
-
-```typescript
-/**
- * Props for email input field component.
- * 
- * @example
- * ```tsx
- * const EmailInput: EmailFieldComponent = ({ field, fieldState, config }) => (
- *   <div>
- *     <label>{config.label}</label>
- *     <input
- *       {...field}
- *       type="email"
- *       placeholder={config.placeholder}
- *     />
- *     {fieldState.error && <span>{fieldState.error.message}</span>}
- *   </div>
- * );
- * ```
- */
-interface EmailFieldProps extends BaseFieldProps {
-  config: EmailFieldElement;
-}
-
-type EmailFieldComponent = React.ComponentType<EmailFieldProps>;
-```
-
-### 6.4 Boolean Field Interface
-
-```typescript
-/**
- * Props for boolean (checkbox/toggle) field component.
- * 
- * @example
- * ```tsx
- * const Checkbox: BooleanFieldComponent = ({ field, fieldState, config }) => (
- *   <div>
- *     <label>
- *       <input
- *         type="checkbox"
- *         checked={field.value}
- *         onChange={(e) => field.onChange(e.target.checked)}
- *         onBlur={field.onBlur}
- *         name={field.name}
- *         ref={field.ref}
- *       />
- *       {config.label}
- *     </label>
- *     {fieldState.error && <span>{fieldState.error.message}</span>}
- *   </div>
- * );
- * ```
- */
-interface BooleanFieldProps extends BaseFieldProps {
-  config: BooleanFieldElement;
-}
-
-type BooleanFieldComponent = React.ComponentType<BooleanFieldProps>;
-```
-
-### 6.5 Phone Field Interface
-
-```typescript
-/**
- * Props for phone input field component.
- * 
- * @example
- * ```tsx
- * const PhoneInput: PhoneFieldComponent = ({ field, fieldState, config }) => (
- *   <div>
- *     <label>{config.label}</label>
- *     <input
- *       {...field}
- *       type="tel"
- *       inputMode="numeric"
- *       placeholder={config.placeholder}
- *     />
- *     {fieldState.error && <span>{fieldState.error.message}</span>}
- *   </div>
- * );
- * ```
- */
-interface PhoneFieldProps extends BaseFieldProps {
-  config: PhoneFieldElement;
-}
-
-type PhoneFieldComponent = React.ComponentType<PhoneFieldProps>;
-```
-
-### 6.6 Date Field Interface
-
-```typescript
-/**
- * Props for date input field component.
- * 
- * @example
- * ```tsx
- * const DatePicker: DateFieldComponent = ({ field, fieldState, config }) => (
- *   <div>
- *     <label>{config.label}</label>
- *     <input
- *       {...field}
- *       type="date"
- *     />
- *     {fieldState.error && <span>{fieldState.error.message}</span>}
- *   </div>
- * );
- * ```
- */
-interface DateFieldProps extends BaseFieldProps {
-  config: DateFieldElement;
-}
-
-type DateFieldComponent = React.ComponentType<DateFieldProps>;
-```
-
-### 6.7 Custom Field Interface
-
-```typescript
-/**
- * Props for custom field components.
- * Custom components receive additional componentProps from configuration.
- * 
- * @example
- * ```tsx
- * const RichTextEditor: CustomFieldComponent = ({ field, fieldState, config }) => {
- *   const { minHeight, toolbar } = config.componentProps || {};
- *   return (
- *     <div>
- *       <label>{config.label}</label>
- *       <MyRichTextEditor
- *         value={field.value}
- *         onChange={field.onChange}
- *         minHeight={minHeight}
- *         toolbar={toolbar}
- *       />
- *       {fieldState.error && <span>{fieldState.error.message}</span>}
- *     </div>
- *   );
- * };
- * ```
- */
-interface CustomFieldProps extends BaseFieldProps {
-  config: CustomFieldElement;
-}
-
-type CustomFieldComponent = React.ComponentType<CustomFieldProps>;
-```
-
-### 6.8 Field Component Registry
-
-```typescript
-/**
- * Registry mapping field types to their component implementations.
- * All field types must be registered for the form to render properly.
- */
-interface FieldComponentRegistry {
-  text: TextFieldComponent;
-  email: EmailFieldComponent;
-  boolean: BooleanFieldComponent;
-  phone: PhoneFieldComponent;
-  date: DateFieldComponent;
-}
+type FieldComponentRegistry = Record<string, BaseFieldComponent>;
 
 /**
  * Registry for custom components referenced by name in configuration.
@@ -950,24 +865,14 @@ interface FieldComponentRegistry {
 type CustomComponentRegistry = Record<string, CustomFieldComponent>;
 ```
 
-### 6.9 Complete Field Props Union
+### 6.5 Field Props Type
 
 ```typescript
 /**
- * Union type for all field props.
+ * Field props type — alias for BaseFieldProps.
+ * The engine is type-agnostic; all fields receive the same base props.
  */
-type FieldProps = 
-  | TextFieldProps 
-  | EmailFieldProps 
-  | BooleanFieldProps 
-  | PhoneFieldProps 
-  | DateFieldProps 
-  | CustomFieldProps;
-
-/**
- * Generic field component type.
- */
-type FieldComponent = React.ComponentType<FieldProps>;
+type FieldProps = BaseFieldProps;
 ```
 
 ---
@@ -976,21 +881,24 @@ type FieldComponent = React.ComponentType<FieldProps>;
 
 ### 7.1 Container Element
 
-Containers group elements and define column layouts.
+Containers group elements using a variant-based system. Layouts are composed by nesting containers with different variants.
 
 ```json
 {
   "type": "container",
-  "columns": [
+  "variant": "row",
+  "children": [
     {
-      "type": "column",
-      "width": "50%",
-      "elements": [/* fields */]
+      "type": "container",
+      "variant": "column",
+      "meta": { "width": "50%" },
+      "children": [/* fields */]
     },
     {
-      "type": "column",
-      "width": "50%",
-      "elements": [/* fields */]
+      "type": "container",
+      "variant": "column",
+      "meta": { "width": "50%" },
+      "children": [/* fields */]
     }
   ],
   "visible": { "var": "showDetails" }
@@ -1007,65 +915,111 @@ interface ContainerProps {
 
 /**
  * Default container renderer.
- * Can be overridden via customContainers prop.
+ * Can be overridden via components.containers[variant].
  */
-const Container: React.FC<ContainerProps> = ({ config, children }) => (
-  <div 
-    className="df-container"
+const DefaultContainer: React.FC<ContainerProps> = ({ config, children }) => (
+  <div className="df-container">
+    {children}
+  </div>
+);
+
+/**
+ * Example "row" variant container.
+ */
+const RowContainer: React.FC<ContainerProps> = ({ config, children }) => (
+  <div
+    className="df-container-row"
     style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}
   >
     {children}
   </div>
 );
-```
-
-### 7.3 Column Component Interface
-
-```typescript
-interface ColumnProps {
-  config: ColumnElement;
-  children: React.ReactNode;
-}
 
 /**
- * Default column renderer.
+ * Example "column" variant container.
+ * Reads width from config.meta.
  */
-const Column: React.FC<ColumnProps> = ({ config, children }) => (
-  <div 
-    className="df-column"
-    style={{ width: config.width, flexShrink: 0 }}
+const ColumnContainer: React.FC<ContainerProps> = ({ config, children }) => (
+  <div
+    className="df-container-column"
+    style={{ width: (config.meta?.width as string) ?? '100%', flexShrink: 0 }}
   >
     {children}
   </div>
 );
+
+/**
+ * Example "section" variant container.
+ * Reads title, icon, id from config.meta.
+ */
+const SectionContainer: React.FC<ContainerProps> = ({ config, children }) => (
+  <section
+    id={config.meta?.id as string}
+    className="df-container-section"
+  >
+    {config.meta?.title && <h3>{config.meta.title as string}</h3>}
+    {children}
+  </section>
+);
+```
+
+### 7.3 Container Variant Resolution
+
+Container variants are resolved through the `ComponentRegistry`:
+
+```typescript
+function ContainerRenderer({ config }: { config: ContainerElement }) {
+  const { components } = useDynamicFormContext();
+  const containers = components.containers ?? {};
+
+  // Resolve container component by variant (falls back to "default", then bare Fragment)
+  const variant = config.variant ?? "default";
+  const ContainerComp = containers[variant] ?? containers.default;
+
+  const renderedChildren = config.children?.map((child, idx) => {
+    const key = "name" in child && child.name ? String(child.name) : `element-${idx}`;
+    return <ElementRenderer config={child} key={key} />;
+  });
+
+  if (!ContainerComp) {
+    return <>{renderedChildren}</>;
+  }
+
+  return <ContainerComp config={config}>{renderedChildren}</ContainerComp>;
+}
 ```
 
 ### 7.4 Nested Layouts
 
-Layouts can be nested to create complex form structures:
+Layouts can be nested to create complex form structures by composing containers:
 
 ```json
 {
   "type": "container",
-  "columns": [
+  "variant": "row",
+  "children": [
     {
-      "type": "column",
-      "width": "60%",
-      "elements": [
+      "type": "container",
+      "variant": "column",
+      "meta": { "width": "60%" },
+      "children": [
         {
           "type": "container",
-          "columns": [
+          "variant": "row",
+          "children": [
             {
-              "type": "column",
-              "width": "50%",
-              "elements": [
+              "type": "container",
+              "variant": "column",
+              "meta": { "width": "50%" },
+              "children": [
                 { "type": "text", "name": "contact.firstName", "label": "First Name" }
               ]
             },
             {
-              "type": "column",
-              "width": "50%",
-              "elements": [
+              "type": "container",
+              "variant": "column",
+              "meta": { "width": "50%" },
+              "children": [
                 { "type": "text", "name": "contact.lastName", "label": "Last Name" }
               ]
             }
@@ -1074,9 +1028,10 @@ Layouts can be nested to create complex form structures:
       ]
     },
     {
-      "type": "column",
-      "width": "40%",
-      "elements": [
+      "type": "container",
+      "variant": "column",
+      "meta": { "width": "40%" },
+      "children": [
         { "type": "email", "name": "contact.email", "label": "Email" }
       ]
     }
@@ -1116,7 +1071,7 @@ const schema = yup.object({
 <DynamicForm
   config={config}
   resolver={yupResolver(schema)}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
 />
 ```
@@ -1138,7 +1093,7 @@ const schema = z.object({
   config={config}
   schema={schema}
   invisibleFieldValidation="skip"
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
 />
 ```
@@ -1167,7 +1122,7 @@ const config = {
 
 <DynamicForm
   config={config}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
 />
 ```
@@ -1179,7 +1134,7 @@ For forms that don't need validation:
 ```tsx
 <DynamicForm
   config={simpleConfig}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
 />
 ```
@@ -1734,17 +1689,10 @@ function calculateVisibility(
       visibility[element.name] = isVisible;
     }
 
-    // Process nested elements
-    if ('elements' in element && element.elements) {
-      for (const child of element.elements) {
+    // Process nested children in containers
+    if ('children' in element && element.children) {
+      for (const child of element.children) {
         processElement(child, isVisible);
-      }
-    }
-
-    // Process columns in containers
-    if ('columns' in element && element.columns) {
-      for (const column of element.columns) {
-        processElement(column, isVisible);
       }
     }
   }
@@ -1793,30 +1741,26 @@ function DynamicForm({ config, invisibleFieldValidation = 'skip', ...props }: Dy
 }
 ```
 
-### 9.4 Container/Column Visibility
+### 9.4 Container Visibility
 
-Visibility rules apply to containers and columns, affecting all nested elements:
+Visibility rules apply to containers, affecting all nested children:
 
 ```json
 {
   "type": "container",
+  "variant": "section",
+  "meta": { "title": "Business Details" },
   "visible": {
     "==": [{ "var": "userType" }, "business"]
   },
-  "columns": [
-    {
-      "type": "column",
-      "width": "100%",
-      "elements": [
-        { "type": "text", "name": "company.name", "label": "Company Name" },
-        { "type": "text", "name": "company.taxId", "label": "Tax ID" }
-      ]
-    }
+  "children": [
+    { "type": "text", "name": "company.name", "label": "Company Name" },
+    { "type": "text", "name": "company.taxId", "label": "Tax ID" }
   ]
 }
 ```
 
-When container visibility is false, all nested fields are also marked as not visible in the visibility map.
+When container visibility is false, all nested children are also marked as not visible in the visibility map.
 
 ### 9.5 Utility Functions
 
@@ -2096,8 +2040,10 @@ const config = {
 
 <DynamicForm
   config={config}
-  customComponents={customComponents}
-  fieldComponents={fieldComponents}
+  components={{
+    fields: fieldComponents,
+    custom: customComponents,
+  }}
   onSubmit={handleSubmit}
 />
 ```
@@ -2132,7 +2078,7 @@ import { ConfigurationError } from 'dynamic-forms';
 
 try {
   // This will throw if RatingField.propsSchema validation fails
-  <DynamicForm config={config} customComponents={customComponents} />
+  <DynamicForm config={config} components={{ fields: fieldComponents, custom: customComponents }} />
 } catch (error) {
   if (error instanceof ConfigurationError) {
     console.error(`Error at ${error.path}: ${error.message}`);
@@ -2143,26 +2089,47 @@ try {
 
 ### 11.2 Custom Container Components
 
-Override default container rendering:
+Override default container rendering by registering container variants in the `ComponentRegistry`:
 
 ```typescript
-interface CustomContainerProps {
+interface ContainerProps {
   config: ContainerElement;
   children: React.ReactNode;
 }
 
-const CardContainer: React.FC<CustomContainerProps> = ({ config, children }) => (
+const CardContainer: React.FC<ContainerProps> = ({ config, children }) => (
   <div className="card-container">
+    {config.meta?.title && <h3>{config.meta.title as string}</h3>}
     <div className="card-body">
       {children}
     </div>
   </div>
 );
 
+const components: ComponentRegistry = {
+  fields: { /* ... field components ... */ },
+  containers: {
+    card: CardContainer,
+  },
+};
+
 <DynamicForm
   config={config}
-  customContainers={{ card: CardContainer }}
+  components={components}
 />
+```
+
+Usage in configuration:
+
+```json
+{
+  "type": "container",
+  "variant": "card",
+  "meta": { "title": "Contact Information" },
+  "children": [
+    { "type": "text", "name": "name", "label": "Name" }
+  ]
+}
 ```
 
 ---
@@ -2196,16 +2163,15 @@ As defined in the specification:
 **Goal:** Provide a way to visually group elements together, add container element that supports rendering child elements, add support to custom container elements.
 
 **Tasks:**
-- `Container` component implementation
-- `Column` component implementation
+- `ContainerRenderer` component implementation with variant resolution
 - Recursive element renderer for nested layouts
-- Custom container component support
+- Custom container component support via `ComponentRegistry`
 - Nested Zod schema generation for field paths
 
 **Deliverables:**
-- Container/Column layout working
-- Nested layouts supported
-- Custom containers can be plugged in
+- Variant-based container layout working
+- Nested layouts supported via container children
+- Custom container variants can be plugged in via `components.containers`
 - Nested field paths properly mapped to Zod schema
 
 #### Phase 3: Declarative Validation
@@ -2232,12 +2198,12 @@ As defined in the specification:
 **Tasks:**
 - Visibility calculator using JSON Logic
 - Integration with `form.watch()` for reactive updates
-- Container/column visibility inheritance
+- Container visibility inheritance for nested children
 - Integration with visibility-aware resolver
 
 **Deliverables:**
 - Conditional visibility working
-- Container/section visibility
+- Container visibility with nested children inheritance
 - Visibility passed to validation resolver
 
 ### 12.2 Project Structure
@@ -2272,8 +2238,7 @@ dynamic-form/
 │   │   ├── FormRenderer.tsx        # Main renderer
 │   │   ├── ElementRenderer.tsx     # Element dispatcher
 │   │   ├── FieldRenderer.tsx       # Field wrapper
-│   │   ├── Container.tsx           # Container layout
-│   │   └── Column.tsx              # Column layout
+│   │   └── ContainerRenderer.tsx   # Container layout with variant resolution
 │   │
 │   ├── schema/
 │   │   ├── index.ts                # Schema exports
@@ -2473,20 +2438,11 @@ import {
 export type JsonLogicRule = Record<string, unknown>;
 
 // ============================================
-// Element Types (as per specification)
+// Element Types (open-ended — engine is type-agnostic)
 // ============================================
 
-export type ElementType = 
-  | 'text' 
-  | 'email' 
-  | 'boolean' 
-  | 'phone' 
-  | 'date' 
-  | 'container' 
-  | 'column' 
-  | 'custom';
-
-export type FieldType = 'text' | 'email' | 'boolean' | 'phone' | 'date';
+export type ElementType = string;  // Any string; only "container" has special meaning
+export type FieldType = string;    // Any string except "container"
 
 // ============================================
 // Validation Types
@@ -2514,38 +2470,28 @@ export interface ValidationOptions {
 // Field Element Types
 // ============================================
 
-interface BaseFieldElement {
+/**
+ * Base interface for all field elements.
+ * The engine is type-agnostic — `type` is an open string, not a closed enum.
+ */
+export interface BaseFieldElement {
+  /** Any string — consumer-defined field type */
+  type: string;
   name: string;
   label?: string;
   placeholder?: string;
-  defaultValue?: string | number | boolean | null;
+  defaultValue?: string | number | boolean | null | unknown[] | Record<string, unknown>;
   validation?: ValidationConfig;
   visible?: JsonLogicRule;
   /** Field path this field depends on (for cascading selects) */
   dependsOn?: string;
   /** Reset this field when parent changes (default: true) */
   resetOnParentChange?: boolean;
+  /** Consumer-specific metadata (passed through to field components) */
+  meta?: Record<string, unknown>;
 }
 
-export interface TextFieldElement extends BaseFieldElement {
-  type: 'text';
-}
-
-export interface EmailFieldElement extends BaseFieldElement {
-  type: 'email';
-}
-
-export interface BooleanFieldElement extends BaseFieldElement {
-  type: 'boolean';
-}
-
-export interface PhoneFieldElement extends BaseFieldElement {
-  type: 'phone';
-}
-
-export interface DateFieldElement extends BaseFieldElement {
-  type: 'date';
-}
+// Structurally-specific types — only types with extra required properties
 
 export interface CustomFieldElement extends BaseFieldElement {
   type: 'custom';
@@ -2562,7 +2508,9 @@ export interface SelectOption {
 export interface SelectFieldElement extends BaseFieldElement {
   type: 'select';
   /** Available options */
-  options: SelectOption[];
+  options?: SelectOption[];
+  /** Describes how to resolve options */
+  optionsSource?: OptionsSource;
   /** Allow selecting multiple values (default: false) */
   multiple?: boolean;
   /** Allow clearing selection (default: true) */
@@ -2587,15 +2535,14 @@ export interface ArrayFieldElement extends BaseFieldElement {
   sortable?: boolean;
 }
 
-export type FieldElement =
-  | TextFieldElement
-  | EmailFieldElement
-  | BooleanFieldElement
-  | PhoneFieldElement
-  | DateFieldElement
+/** Structurally-specific field types */
+export type StructuralFieldElement =
   | SelectFieldElement
   | ArrayFieldElement
   | CustomFieldElement;
+
+/** A field element — any element whose type is not "container" */
+export type FieldElement = StructuralFieldElement | BaseFieldElement;
 
 // ============================================
 // Layout Element Types
@@ -2603,18 +2550,17 @@ export type FieldElement =
 
 export interface ContainerElement {
   type: 'container';
-  columns: ColumnElement[];
+  /** Container variant for custom rendering (resolved via components.containers[variant]) */
+  variant?: string;
+  /** Nested child elements */
+  children?: FormElement[];
+  /** Conditional visibility rules using JSON Logic */
   visible?: JsonLogicRule;
+  /** Consumer-specific metadata (e.g., width, title, description, icon, id) */
+  meta?: Record<string, unknown>;
 }
 
-export interface ColumnElement {
-  type: 'column';
-  width: string;
-  elements: FormElement[];
-  visible?: JsonLogicRule;
-}
-
-export type LayoutElement = ContainerElement | ColumnElement;
+export type LayoutElement = ContainerElement;
 
 // ============================================
 // Union Types
@@ -2688,67 +2634,36 @@ export type GeneratedSchema = ZodObject<any>;
 
 export interface BaseFieldProps<
   TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+  TConfig extends BaseFieldElement = BaseFieldElement,
 > {
   field: ControllerRenderProps<TFieldValues, TName>;
   fieldState: ControllerFieldState;
-  config: FieldElement;
+  config: TConfig;
+  formValues: FormData;
+  setValue: (name: string, value: unknown) => void;
 }
 
-export interface TextFieldProps extends BaseFieldProps {
-  config: TextFieldElement;
-}
-
-export interface EmailFieldProps extends BaseFieldProps {
-  config: EmailFieldElement;
-}
-
-export interface BooleanFieldProps extends BaseFieldProps {
-  config: BooleanFieldElement;
-}
-
-export interface PhoneFieldProps extends BaseFieldProps {
-  config: PhoneFieldElement;
-}
-
-export interface DateFieldProps extends BaseFieldProps {
-  config: DateFieldElement;
-}
-
-export interface CustomFieldProps extends BaseFieldProps {
-  config: CustomFieldElement;
-}
-
-export interface SelectFieldProps extends BaseFieldProps {
-  config: SelectFieldElement;
-}
-
-export interface ArrayFieldProps extends BaseFieldProps {
-  config: ArrayFieldElement;
-}
+// Structurally-specific props (only types with extra properties)
+export type SelectFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, SelectFieldElement>;
+export type ArrayFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, ArrayFieldElement>;
+export type CustomFieldProps = BaseFieldProps<FieldValues, FieldPath<FieldValues>, CustomFieldElement>;
 
 // ============================================
 // Component Types
 // ============================================
 
-export type TextFieldComponent = React.ComponentType<TextFieldProps>;
-export type EmailFieldComponent = React.ComponentType<EmailFieldProps>;
-export type BooleanFieldComponent = React.ComponentType<BooleanFieldProps>;
-export type PhoneFieldComponent = React.ComponentType<PhoneFieldProps>;
-export type DateFieldComponent = React.ComponentType<DateFieldProps>;
-export type SelectFieldComponent = React.ComponentType<SelectFieldProps>;
-export type ArrayFieldComponent = React.ComponentType<ArrayFieldProps>;
-export type CustomFieldComponent = React.ComponentType<CustomFieldProps>;
+/** Base component type — used for ALL field components */
+export type BaseFieldComponent<TProps extends BaseFieldProps = BaseFieldProps> =
+  React.ComponentType<TProps>;
 
-export interface FieldComponentRegistry {
-  text: TextFieldComponent;
-  email: EmailFieldComponent;
-  boolean: BooleanFieldComponent;
-  phone: PhoneFieldComponent;
-  date: DateFieldComponent;
-  select?: SelectFieldComponent;
-  array?: ArrayFieldComponent;
-}
+// Structurally-specific component types
+export type SelectFieldComponent = BaseFieldComponent<SelectFieldProps>;
+export type ArrayFieldComponent = BaseFieldComponent<ArrayFieldProps>;
+export type CustomFieldComponent = BaseFieldComponent<CustomFieldProps>;
+
+/** Open-ended registry — any string key is valid */
+export type FieldComponentRegistry = Record<string, BaseFieldComponent>;
 
 export type CustomComponentRegistry = Record<string, CustomFieldComponent>;
 
@@ -2761,12 +2676,20 @@ export interface ContainerProps {
   children: React.ReactNode;
 }
 
-export interface ColumnProps {
-  config: ColumnElement;
-  children: React.ReactNode;
-}
-
 export type CustomContainerRegistry = Record<string, React.ComponentType<ContainerProps>>;
+
+// ============================================
+// Component Registry (unified prop)
+// ============================================
+
+export interface ComponentRegistry {
+  /** Required: Field component implementations */
+  fields: FieldComponentRegistry;
+  /** Optional: Custom field components */
+  custom?: CustomComponentRegistry;
+  /** Optional: Custom container components (keyed by variant name) */
+  containers?: CustomContainerRegistry;
+}
 
 // ============================================
 // Event Handler Types
@@ -2789,14 +2712,8 @@ export interface DynamicFormProps {
   /** Initial form data */
   initialData?: FormData;
 
-  /** Required: Field component implementations */
-  fieldComponents: FieldComponentRegistry;
-
-  /** Optional: Custom field components */
-  customComponents?: CustomComponentRegistry;
-
-  /** Optional: Custom container components */
-  customContainers?: CustomContainerRegistry;
+  /** Required: Unified component registry */
+  components: ComponentRegistry;
 
   /** Called on successful form submission */
   onSubmit: OnSubmitHandler;
@@ -2863,8 +2780,7 @@ export interface DynamicFormProps {
 export interface DynamicFormContextValue {
   config: FormConfiguration;
   visibility: Record<string, boolean>;
-  fieldComponents: FieldComponentRegistry;
-  customComponents: CustomComponentRegistry;
+  components: ComponentRegistry;
 }
 
 // ============================================
@@ -2903,11 +2819,16 @@ describe('ConfigurationParser', () => {
     expect(() => parseConfiguration(config)).toThrow();
   });
 
-  it('should require columns for container type', () => {
+  it('should accept container with children', () => {
     const config = {
-      elements: [{ type: 'container' }]
+      elements: [{
+        type: 'container',
+        children: [{ type: 'text', name: 'field1', label: 'Field 1' }]
+      }]
     };
-    expect(() => parseConfiguration(config)).toThrow();
+    const result = parseConfiguration(config);
+    expect(result.elements).toHaveLength(1);
+    expect(result.elements[0].type).toBe('container');
   });
 });
 ```
@@ -3047,19 +2968,13 @@ describe('Visibility Calculator', () => {
         {
           type: 'container',
           visible: { "var": "showDetails" },
-          columns: [
-            {
-              type: 'column',
-              width: '100%',
-              elements: [
-                { type: 'text', name: 'details.field1' }
-              ]
-            }
+          children: [
+            { type: 'text', name: 'details.field1' }
           ]
         }
       ]
     };
-    
+
     const visibility = calculateVisibility(config, { showDetails: false });
     expect(visibility['details.field1']).toBe(false);
   });
@@ -3115,12 +3030,14 @@ describe('Visibility-Aware Resolver', () => {
 
 ```typescript
 describe('DynamicForm Integration', () => {
-  const fieldComponents: FieldComponentRegistry = {
-    text: MockTextInput,
-    email: MockEmailInput,
-    boolean: MockCheckbox,
-    phone: MockPhoneInput,
-    date: MockDateInput,
+  const components: ComponentRegistry = {
+    fields: {
+      text: MockTextInput,
+      email: MockEmailInput,
+      boolean: MockCheckbox,
+      phone: MockPhoneInput,
+      date: MockDateInput,
+    },
   };
 
   it('should render form from configuration', () => {
@@ -3129,15 +3046,15 @@ describe('DynamicForm Integration', () => {
         { type: 'text', name: 'source.name', label: 'Name' }
       ]
     };
-    
+
     render(
       <DynamicForm
         config={config}
-        fieldComponents={fieldComponents}
+        components={components}
         onSubmit={jest.fn()}
       />
     );
-    
+
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
   });
 
@@ -3148,11 +3065,11 @@ describe('DynamicForm Integration', () => {
         { type: 'text', name: 'source.name', label: 'Name' }
       ]
     };
-    
+
     render(
       <DynamicForm
         config={config}
-        fieldComponents={fieldComponents}
+        components={components}
         onSubmit={onSubmit}
       />
     );
@@ -3185,21 +3102,21 @@ describe('DynamicForm Integration', () => {
     render(
       <DynamicForm
         config={config}
-        fieldComponents={fieldComponents}
+        components={components}
         onSubmit={onSubmit}
       />
     );
-    
+
     // Submit with invalid value
-    fireEvent.change(screen.getByLabelText('Name'), { 
-      target: { value: 'Jo' } 
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Jo' }
     });
     fireEvent.submit(screen.getByRole('form'));
-    
+
     await waitFor(() => {
       expect(screen.getByText(/at least 3 characters/i)).toBeInTheDocument();
     });
-    
+
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -3208,20 +3125,20 @@ describe('DynamicForm Integration', () => {
     const config: FormConfiguration = {
       elements: [
         { type: 'boolean', name: 'showPhone', label: 'Show Phone' },
-        { 
-          type: 'phone', 
-          name: 'phone', 
+        {
+          type: 'phone',
+          name: 'phone',
           label: 'Phone',
           visible: { "var": "showPhone" },
           validation: { required: true }
         }
       ]
     };
-    
+
     render(
       <DynamicForm
         config={config}
-        fieldComponents={fieldComponents}
+        components={components}
         onSubmit={onSubmit}
         invisibleFieldValidation="skip"
       />
@@ -3249,11 +3166,13 @@ describe('DynamicForm Integration', () => {
   "elements": [
     {
       "type": "container",
-      "columns": [
+      "variant": "row",
+      "children": [
         {
-          "type": "column",
-          "width": "50%",
-          "elements": [
+          "type": "container",
+          "variant": "column",
+          "meta": { "width": "50%" },
+          "children": [
             {
               "type": "text",
               "name": "source.name",
@@ -3272,9 +3191,10 @@ describe('DynamicForm Integration', () => {
           ]
         },
         {
-          "type": "column",
-          "width": "50%",
-          "elements": [
+          "type": "container",
+          "variant": "column",
+          "meta": { "width": "50%" },
+          "children": [
             {
               "type": "email",
               "name": "source.email",
@@ -3316,19 +3236,15 @@ describe('DynamicForm Integration', () => {
 ### 16.2 React Implementation Example
 
 ```tsx
-import { 
-  DynamicForm, 
-  FieldComponentRegistry,
-  TextFieldComponent,
-  EmailFieldComponent,
-  BooleanFieldComponent,
-  PhoneFieldComponent,
-  DateFieldComponent,
-  FormData
-} from '@company/dynamic-form';
+import {
+  DynamicForm,
+  type BaseFieldComponent,
+  type ComponentRegistry,
+  type FormData
+} from 'rhf-dynamic-forms';
 
-// Implement field components
-const TextInput: TextFieldComponent = ({ field, fieldState, config }) => (
+// Implement field components — all use BaseFieldComponent
+const TextInput: BaseFieldComponent = ({ field, fieldState, config }) => (
   <div className="form-field">
     <label htmlFor={field.name}>{config.label}</label>
     <input
@@ -3343,7 +3259,7 @@ const TextInput: TextFieldComponent = ({ field, fieldState, config }) => (
   </div>
 );
 
-const EmailInput: EmailFieldComponent = ({ field, fieldState, config }) => (
+const EmailInput: BaseFieldComponent = ({ field, fieldState, config }) => (
   <div className="form-field">
     <label htmlFor={field.name}>{config.label}</label>
     <input
@@ -3358,7 +3274,7 @@ const EmailInput: EmailFieldComponent = ({ field, fieldState, config }) => (
   </div>
 );
 
-const Checkbox: BooleanFieldComponent = ({ field, fieldState, config }) => (
+const Checkbox: BaseFieldComponent = ({ field, fieldState, config }) => (
   <div className="form-field">
     <label>
       <input
@@ -3374,7 +3290,7 @@ const Checkbox: BooleanFieldComponent = ({ field, fieldState, config }) => (
   </div>
 );
 
-const PhoneInput: PhoneFieldComponent = ({ field, fieldState, config }) => (
+const PhoneInput: BaseFieldComponent = ({ field, fieldState, config }) => (
   <div className="form-field">
     <label htmlFor={field.name}>{config.label}</label>
     <input
@@ -3390,7 +3306,7 @@ const PhoneInput: PhoneFieldComponent = ({ field, fieldState, config }) => (
   </div>
 );
 
-const DateInput: DateFieldComponent = ({ field, fieldState, config }) => (
+const DateInput: BaseFieldComponent = ({ field, fieldState, config }) => (
   <div className="form-field">
     <label htmlFor={field.name}>{config.label}</label>
     <input
@@ -3404,19 +3320,20 @@ const DateInput: DateFieldComponent = ({ field, fieldState, config }) => (
   </div>
 );
 
-// Register all field components
-const fieldComponents: FieldComponentRegistry = {
-  text: TextInput,
-  email: EmailInput,
-  boolean: Checkbox,
-  phone: PhoneInput,
-  date: DateInput,
+// Register all components via unified ComponentRegistry
+const components: ComponentRegistry = {
+  fields: {
+    text: TextInput,
+    email: EmailInput,
+    boolean: Checkbox,
+    phone: PhoneInput,
+    date: DateInput,
+  },
 };
 
 // Use DynamicForm
 function App() {
   const handleSubmit = (data: FormData) => {
-    console.log('Form submitted:', data);
     // data will be:
     // {
     //   source: {
@@ -3431,9 +3348,9 @@ function App() {
   return (
     <DynamicForm
       config={sampleFormConfig}
-      fieldComponents={fieldComponents}
+      components={components}
       onSubmit={handleSubmit}
-      onChange={(data, field) => console.log(`${field} changed:`, data)}
+      onChange={(data, field) => {}}
       invisibleFieldValidation="skip" // Don't validate hidden fields
     />
   );
@@ -3446,7 +3363,7 @@ function App() {
 // Example 1: Skip validation for invisible fields (default)
 <DynamicForm
   config={config}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
   invisibleFieldValidation="skip"
 />
@@ -3454,7 +3371,7 @@ function App() {
 // Example 2: Validate all fields including invisible ones
 <DynamicForm
   config={config}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
   invisibleFieldValidation="validate"
 />
@@ -3462,7 +3379,7 @@ function App() {
 // Example 3: Warn about invalid invisible fields but don't block submission
 <DynamicForm
   config={config}
-  fieldComponents={fieldComponents}
+  components={components}
   onSubmit={handleSubmit}
   invisibleFieldValidation="warn"
 />

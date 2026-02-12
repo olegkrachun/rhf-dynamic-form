@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { DynamicFormContext, type DynamicFormContextValue } from "../context";
+import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
 
 /**
  * Hook to access the DynamicForm context.
@@ -13,7 +13,7 @@ import { DynamicFormContext, type DynamicFormContextValue } from "../context";
  * @example
  * ```tsx
  * function MyCustomField({ config }) {
- *   const { form, fieldComponents } = useDynamicFormContext();
+ *   const { form, components } = useDynamicFormContext();
  *
  *   const value = form.watch(config.name);
  *   // ... render field

@@ -1,10 +1,10 @@
-import type { TextFieldComponent } from "../../src";
+import type { BaseFieldComponent } from "../../src";
 
 /**
  * Sample text input field component.
  * This is a basic, unstyled implementation for testing and reference.
  */
-export const TextField: TextFieldComponent = ({
+export const TextField: BaseFieldComponent = ({
   field,
   fieldState,
   config,

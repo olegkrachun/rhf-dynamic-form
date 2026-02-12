@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type {
+  BaseFieldElement,
   FormElement,
   SelectFieldElement,
-  TextFieldElement,
 } from "../types";
 import {
   buildDependencyMap,
@@ -103,11 +103,12 @@ describe("buildDependencyMap", () => {
       { type: "text", name: "trigger" },
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [
               {
                 type: "text",
                 name: "dependent",
@@ -142,11 +143,12 @@ describe("findFieldByName", () => {
     const elements: FormElement[] = [
       {
         type: "container",
-        columns: [
+        children: [
           {
-            type: "column",
-            width: "100%",
-            elements: [{ type: "text", name: "nested" }],
+            type: "container",
+            variant: "column",
+            meta: { width: "100%" },
+            children: [{ type: "text", name: "nested" }],
           },
         ],
       },
@@ -173,7 +175,7 @@ describe("getFieldTypeDefault", () => {
   });
 
   it("should return empty string for text fields", () => {
-    const textField: TextFieldElement = { type: "text", name: "test" };
+    const textField: BaseFieldElement = { type: "text", name: "test" };
     expect(getFieldTypeDefault(textField)).toBe("");
 
     // These types all return empty string
@@ -217,7 +219,7 @@ describe("getFieldTypeDefault", () => {
 
 describe("getFieldDefault", () => {
   it("should return config defaultValue when specified", () => {
-    const field: TextFieldElement = {
+    const field: BaseFieldElement = {
       type: "text",
       name: "test",
       defaultValue: "my default",
@@ -227,7 +229,7 @@ describe("getFieldDefault", () => {
   });
 
   it("should return type default when no defaultValue", () => {
-    const textField: TextFieldElement = {
+    const textField: BaseFieldElement = {
       type: "text",
       name: "test",
     };

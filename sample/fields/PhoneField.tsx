@@ -1,10 +1,10 @@
-import type { PhoneFieldComponent } from "../../src";
+import type { BaseFieldComponent } from "../../src";
 
 /**
  * Sample phone input field component.
  * This is a basic, unstyled implementation for testing and reference.
  */
-export const PhoneField: PhoneFieldComponent = ({
+export const PhoneField: BaseFieldComponent = ({
   field,
   fieldState,
   config,

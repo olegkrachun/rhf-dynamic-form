@@ -2,10 +2,10 @@
 // Dynamic Form Library - Main Exports
 // =============================================================================
 
-export type { DynamicFormContextValue } from "./context";
 // =============================================================================
 // Context (for advanced use cases)
 // =============================================================================
+export type { DynamicFormContextValue } from "./context";
 export { DynamicFormContext } from "./context";
 // =============================================================================
 // Custom Components (Phase 5)
@@ -14,6 +14,7 @@ export type { CustomComponentRenderProps } from "./customComponents";
 export { defineCustomComponent } from "./customComponents";
 // Main Component
 export { DynamicForm, default } from "./DynamicForm";
+
 // =============================================================================
 // Hooks
 // =============================================================================
@@ -21,15 +22,17 @@ export {
   useDynamicFormContext,
   useDynamicFormContextSafe,
 } from "./hooks";
-export type { ParseResult } from "./parser";
+
 // =============================================================================
 // Parser (for advanced use cases)
 // =============================================================================
+export type { ParseResult } from "./parser";
 export {
   ConfigurationError,
   parseConfiguration,
   safeParseConfiguration,
 } from "./parser";
+
 // =============================================================================
 // Resolver (Phase 3 - Visibility-aware validation)
 // =============================================================================
@@ -37,42 +40,37 @@ export {
   createVisibilityAwareResolver,
   type VisibilityAwareResolverOptions,
 } from "./resolver";
-export type { GeneratedSchema, InferSchemaType } from "./schema";
+
 // =============================================================================
 // Schema Generation (for advanced use cases)
 // =============================================================================
+export type {
+  GeneratedSchema,
+  InferSchemaType,
+  SchemaFactory,
+  SchemaMap,
+} from "./schema";
 export {
   buildFieldSchema,
+  defaultSchemaMap,
   generateZodSchema,
   getSchemaFieldPaths,
+  resetSchemaMap,
+  setSchemaMap,
 } from "./schema";
+
 // =============================================================================
-// Types - Configuration
-// =============================================================================
-// =============================================================================
-// Types - Elements
-// =============================================================================
-// =============================================================================
-// Types - Field Components (for implementing field components)
-// =============================================================================
-// =============================================================================
-// Types - Validation
-// =============================================================================
-// =============================================================================
-// Types - Events
+// Types
 // =============================================================================
 export type {
   ApiOptionsSource,
   ArrayFieldComponent,
   ArrayFieldElement,
   ArrayFieldProps,
+  BaseFieldComponent,
+  BaseFieldElement,
   BaseFieldProps,
-  BooleanFieldComponent,
-  BooleanFieldElement,
-  BooleanFieldProps,
-  ColumnComponent,
-  ColumnElement,
-  ColumnProps,
+  ComponentRegistry,
   ContainerComponent,
   ContainerElement,
   ContainerProps,
@@ -82,15 +80,9 @@ export type {
   CustomFieldComponent,
   CustomFieldElement,
   CustomFieldProps,
-  DateFieldComponent,
-  DateFieldElement,
-  DateFieldProps,
   DynamicFormProps,
   DynamicFormRef,
   ElementType,
-  EmailFieldComponent,
-  EmailFieldElement,
-  EmailFieldProps,
   FieldComponentRegistry,
   FieldElement,
   FieldProps,
@@ -110,9 +102,6 @@ export type {
   OnSubmitHandler,
   OnValidationChangeHandler,
   OptionsSource,
-  PhoneFieldComponent,
-  PhoneFieldElement,
-  PhoneFieldProps,
   ResolverOptionsSource,
   SearchOptionsSource,
   SelectFieldComponent,
@@ -120,19 +109,17 @@ export type {
   SelectFieldProps,
   SelectOption,
   StaticOptionsSource,
-  TextFieldComponent,
-  TextFieldElement,
-  TextFieldProps,
   ValidationConfig,
 } from "./types";
 // Element type guards
 export {
   isArrayFieldElement,
-  isColumnElement,
   isContainerElement,
   isCustomFieldElement,
   isFieldElement,
+  isSectionContainer,
 } from "./types";
+
 // =============================================================================
 // Utilities (for advanced use cases)
 // =============================================================================
@@ -145,6 +132,7 @@ export {
   setNestedValue,
   type VisibilityState,
 } from "./utils";
+
 // =============================================================================
 // Validation Utilities (Phase 3 - JSON Logic)
 // =============================================================================

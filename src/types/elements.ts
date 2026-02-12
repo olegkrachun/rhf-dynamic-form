@@ -1,34 +1,25 @@
 import type { JsonLogicRule, ValidationConfig } from "./validation";
 
 /**
- * All supported element types in the form configuration.
- * Phase 1: text, email, boolean, phone, date, custom
- * Phase 2 adds: container, column
- * Phase 3 adds: select, array
+ * Element type identifier.
+ *
+ * The engine only distinguishes two kinds:
+ * - `"container"` — layout wrapper, looked up by variant
+ * - anything else — a field, looked up by type string in `components.fields`
+ *
+ * Consumers can use ANY string as a field type (e.g. "textarea", "currency",
+ * "rich-text"). The engine does not maintain a closed set of field types.
+ *
+ * Well-known types (text, email, boolean, phone, date, select, array, custom)
+ * are provided as convenience interfaces but are NOT enforced by the engine.
  */
-export type ElementType =
-  | "text"
-  | "email"
-  | "boolean"
-  | "phone"
-  | "date"
-  | "select"
-  | "array"
-  | "container"
-  | "column"
-  | "custom";
+export type ElementType = string;
 
 /**
- * Field types that render input controls.
+ * Field type identifier — any string except "container".
+ * The engine treats every non-container element as a field.
  */
-export type FieldType =
-  | "text"
-  | "email"
-  | "boolean"
-  | "phone"
-  | "date"
-  | "select"
-  | "array";
+export type FieldType = string;
 
 /**
  * Base interface for all field elements.
@@ -64,41 +55,13 @@ export interface BaseFieldElement {
 
   /** Reset this field when parent changes (default: true) */
   resetOnParentChange?: boolean;
-}
 
-/**
- * Text input field element.
- */
-export interface TextFieldElement extends BaseFieldElement {
-  type: "text";
-}
-
-/**
- * Email input field element.
- */
-export interface EmailFieldElement extends BaseFieldElement {
-  type: "email";
-}
-
-/**
- * Boolean (checkbox/toggle) field element.
- */
-export interface BooleanFieldElement extends BaseFieldElement {
-  type: "boolean";
-}
-
-/**
- * Phone number input field element.
- */
-export interface PhoneFieldElement extends BaseFieldElement {
-  type: "phone";
-}
-
-/**
- * Date picker field element.
- */
-export interface DateFieldElement extends BaseFieldElement {
-  type: "date";
+  /**
+   * Consumer-specific metadata.
+   * The engine does not interpret this — it passes it through to field components.
+   * Use for gridSpan, fieldClassName, confidence, readOnly, etc.
+   */
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -235,69 +198,70 @@ export interface ArrayFieldElement extends BaseFieldElement {
 }
 
 /**
- * Container element for grouping fields in columns (Phase 2).
+ * Container element — a layout wrapper looked up by `variant` in `ComponentRegistry.containers`.
+ *
+ * The engine only knows two things: field and container.
+ * What the container IS (column, section, row, grid, card) is decided by the consumer
+ * via the `variant` key and the component registered for that variant.
+ *
+ * @example
+ * ```json
+ * { "type": "container", "variant": "row", "children": [...] }
+ * { "type": "container", "variant": "column", "meta": { "width": "50%" }, "children": [...] }
+ * { "type": "container", "variant": "section", "meta": { "title": "Details" }, "children": [...] }
+ * ```
  */
 export interface ContainerElement {
   type: "container";
 
-  /** Array of column elements */
-  columns: ColumnElement[];
+  /** Variant name — looked up in `ComponentRegistry.containers[variant]` */
+  variant?: string;
+
+  /** Child elements rendered by the engine inside this container */
+  children?: FormElement[];
 
   /** Conditional visibility rules using JSON Logic */
   visible?: JsonLogicRule;
+
+  /**
+   * Consumer-specific metadata.
+   * The engine does not interpret this — it passes it through to container components.
+   * Use for width, title, icon, id, collapsible, className, gridSpan, etc.
+   */
+  meta?: Record<string, unknown>;
 }
 
 /**
- * Column element within a container (Phase 2).
+ * Structurally-specific field element types.
+ * These have additional required properties beyond BaseFieldElement.
  */
-export interface ColumnElement {
-  type: "column";
-
-  /** Column width (e.g., '50%', '200px') */
-  width: string;
-
-  /** Nested elements within the column */
-  elements: FormElement[];
-
-  /** Conditional visibility rules using JSON Logic */
-  visible?: JsonLogicRule;
-}
-
-/**
- * Union of all field element types.
- */
-export type FieldElement =
-  | TextFieldElement
-  | EmailFieldElement
-  | BooleanFieldElement
-  | PhoneFieldElement
-  | DateFieldElement
+export type StructuralFieldElement =
   | SelectFieldElement
   | ArrayFieldElement
   | CustomFieldElement;
 
 /**
- * Union of all layout element types.
+ * A field element — any element whose type is not "container".
+ * The engine accepts ANY type string; structurally-specific types
+ * (select, array, custom) add required properties.
  */
-export type LayoutElement = ContainerElement | ColumnElement;
+export type FieldElement = StructuralFieldElement | BaseFieldElement;
 
 /**
- * Union of all form element types.
+ * Union of all layout element types.
+ */
+export type LayoutElement = ContainerElement;
+
+/**
+ * Union of all form element types (fields and containers).
  */
 export type FormElement = FieldElement | LayoutElement;
 
 /**
- * Type guard to check if an element is a field element.
+ * Type guard to check if an element is a field element (any non-container).
  */
 export const isFieldElement = (element: FormElement): element is FieldElement =>
-  element.type === "text" ||
-  element.type === "email" ||
-  element.type === "boolean" ||
-  element.type === "phone" ||
-  element.type === "date" ||
-  element.type === "select" ||
-  element.type === "array" ||
-  element.type === "custom";
+  element.type !== "container";
 
 /**
  * Type guard to check if an element is an array field element.
@@ -314,15 +278,17 @@ export const isContainerElement = (
 ): element is ContainerElement => element.type === "container";
 
 /**
- * Type guard to check if an element is a column element.
- */
-export const isColumnElement = (
-  element: FormElement
-): element is ColumnElement => element.type === "column";
-
-/**
  * Type guard to check if an element is a custom field element.
  */
 export const isCustomFieldElement = (
   element: FormElement
 ): element is CustomFieldElement => element.type === "custom";
+
+/**
+ * Type guard to check if a container is a section container.
+ */
+export const isSectionContainer = (
+  element: FormElement
+): element is ContainerElement =>
+  element.type === "container" &&
+  (element as ContainerElement).variant === "section";

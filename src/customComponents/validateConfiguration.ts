@@ -1,10 +1,10 @@
-import type { FormConfiguration } from "../types/config";
 import type {
-  ColumnElement,
   ContainerElement,
+  CustomComponentRegistry,
+  FormConfiguration,
   FormElement,
-} from "../types/elements";
-import type { CustomComponentRegistry } from "./types";
+} from "@/types";
+import { isContainerElement } from "@/types";
 import {
   isCustomElement,
   type ValidatedCustomElement,
@@ -54,10 +54,6 @@ function validateElement(
     return validateContainer(element, registry, path);
   }
 
-  if (isColumnElement(element)) {
-    return validateColumn(element, registry, path);
-  }
-
   return element;
 }
 
@@ -66,75 +62,58 @@ function validateContainer(
   registry: CustomComponentRegistry,
   path: string
 ): ContainerElement {
-  const validatedColumns = container.columns.map((column, index) =>
-    validateColumn(column, registry, `${path}.columns[${index}]`)
-  );
+  if (!container.children) {
+    return container;
+  }
 
   return {
     ...container,
-    columns: validatedColumns,
+    children: validateElements(
+      container.children,
+      registry,
+      `${path}.children`
+    ),
   };
-}
-
-function validateColumn(
-  column: ColumnElement,
-  registry: CustomComponentRegistry,
-  path: string
-): ColumnElement {
-  const validatedElements = validateElements(
-    column.elements,
-    registry,
-    `${path}.elements`
-  );
-
-  return {
-    ...column,
-    elements: validatedElements,
-  };
-}
-
-function isContainerElement(element: FormElement): element is ContainerElement {
-  return element.type === "container";
-}
-
-function isColumnElement(element: FormElement): element is ColumnElement {
-  return element.type === "column";
 }
 
 /**
  * Collect all custom elements from a form configuration.
- * Returns elements with normalized componentProps (defaults to empty object).
- *
- * @remarks For full validation including propsSchema checks, pass the config
- * through validateCustomComponents first.
  */
 export function getValidatedCustomElements(
   config: FormConfiguration
 ): ValidatedCustomElement[] {
   const results: ValidatedCustomElement[] = [];
+  collectFromElements(config.elements, results);
+  return results;
+}
 
-  function collectFromElements(elements: FormElement[]): void {
-    for (const element of elements) {
-      if (isCustomElement(element)) {
-        const componentProps =
-          typeof element.componentProps === "object" &&
-          element.componentProps !== null
-            ? element.componentProps
-            : {};
-        results.push({
-          ...element,
-          componentProps: componentProps as Record<string, unknown>,
-        });
-      } else if (isContainerElement(element)) {
-        for (const column of element.columns) {
-          collectFromElements(column.elements);
-        }
-      } else if (isColumnElement(element)) {
-        collectFromElements(element.elements);
-      }
-    }
+function collectFromElements(
+  elements: FormElement[],
+  results: ValidatedCustomElement[]
+): void {
+  for (const element of elements) {
+    collectFromElement(element, results);
+  }
+}
+
+function collectFromElement(
+  element: FormElement,
+  results: ValidatedCustomElement[]
+): void {
+  if (isCustomElement(element)) {
+    const componentProps =
+      typeof element.componentProps === "object" &&
+      element.componentProps !== null
+        ? element.componentProps
+        : {};
+    results.push({
+      ...element,
+      componentProps: componentProps as Record<string, unknown>,
+    });
+    return;
   }
 
-  collectFromElements(config.elements);
-  return results;
+  if (isContainerElement(element) && element.children) {
+    collectFromElements(element.children, results);
+  }
 }
