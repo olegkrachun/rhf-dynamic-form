@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/olegkrachun/dynamic-forms.git"
+    "url": "git+https://github.com/olegkrachun/rhf-dynamic-form.git"
   },
-  "homepage": "https://github.com/olegkrachun/dynamic-forms#readme",
+  "homepage": "https://github.com/olegkrachun/rhf-dynamic-form#readme",
   "bugs": {
-    "url": "https://github.com/olegkrachun/dynamic-forms/issues"
+    "url": "https://github.com/olegkrachun/rhf-dynamic-form/issues"
   },
   "type": "module",
   "main": "./dist/index.cjs",
