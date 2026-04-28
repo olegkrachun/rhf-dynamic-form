@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.3.0...rhf-dynamic-forms-v1.4.0) (2026-04-28)
+
+
+### Features
+
+* derive cross-field validation peers from validation.condition ([53bd7f0](https://github.com/olegkrachun/rhf-dynamic-form/commit/53bd7f0926b46eb8b2cfa908881a1f419b85af97))
+* trigger validation for cross-field conditions on form change ([42427ae](https://github.com/olegkrachun/rhf-dynamic-form/commit/42427aeadc81460ee686d22afa985df3be4c393f))
+* trigger validation for cross-field conditions on form change ([e4af4f8](https://github.com/olegkrachun/rhf-dynamic-form/commit/e4af4f8d79dcc912a12dc52b2e7e9ce8d9a3a865))
+
+
+### Bug Fixes
+
+* lint ([0649fdf](https://github.com/olegkrachun/rhf-dynamic-form/commit/0649fdfdc34db1ca16dfb92f02d72da01abdd248))
+
 ## [1.3.0](https://github.com/olegkrachun/dynamic-form/compare/rhf-dynamic-forms-v1.2.0...rhf-dynamic-forms-v1.3.0) (2026-02-12)
 
 
