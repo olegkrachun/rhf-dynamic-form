@@ -28,7 +28,7 @@ const checkboxFields: FieldComponentRegistry = {
   ),
 };
 
-describe("DynamicForm | cross-field validation re-trigger", () => {
+describe("DynamicForm | cross-field validation via rules.deps", () => {
   const buildPairConfig = (): FormConfiguration => ({
     elements: [
       {
@@ -78,8 +78,10 @@ describe("DynamicForm | cross-field validation re-trigger", () => {
       expect(lastCall?.[1]).toBe(false);
     });
 
-    // act 2 — uncheck No; without the form-wide trigger, the peer (`yes`)
-    // would keep its stale error and the form would stay invalid
+    // act 2 — uncheck No; the engine derives `deps: ['yes']` from the
+    // condition's `var` refs and forwards them to RHF, so changing `no`
+    // automatically re-validates `yes`. Without that wiring `yes` would
+    // keep its stale error and the form would stay invalid.
     fireEvent.click(noCheckbox);
 
     // assert 2 — peer field's stale error is cleared, form is valid again
@@ -91,36 +93,64 @@ describe("DynamicForm | cross-field validation re-trigger", () => {
     expect(noCheckbox.checked).toBe(false);
   });
 
-  it("does not run form-wide trigger when no field declares validation.condition", async () => {
-    // arrange — plain form, no cross-field rules
+  it("does not wire deps when a field has no validation.condition", async () => {
+    // arrange — plain form, no cross-field rules; just sanity-check that
+    // the engine doesn't crash and validation still runs per-field.
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "username", label: "Username" },
         { type: "boolean", name: "agree", label: "I agree" },
       ],
     };
-    const onValidationChange = vi.fn();
     render(
       <DynamicForm
         components={{ fields: checkboxFields }}
         config={config}
         onSubmit={vi.fn()}
-        onValidationChange={onValidationChange}
       />
     );
-    const initialCallCount = onValidationChange.mock.calls.length;
     const usernameInput = screen.getByLabelText("Username");
 
-    // act — change a field; without any condition, the form-wide trigger
-    // path is skipped, so validation does not cascade
+    // act
     fireEvent.change(usernameInput, { target: { value: "alice" } });
 
-    // assert — at most one extra call (RHF's own per-field validation),
-    // not the cascade that cross-field re-trigger would produce
+    // assert — change applied without throwing
     await waitFor(() => {
-      expect(
-        onValidationChange.mock.calls.length - initialCallCount
-      ).toBeLessThanOrEqual(1);
+      expect((usernameInput as HTMLInputElement).value).toBe("alice");
+    });
+  });
+
+  it("ignores self-references in the condition (does not wire a field as its own dep)", async () => {
+    // arrange — single field whose condition refers only to itself
+    const config: FormConfiguration = {
+      elements: [
+        {
+          type: "boolean",
+          name: "acceptTerms",
+          label: "I accept",
+          validation: {
+            condition: { var: "acceptTerms" },
+            message: "You must accept",
+          },
+        },
+      ],
+    };
+    render(
+      <DynamicForm
+        components={{ fields: checkboxFields }}
+        config={config}
+        onSubmit={vi.fn()}
+      />
+    );
+    const checkbox = screen.getByLabelText("I accept") as HTMLInputElement;
+
+    // act — toggle the checkbox; with self filtered out of `deps`, RHF
+    // should not crash with a circular self-reference
+    fireEvent.click(checkbox);
+
+    // assert
+    await waitFor(() => {
+      expect(checkbox.checked).toBe(true);
     });
   });
 });

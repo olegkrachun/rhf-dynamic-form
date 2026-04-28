@@ -19,7 +19,6 @@ import {
   buildDependencyMap,
   calculateVisibility,
   findFieldByName,
-  flattenFields,
   getFieldDefault,
   getNestedValue,
   getUpdatedVisibility,
@@ -113,21 +112,6 @@ export const DynamicForm = ({
     [parsedConfig]
   );
 
-  /**
-   * Whether any field carries a cross-field `validation.condition`. When
-   * true, every change triggers form-wide revalidation so peer fields don't
-   * keep stale errors after the value they depend on changes. RHF's default
-   * onChange mode only revalidates the changed field; cross-field rules
-   * referenced from `superRefine` need an explicit trigger to refresh peers.
-   */
-  const hasCrossFieldConditions = useMemo(
-    () =>
-      flattenFields(parsedConfig.elements).some(
-        (field) => field.validation?.condition !== undefined
-      ),
-    [parsedConfig]
-  );
-
   const previousValuesRef = useRef<Record<string, unknown>>({});
 
   /**
@@ -189,17 +173,10 @@ export const DynamicForm = ({
 
       handleDependencyReset(name, formValues);
       onChangeRef.current?.(values as FormData, name);
-
-      // Refresh peer-field errors for cross-field rules. Symmetric to the
-      // `dependsOn` reset above — both are generic side-effects of any field
-      // change. Skipped when no condition exists so plain forms pay nothing.
-      if (hasCrossFieldConditions) {
-        form.trigger();
-      }
     });
 
     return () => subscription.unsubscribe();
-  }, [form, parsedConfig, dependencyMap, hasCrossFieldConditions]);
+  }, [form, parsedConfig, dependencyMap]);
 
   const { errors: formErrors, isValid: formIsValid } = useFormState({
     control: form.control,
