@@ -62,7 +62,7 @@ const RatingFieldComponent = ({
       <div className="rating-field__buttons">
         {stars.map((star) => (
           <button
-            aria-label={`${star} star${star !== 1 ? "s" : ""}`}
+            aria-label={`${star} star${star === 1 ? "" : "s"}`}
             className={`rating-field__star ${star <= currentValue ? "rating-field__star--filled" : ""}`}
             key={star}
             onBlur={field.onBlur}

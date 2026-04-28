@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useController } from "react-hook-form";
 import {
   type CustomComponentRenderProps,
@@ -11,6 +12,7 @@ import type {
   FormData,
 } from "../types";
 import { isCustomFieldElement } from "../types";
+import { collectVars } from "../utils";
 
 export interface FieldRendererProps {
   config: FieldElement;
@@ -101,9 +103,22 @@ const StandardFieldRenderer = ({
 export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
   const { form, visibility, fieldWrapper } = useDynamicFormContext();
 
+  // Cross-field re-validation: every `var` referenced by this field's
+  // condition is a peer whose change should re-trigger this field's
+  // validation. RHF handles the dispatch natively via `rules.deps`.
+  const peers = useMemo(() => {
+    const condition = config.validation?.condition;
+    if (!condition) {
+      return undefined;
+    }
+    const vars = collectVars(condition).filter((path) => path !== config.name);
+    return vars.length > 0 ? vars : undefined;
+  }, [config.validation?.condition, config.name]);
+
   const { field, fieldState } = useController({
     name: config.name,
     control: form.control,
+    rules: peers ? { deps: peers } : undefined,
   });
 
   const isVisible = visibility[config.name] !== false;

@@ -361,6 +361,70 @@ export const sampleFormConfig: FormConfiguration = {
     },
 
     // =========================================================================
+    // Section: Mutual Exclusion
+    // Demonstrates: cross-field re-validation through `validation.condition`.
+    // The engine walks each rule for `var` references and forwards them as
+    // RHF `useController({ rules: { deps } })` so a change to one peer
+    // re-runs the other peer's validation natively — no manual `trigger()`.
+    //
+    // Try it:
+    //  1. Tick BOTH "Yes" and "No" → both fields show the mutual-exclusion
+    //     error simultaneously.
+    //  2. Untick one → the other's stale error clears immediately (without
+    //     deps wiring it would stick until the user touched it).
+    //  3. Tick only one → no error on either side.
+    // =========================================================================
+    {
+      type: "container",
+      variant: "section",
+      meta: {
+        title: "Mutual Exclusion (cross-field validation)",
+        description:
+          "Tick both checkboxes to see the same error appear on both. Untick one and the other clears automatically.",
+      },
+      children: [
+        {
+          type: "container",
+          variant: "row",
+          children: [
+            {
+              type: "boolean",
+              name: "source.accidentInNy.yes",
+              label: "Yes",
+              validation: {
+                condition: {
+                  "!": {
+                    and: [
+                      { var: "source.accidentInNy.yes" },
+                      { var: "source.accidentInNy.no" },
+                    ],
+                  },
+                },
+                message: "Yes and No cannot both be selected",
+              },
+            },
+            {
+              type: "boolean",
+              name: "source.accidentInNy.no",
+              label: "No",
+              validation: {
+                condition: {
+                  "!": {
+                    and: [
+                      { var: "source.accidentInNy.yes" },
+                      { var: "source.accidentInNy.no" },
+                    ],
+                  },
+                },
+                message: "Yes and No cannot both be selected",
+              },
+            },
+          ],
+        },
+      ],
+    },
+
+    // =========================================================================
     // Section: Feedback & Agreement
     // Demonstrates: custom component (RatingField), conditional validation
     // =========================================================================

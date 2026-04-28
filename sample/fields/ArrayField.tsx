@@ -182,6 +182,7 @@ export const ArrayField: BaseFieldComponent = ({
       )}
       <div className="array-field">
         {items.map((item, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: sample demo — items are plain objects without stable ids; index is the only key available here. Production consumers should track ids themselves.
           <div className="array-field-item" key={`${field.name}-${index}`}>
             <div className="array-field-item-header">
               <span>Item {index + 1}</span>
