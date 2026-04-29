@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.4.0...rhf-dynamic-forms-v1.5.0) (2026-04-29)
+
+
+### Features
+
+* **repo-maintenance:** Updated documentation according to latest cha… ([e1c9f6f](https://github.com/olegkrachun/rhf-dynamic-form/commit/e1c9f6f26b8e9ec6f6429a1ec51ea5fd1f879e4f))
+* **repo-maintenance:** Updated documentation according to latest changes, updated publish pipeline ([d45171f](https://github.com/olegkrachun/rhf-dynamic-form/commit/d45171fd2cd3e80b64ad074a257123c92c807a96))
+
 ## [1.4.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.3.0...rhf-dynamic-forms-v1.4.0) (2026-04-28)
 
 
