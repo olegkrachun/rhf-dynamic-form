@@ -1533,6 +1533,18 @@ From the specification - phone number validation that depends on `has_phone` fie
 - OR if `source.has_phone` is false → valid
 - This means: phone is only required to match pattern when has_phone is checked
 
+**Automatic peer revalidation:**
+
+Once `validation.condition` references another field via `{ "var": "..." }`, the engine treats that field as a *peer* and re-runs this field's validation whenever the peer's value changes. In the example above, toggling `source.has_phone` automatically re-validates `source.phone` — no manual `form.trigger("source.phone")` call is needed.
+
+How it works internally:
+
+1. `src/utils/collectVars.ts` walks the JSON Logic rule on `validation.condition` and returns every distinct `var` path it references (it handles both `{ var: "a" }` and `{ var: ["a", default] }` shapes).
+2. `FieldRenderer` filters out the field's own name and forwards the remaining paths as `useController({ rules: { deps } })`.
+3. React Hook Form re-runs validation for this field whenever any value at a `deps` path changes.
+
+This means cross-field rules are wired purely declaratively — adding or removing a `var` reference in `validation.condition` automatically updates the peer set on next render. There is no public API to call: `collectVars` is an internal helper and is not exported from the package entry.
+
 ### 8.9 Complete Schema Generation Example
 
 Given this configuration:
