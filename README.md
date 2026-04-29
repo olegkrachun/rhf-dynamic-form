@@ -445,6 +445,20 @@ const components: ComponentRegistry = {
 }
 ```
 
+**Automatic cross-field revalidation** — When `validation.condition` references other fields via `{ var: "otherField" }`, the engine collects those references as peers and re-runs this field's validation whenever any peer value changes. Wired internally through React Hook Form's `useController({ rules: { deps } })`, so no manual `form.trigger()` calls or `watch` subscriptions are needed.
+
+```typescript
+// Changing `hasPhone` automatically revalidates `phone` —
+// `phone` derived `hasPhone` as a peer from its own validation.condition.
+{ type: "boolean", name: "hasPhone", label: "I have a phone" },
+{ type: "phone", name: "phone", label: "Phone Number",
+  validation: {
+    condition: { or: [{ "!": { var: "hasPhone" } }, { var: "phone" }] },
+    message: "Phone is required when 'I have a phone' is checked",
+  },
+}
+```
+
 **Available JSON Logic Operations:**
 - Standard: `var`, `and`, `or`, `!`, `==`, `!=`, `>`, `<`, `>=`, `<=`, `if`
 - Custom: `regex_match` - `["pattern", { var: "fieldName" }]`
