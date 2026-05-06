@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.5.0...rhf-dynamic-forms-v1.6.0) (2026-05-06)
+
+
+### Features
+
+* **dynamic-form:** add validateOnMount prop to surface invalid initi… ([b4545d4](https://github.com/olegkrachun/rhf-dynamic-form/commit/b4545d492f92a38eae54061293eff54ac3014eb6))
+* **dynamic-form:** add validateOnMount prop to surface invalid initialData on mount ([7143e07](https://github.com/olegkrachun/rhf-dynamic-form/commit/7143e074efddd6e149005af147efce5dcc239cfc))
+
+
+### Bug Fixes
+
+* lint ([76cb319](https://github.com/olegkrachun/rhf-dynamic-form/commit/76cb319a20dc4df21460eaed60f12295f064ec74))
+
 ## [1.5.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.4.0...rhf-dynamic-forms-v1.5.0) (2026-04-29)
 
 
