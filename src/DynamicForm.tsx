@@ -40,6 +40,7 @@ export const DynamicForm = ({
   onReset,
   onError,
   mode = "onChange",
+  validateOnMount = false,
   invisibleFieldValidation = "skip",
   className,
   style,
@@ -91,6 +92,15 @@ export const DynamicForm = ({
   );
 
   const form = useForm<FormData>({ defaultValues, resolver, mode });
+
+  // Run validation once after mount so pre-filled invalid values surface
+  // errors immediately. Empty deps array — fires per mount, not per render.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional one-shot on mount
+  useEffect(() => {
+    if (validateOnMount) {
+      form.trigger();
+    }
+  }, []);
 
   useImperativeHandle(
     ref,

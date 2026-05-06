@@ -228,6 +228,27 @@ interface ValidationConfig {
 }
 ```
 
+#### Validate on mount
+
+By default the form follows React Hook Form semantics: errors do not appear
+until the user interacts with the field (per the chosen `mode`). For review
+workflows where `initialData` may already contain invalid values (e.g. an
+extracted email of `"N/A"`), set `validateOnMount` so the form runs one
+validation pass right after mount and surfaces those errors immediately.
+
+```tsx
+<DynamicForm
+  config={config}
+  initialData={extractedData}
+  components={components}
+  onSubmit={handleSubmit}
+  validateOnMount
+/>
+```
+
+The trigger fires once per mount. Subsequent re-renders do not re-trigger;
+remounting the component (e.g. by changing `key`) will trigger a fresh pass.
+
 ### Container Layout
 
 Containers are layout wrappers resolved by `variant` through the component registry. The engine only knows two things: **field** and **container**. What the container IS (row, column, section, card, grid) is decided by the consumer.
@@ -486,6 +507,7 @@ interface DynamicFormProps {
   onReset?: () => void;
   onValidationChange?: (errors: unknown, isValid: boolean) => void;
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
+  validateOnMount?: boolean;
   invisibleFieldValidation?: "skip" | "validate" | "warn";
   fieldWrapper?: FieldWrapperFunction;
   className?: string;

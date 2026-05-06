@@ -154,3 +154,37 @@ describe("DynamicForm | cross-field validation via rules.deps", () => {
     });
   });
 });
+
+describe("DynamicForm | validateOnMount", () => {
+  const emailConfig: FormConfiguration = {
+    elements: [
+      {
+        type: "email",
+        name: "contactEmail",
+        label: "Email",
+      },
+    ],
+  };
+
+  it("surfaces invalid initialData immediately when validateOnMount is true", async () => {
+    // arrange
+    const onValidationChange = vi.fn();
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "not-an-email" }}
+        onSubmit={vi.fn()}
+        onValidationChange={onValidationChange}
+        validateOnMount
+      />
+    );
+
+    // assert — validation runs once on mount and the form is invalid
+    await waitFor(() => {
+      const lastCall = onValidationChange.mock.calls.at(-1);
+      expect(lastCall?.[1]).toBe(false);
+    });
+  });
+
+});

@@ -141,6 +141,18 @@ export interface DynamicFormProps {
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
 
   /**
+   * If `true`, run validation once after the form mounts so any pre-filled
+   * invalid values (passed via `initialData`) surface errors immediately
+   * instead of waiting for the user to focus a field.
+   *
+   * Useful for review workflows where extracted/upstream values may already
+   * be invalid (e.g. an extracted email that says "N/A").
+   *
+   * Triggers exactly once per mount. Subsequent re-renders do not re-trigger.
+   */
+  validateOnMount?: boolean;
+
+  /**
    * Controls validation behavior for invisible fields.
    * Only applies when using `schema` prop (not custom `resolver`).
    * - 'skip': Do not validate invisible fields (default)
