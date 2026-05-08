@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.6.0...rhf-dynamic-forms-v1.6.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* loosen react peer dependency to ^19.1.0 ([c638a9d](https://github.com/olegkrachun/rhf-dynamic-form/commit/c638a9da2f9a37daa853189c3e145ef88de26f71))
+* loosen react peer dependency to ^19.1.0 ([9c0d834](https://github.com/olegkrachun/rhf-dynamic-form/commit/9c0d834059edf26275417e23b7208bfda4855c8a))
+
 ## [1.6.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.5.0...rhf-dynamic-forms-v1.6.0) (2026-05-06)
 
 
