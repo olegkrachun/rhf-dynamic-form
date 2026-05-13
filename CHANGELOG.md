@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.7.0...rhf-dynamic-forms-v1.8.0) (2026-05-13)
+
+
+### Features
+
+* **dynamic-form:** enhance form state management by adding getDirtyF… ([d700ba3](https://github.com/olegkrachun/rhf-dynamic-form/commit/d700ba30bd35f34841ba9ed69b0a4606fd97ece5))
+* **dynamic-form:** enhance form state management by adding getDirtyFields and updating state access methods ([81632ed](https://github.com/olegkrachun/rhf-dynamic-form/commit/81632edd3d9691d8b8bfd55b08252f283cf47f90))
+
 ## [1.7.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.6.1...rhf-dynamic-forms-v1.7.0) (2026-05-13)
 
 
