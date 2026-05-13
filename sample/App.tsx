@@ -1,5 +1,10 @@
 import { useRef, useState } from "react";
-import { type ComponentRegistry, DynamicForm, type FormData } from "../src";
+import {
+  type ComponentRegistry,
+  DynamicForm,
+  type DynamicFormRef,
+  type FormData,
+} from "../src";
 import { sampleContainerComponents } from "./containers";
 import { sampleFieldComponents } from "./fields";
 import { RatingField } from "./fields/RatingField";
@@ -59,6 +64,7 @@ export function App() {
       ...prev.slice(0, 19),
     ]);
   };
+  const formRef = useRef<DynamicFormRef>(null);
 
   return (
     <div className="app">
@@ -79,6 +85,7 @@ export function App() {
             onChange={handleChange}
             onError={handleError}
             onSubmit={handleSubmit}
+            ref={formRef}
           >
             <div className="form-actions">
               <button className="btn btn--primary" type="submit">
@@ -92,6 +99,26 @@ export function App() {
         </section>
 
         <aside className="sidebar">
+          <section className="output-section">
+            <h3>Is Dirty</h3>
+            <p>{formRef.current?.getIsDirty() ? "Yes" : "No"}</p>
+          </section>
+          <section className="output-section">
+            <h3>Dirty Fields</h3>
+            <pre className="json-output">
+              {JSON.stringify(formRef.current?.getDirtyFields() ?? {}, null, 2)}
+            </pre>
+          </section>
+          <section className="output-section">
+            <h3>Is Valid</h3>
+            <p>{formRef.current?.getIsValid() ? "Yes" : "No"}</p>
+          </section>
+          <section className="output-section">
+            <h3>Errors</h3>
+            <pre className="json-output">
+              {JSON.stringify(formRef.current?.getErrors(), null, 2)}
+            </pre>
+          </section>
           <section className="output-section">
             <h3>Submitted Data</h3>
             {submittedData ? (

@@ -241,4 +241,7 @@ export interface DynamicFormRef {
    * so reverting a field back to its initial value flips this back to false.
    */
   getIsDirty: () => boolean;
+
+  /** Get all dirty fields */
+  getDirtyFields: () => Record<string, unknown>;
 }

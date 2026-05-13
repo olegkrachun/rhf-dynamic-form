@@ -1,9 +1,14 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "./DynamicForm";
 import { mockFieldComponents } from "./test-utils/mockFieldComponents";
-import type { FieldComponentRegistry, FormConfiguration } from "./types";
+import type {
+  DynamicFormRef,
+  FieldComponentRegistry,
+  FormConfiguration,
+} from "./types";
 
 // The shared `mockFieldComponents.boolean` spreads `{...field}` onto the
 // input, which doesn't bind `checked` correctly for checkbox semantics. For
@@ -184,6 +189,51 @@ describe("DynamicForm | validateOnMount", () => {
     await waitFor(() => {
       const lastCall = onValidationChange.mock.calls.at(-1);
       expect(lastCall?.[1]).toBe(false);
+    });
+  });
+});
+
+describe("DynamicForm | form context data access", () => {
+  describe("getIsDirty", () => {
+    const emailConfig: FormConfiguration = {
+      elements: [
+        {
+          type: "email",
+          name: "contactEmail",
+          label: "Email",
+        },
+      ],
+    };
+
+    it("returns true if the form is dirty", async () => {
+      // arrange
+      const onValidationChange = vi.fn();
+      const formRef = createRef<DynamicFormRef>();
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={emailConfig}
+          initialData={{ contactEmail: "not-an-email" }}
+          onSubmit={vi.fn()}
+          onValidationChange={onValidationChange}
+          ref={formRef}
+          validateOnMount
+        />
+      );
+
+      await waitFor(() => {
+        expect(formRef.current?.getIsDirty()).toBe(false);
+      });
+
+      // act
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "test@example.com" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(formRef.current?.getIsDirty()).toBe(true);
+      });
     });
   });
 });

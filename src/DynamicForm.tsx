@@ -92,6 +92,9 @@ export const DynamicForm = ({
   );
 
   const form = useForm<FormData>({ defaultValues, resolver, mode });
+  const { isDirty, errors, isValid, dirtyFields } = useFormState({
+    control: form.control,
+  });
 
   // Run validation once after mount so pre-filled invalid values surface
   // errors immediately. Empty deps array — fires per mount, not per render.
@@ -111,11 +114,12 @@ export const DynamicForm = ({
       watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
-      getIsValid: () => form.formState.isValid,
-      getErrors: () => form.formState.errors,
-      getIsDirty: () => form.formState.isDirty,
+      getIsValid: () => isValid,
+      getErrors: () => errors,
+      getIsDirty: () => isDirty,
+      getDirtyFields: () => dirtyFields,
     }),
-    [form, defaultValues]
+    [form, defaultValues, isValid, errors, isDirty, dirtyFields]
   );
 
   const dependencyMap = useMemo(
