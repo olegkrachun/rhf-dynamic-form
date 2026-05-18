@@ -45,32 +45,6 @@ export type SchemaMap = Record<string, SchemaFactory>;
  * ```
  */
 /**
- * Default format check for `type: "date"` fields — a single date in one of
- * the common separator formats:
- *   yyyy-MM-dd     (HTML date input canonical, ISO short — zero-padded)
- *   M/d/yyyy       (US slash — month/day may be 1 or 2 digits)
- *   M-d-yyyy       (US dash, OCR-friendly — month/day may be 1 or 2 digits)
- *   d.M.yyyy       (EU dot — day/month may be 1 or 2 digits)
- *
- * Each format uses a single separator end-to-end — mixed separators like
- * `01/15-2024` are rejected. Year must be 4 digits in all non-ISO formats.
- *
- * Rejects multi-date strings, embedded whitespace, and any non-digit /
- * non-separator characters — so LLM-extracted garbage like
- * `"03/25/2022\n03/30/2022-03/30/2022"` fails validation cleanly.
- *
- * **Override:** consumers can provide `validation.pattern` on the field
- * config for a stricter or completely different format check — when present,
- * the library defers to the consumer's pattern and skips this default.
- *
- * Day/month/year ranges aren't enforced here (the regex won't catch
- * `"13/45/2022"`); consumers can layer a stricter `validation.pattern` or
- * register a custom schema via `setSchemaMap` for calendar validation.
- */
-const DATE_VALUE_PATTERN =
-  /^(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|\d{1,2}-\d{1,2}-\d{4}|\d{1,2}\.\d{1,2}\.\d{4})$/;
-
-/**
  * Returns true when the consumer has supplied their own `validation.pattern`
  * on a field — signals that they own the format contract and any built-in
  * format default for that field type should step aside.
@@ -86,12 +60,7 @@ export const defaultSchemaMap: SchemaMap = {
       ? z.string()
       : z.email({ error: "Invalid email address" }),
   boolean: () => z.boolean(),
-  date: (field) =>
-    consumerOwnsPattern(field)
-      ? z.string()
-      : z.string().refine((val) => val === "" || DATE_VALUE_PATTERN.test(val), {
-          message: "Must be a valid date",
-        }),
+  date: () => z.string(),
 };
 
 /**

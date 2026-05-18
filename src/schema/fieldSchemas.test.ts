@@ -84,7 +84,7 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse(123).success).toBe(false);
     });
 
-    it("should build schema for date field", () => {
+    it("should build schema for date field (format-agnostic — any string accepted)", () => {
       const field: BaseFieldElement = {
         type: "date",
         name: "birthDate",
@@ -92,72 +92,14 @@ describe("fieldSchemas", () => {
 
       const schema = buildFieldSchema(field);
 
-      // Common single-date formats — all accepted
-      expect(schema.safeParse("2024-01-15").success).toBe(true); // ISO
-      expect(schema.safeParse("01/15/2024").success).toBe(true); // US slash
-      expect(schema.safeParse("01-15-2024").success).toBe(true); // US dash
-      expect(schema.safeParse("15.01.2024").success).toBe(true); // EU dot
-
-      // Single-digit month/day variants — common in LLM/OCR output
-      expect(schema.safeParse("1/5/2024").success).toBe(true);
-      expect(schema.safeParse("1/15/2024").success).toBe(true);
-      expect(schema.safeParse("5.1.2024").success).toBe(true);
-
-      // Empty string is valid (required-handling lives separately)
-      expect(schema.safeParse("").success).toBe(true);
-
-      // Multi-date / OCR-garbage strings are rejected
-      expect(
-        schema.safeParse("03/25/2022\n03/30/2022-03/30/2022").success
-      ).toBe(false);
-      expect(schema.safeParse("not-a-date").success).toBe(false);
-      expect(schema.safeParse("01/02/03/04").success).toBe(false);
-
-      // Mixed separators must be rejected — each format is single-separator
-      expect(schema.safeParse("01/15-2024").success).toBe(false);
-      expect(schema.safeParse("2024-01/15").success).toBe(false);
-      expect(schema.safeParse("01.15-2024").success).toBe(false);
-
-      // 2-digit year must be rejected — 4-digit year required for non-ISO
-      expect(schema.safeParse("1.2.34").success).toBe(false);
-      expect(schema.safeParse("01/15/24").success).toBe(false);
-
-      // ISO must be strictly zero-padded (matches HTML date input emission)
-      expect(schema.safeParse("2024-1-15").success).toBe(false);
-      expect(schema.safeParse("2024-01-5").success).toBe(false);
-    });
-
-    it("should defer to consumer's validation.pattern when provided (skip the library default format check)", () => {
-      // Strict consumer pattern: ONLY MM/dd/yyyy with 4-digit year
-      const field: BaseFieldElement = {
-        type: "date",
-        name: "submittedAt",
-        validation: {
-          pattern: "^\\d{2}/\\d{2}/\\d{4}$",
-          message: "Must be MM/DD/YYYY",
-        },
-      };
-
-      const schema = buildFieldSchema(field);
-
-      // Strict format passes
+      // Library is format-agnostic for dates — formatting/validation is a
+      // component responsibility. Any string passes here.
+      expect(schema.safeParse("2024-01-15").success).toBe(true);
       expect(schema.safeParse("01/15/2024").success).toBe(true);
-
-      // Default-loose format that's NOT MM/dd/yyyy fails the consumer pattern
-      const dashResult = schema.safeParse("01-15-2024");
-      expect(dashResult.success).toBe(false);
-      if (!dashResult.success) {
-        // Error is from the consumer's pattern, not the library default
-        expect(dashResult.error.issues[0].message).toBe("Must be MM/DD/YYYY");
-      }
-
-      // Garbage still fails (consumer's pattern catches it too)
-      expect(
-        schema.safeParse("03/25/2022\n03/30/2022-03/30/2022").success
-      ).toBe(false);
+      expect(schema.safeParse("").success).toBe(true);
     });
 
-    it("should produce a clear required-message for empty required date fields (not the format message)", () => {
+    it("should produce required-message for empty required date fields", () => {
       const field: BaseFieldElement = {
         type: "date",
         name: "birthDate",
@@ -166,7 +108,7 @@ describe("fieldSchemas", () => {
 
       const schema = buildFieldSchema(field);
 
-      // Valid date passes
+      // Any non-empty string passes (format check is component-owned)
       expect(schema.safeParse("01/15/2024").success).toBe(true);
 
       // Empty / null / undefined produce required-message
@@ -179,15 +121,6 @@ describe("fieldSchemas", () => {
       }
       expect(schema.safeParse(null).success).toBe(false);
       expect(schema.safeParse(undefined).success).toBe(false);
-
-      // Malformed non-empty value produces format-message (not required)
-      const garbageResult = schema.safeParse("03/25/2022\n03/30/2022");
-      expect(garbageResult.success).toBe(false);
-      if (!garbageResult.success) {
-        expect(garbageResult.error.issues[0].message).toBe(
-          "Must be a valid date"
-        );
-      }
     });
 
     it("should build schema for custom field (accepts any value)", () => {

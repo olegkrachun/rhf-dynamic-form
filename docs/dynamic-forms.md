@@ -59,7 +59,7 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 | `email` | Email input with built-in validation | `z.email()` — opted out when `validation.pattern` is supplied |
 | `boolean` | Checkbox/toggle for boolean values | `z.boolean()` |
 | `phone` | Phone number input | `z.string()` |
-| `date` | Date picker input | Single date in common separator formats (`yyyy-MM-dd` / `MM/dd/yyyy` / `MM-dd-yyyy` / `dd.MM.yyyy`) — opted out when `validation.pattern` is supplied |
+| `date` | Date picker input | `z.string()` — format-agnostic; date format parsing/validation is a component responsibility |
 | `select` | Dropdown/multi-select with options | Structural (auto-detected) |
 | `array` | Repeatable field groups | Structural (auto-detected) |
 | `container` | Layout container with variant-based rendering | N/A (layout element) |
@@ -365,9 +365,9 @@ interface ValidationConfig {
 
 **`required` applies uniformly to every field type.** For string-based schemas it adds a `min(1)` + non-empty refine; for non-string types (`boolean`, `custom`/`z.unknown()`, etc.) the library wraps with `.nullish().refine()` so `null` / `undefined` / `""` produce a `"This field is required"` message rather than Zod's default `"expected …, received …"` type error.
 
-**`pattern` opts out of built-in format defaults** for field types that ship one (`email`'s `z.email()`, `date`'s common-format regex). When you supply a `pattern`, the library defers entirely to your regex — its default format check is skipped so the two don't stack. Plain `text` / `phone` field types have no built-in format default; `pattern` simply applies on top.
+**`pattern` opts out of built-in format defaults** for field types that ship one (currently `email`'s `z.email()`). When you supply a `pattern`, the library defers entirely to your regex — its default format check is skipped so the two don't stack. Plain `text` / `phone` / `date` field types have no built-in format default; `pattern` simply applies on top. Date format parsing and validation are deliberately a component responsibility — register a date component that normalizes incoming values, and (optionally) supply a `validation.pattern` for shape checks.
 
-For completely replacing a type's schema (e.g. ISO 8601 datetimes instead of the loose date default), use [`setSchemaMap`](#36-field-registry-pattern) at app startup.
+For completely replacing a type's schema (e.g. ISO 8601 datetimes), use [`setSchemaMap`](#36-field-registry-pattern) at app startup.
 
 ### 4.5 Container Element Schema
 
