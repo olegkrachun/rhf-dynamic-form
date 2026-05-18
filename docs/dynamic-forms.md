@@ -56,10 +56,10 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 | Type | Description | Schema Default |
 |------|-------------|----------------|
 | `text` | Single-line text input | `z.string()` |
-| `email` | Email input with built-in validation | `z.string().email()` |
+| `email` | Email input with built-in validation | `z.email()` — opted out when `validation.pattern` is supplied |
 | `boolean` | Checkbox/toggle for boolean values | `z.boolean()` |
 | `phone` | Phone number input | `z.string()` |
-| `date` | Date picker input | `z.string()` |
+| `date` | Date picker input | Single date in common separator formats (`yyyy-MM-dd` / `MM/dd/yyyy` / `MM-dd-yyyy` / `dd.MM.yyyy`) — opted out when `validation.pattern` is supplied |
 | `select` | Dropdown/multi-select with options | Structural (auto-detected) |
 | `array` | Repeatable field groups | Structural (auto-detected) |
 | `container` | Layout container with variant-based rendering | N/A (layout element) |
@@ -193,7 +193,7 @@ The library supports dot-notation for nested data structures. Field names like `
 }
 ```
 
-This is natively supported by react-hook-form's `useController` and `register` functions, and the Zod schema generator creates properly nested object schemas.
+This is natively supported by react-hook-form's `useController` and `register` functions, and the Zod schema generator creates properly nested object schemas — for both top-level fields **and** `itemFields` inside array fields. An `itemField` named `from.value` produces a row schema like `{ from: { value: schema } }`, matching the actual nested row data.
 
 ### 3.3 JSON Logic
 
@@ -362,6 +362,12 @@ interface ValidationConfig {
   message?: string;
 }
 ```
+
+**`required` applies uniformly to every field type.** For string-based schemas it adds a `min(1)` + non-empty refine; for non-string types (`boolean`, `custom`/`z.unknown()`, etc.) the library wraps with `.nullish().refine()` so `null` / `undefined` / `""` produce a `"This field is required"` message rather than Zod's default `"expected …, received …"` type error.
+
+**`pattern` opts out of built-in format defaults** for field types that ship one (`email`'s `z.email()`, `date`'s common-format regex). When you supply a `pattern`, the library defers entirely to your regex — its default format check is skipped so the two don't stack. Plain `text` / `phone` field types have no built-in format default; `pattern` simply applies on top.
+
+For completely replacing a type's schema (e.g. ISO 8601 datetimes instead of the loose date default), use [`setSchemaMap`](#36-field-registry-pattern) at app startup.
 
 ### 4.5 Container Element Schema
 

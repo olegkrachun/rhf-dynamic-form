@@ -33,6 +33,32 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse("invalid-email").success).toBe(false);
     });
 
+    it("should defer to consumer's validation.pattern on email fields (skip the library default email check)", () => {
+      // Consumer wants ONLY company emails — custom pattern overrides email default
+      const field: BaseFieldElement = {
+        type: "email",
+        name: "workEmail",
+        validation: {
+          pattern: "^[\\w.+-]+@company\\.com$",
+          message: "Must be a @company.com email",
+        },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Strict consumer pattern passes
+      expect(schema.safeParse("alice@company.com").success).toBe(true);
+
+      // Email that's valid by the library default but not by consumer's pattern → fails
+      const wrongDomainResult = schema.safeParse("alice@example.com");
+      expect(wrongDomainResult.success).toBe(false);
+      if (!wrongDomainResult.success) {
+        expect(wrongDomainResult.error.issues[0].message).toBe(
+          "Must be a @company.com email"
+        );
+      }
+    });
+
     it("should build schema for boolean field", () => {
       const field: BaseFieldElement = {
         type: "boolean",
@@ -66,8 +92,84 @@ describe("fieldSchemas", () => {
 
       const schema = buildFieldSchema(field);
 
-      expect(schema.safeParse("2024-01-15").success).toBe(true);
-      expect(schema.safeParse("").success).toBe(true); // Empty string is valid
+      // Common single-date formats — all accepted
+      expect(schema.safeParse("2024-01-15").success).toBe(true); // ISO
+      expect(schema.safeParse("01/15/2024").success).toBe(true); // US slash
+      expect(schema.safeParse("01-15-2024").success).toBe(true); // US dash
+      expect(schema.safeParse("15.01.2024").success).toBe(true); // EU dot
+
+      // Empty string is valid (required-handling lives separately)
+      expect(schema.safeParse("").success).toBe(true);
+
+      // Multi-date / OCR-garbage strings are rejected
+      expect(
+        schema.safeParse("03/25/2022\n03/30/2022-03/30/2022").success
+      ).toBe(false);
+      expect(schema.safeParse("not-a-date").success).toBe(false);
+      expect(schema.safeParse("01/02/03/04").success).toBe(false);
+    });
+
+    it("should defer to consumer's validation.pattern when provided (skip the library default format check)", () => {
+      // Strict consumer pattern: ONLY MM/dd/yyyy with 4-digit year
+      const field: BaseFieldElement = {
+        type: "date",
+        name: "submittedAt",
+        validation: {
+          pattern: "^\\d{2}/\\d{2}/\\d{4}$",
+          message: "Must be MM/DD/YYYY",
+        },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Strict format passes
+      expect(schema.safeParse("01/15/2024").success).toBe(true);
+
+      // Default-loose format that's NOT MM/dd/yyyy fails the consumer pattern
+      const dashResult = schema.safeParse("01-15-2024");
+      expect(dashResult.success).toBe(false);
+      if (!dashResult.success) {
+        // Error is from the consumer's pattern, not the library default
+        expect(dashResult.error.issues[0].message).toBe("Must be MM/DD/YYYY");
+      }
+
+      // Garbage still fails (consumer's pattern catches it too)
+      expect(
+        schema.safeParse("03/25/2022\n03/30/2022-03/30/2022").success
+      ).toBe(false);
+    });
+
+    it("should produce a clear required-message for empty required date fields (not the format message)", () => {
+      const field: BaseFieldElement = {
+        type: "date",
+        name: "birthDate",
+        validation: { required: true },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Valid date passes
+      expect(schema.safeParse("01/15/2024").success).toBe(true);
+
+      // Empty / null / undefined produce required-message
+      const emptyResult = schema.safeParse("");
+      expect(emptyResult.success).toBe(false);
+      if (!emptyResult.success) {
+        expect(emptyResult.error.issues[0].message).toBe(
+          "This field is required"
+        );
+      }
+      expect(schema.safeParse(null).success).toBe(false);
+      expect(schema.safeParse(undefined).success).toBe(false);
+
+      // Malformed non-empty value produces format-message (not required)
+      const garbageResult = schema.safeParse("03/25/2022\n03/30/2022");
+      expect(garbageResult.success).toBe(false);
+      if (!garbageResult.success) {
+        expect(garbageResult.error.issues[0].message).toBe(
+          "Must be a valid date"
+        );
+      }
     });
 
     it("should build schema for custom field (accepts any value)", () => {
@@ -216,6 +318,94 @@ describe("fieldSchemas", () => {
         schema.safeParse([{ name: "John", email: "j@e.com" }]).success
       ).toBe(true);
       expect(schema.safeParse("some string").success).toBe(false);
+    });
+
+    it("should enforce required validation on custom-typed itemFields (e.g. currency)", () => {
+      // Regression: a custom-typed field (consumer-registered component like
+      // "currency") falls through to z.unknown() in the base schema. Without
+      // the uniform required-refine, `required: true` was silently ignored —
+      // the reviewer could submit an empty row and the BE then rejected it.
+      const field: ArrayFieldElement = {
+        type: "array",
+        name: "claims",
+        itemFields: [
+          {
+            type: "custom",
+            component: "currency",
+            name: "ofBill.value",
+            validation: { required: true },
+          },
+          {
+            type: "custom",
+            component: "currency",
+            name: "claimed.value",
+            validation: { required: true },
+          },
+        ],
+      } as unknown as ArrayFieldElement;
+
+      const schema = buildFieldSchema(field);
+
+      // Row with both required values present must pass
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: { value: 100 } }])
+          .success
+      ).toBe(true);
+
+      // Row missing one required custom value must fail
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: {} }]).success
+      ).toBe(false);
+
+      // Row with null required custom value must fail
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: { value: null } }])
+          .success
+      ).toBe(false);
+    });
+
+    it("should expand dot-notation itemField names into nested object schemas", () => {
+      // Regression: row data may be nested like { from: { value, confidence } }.
+      // itemField name "from.value" must produce a nested schema that reads the
+      // nested value, not a literal "from.value" key that never matches.
+      const field: ArrayFieldElement = {
+        type: "array",
+        name: "claims",
+        itemFields: [
+          {
+            type: "date",
+            name: "from.value",
+            validation: { required: true },
+          },
+          {
+            type: "date",
+            name: "to.value",
+            validation: { required: true },
+          },
+        ],
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Nested row data with the required values present must pass
+      expect(
+        schema.safeParse([
+          {
+            from: { value: "09/21/2021", confidence: 0.93 },
+            to: { value: "09/23/2021", confidence: 0.99 },
+          },
+        ]).success
+      ).toBe(true);
+
+      // Missing nested value must fail with required check, not a type error
+      expect(
+        schema.safeParse([
+          {
+            from: { confidence: 0.93 },
+            to: { value: "09/23/2021", confidence: 0.99 },
+          },
+        ]).success
+      ).toBe(false);
     });
   });
 

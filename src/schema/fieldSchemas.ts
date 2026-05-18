@@ -5,6 +5,7 @@ import type {
   SelectFieldElement,
   ValidationConfig,
 } from "../types";
+import { setNestedSchema } from "./nestedPaths";
 
 /**
  * Check if a Zod schema is string-based (ZodString or subclasses like ZodEmail).
@@ -43,12 +44,50 @@ export type SchemaMap = Record<string, SchemaFactory>;
  * };
  * ```
  */
+/**
+ * Default format check for `type: "date"` fields — a single date in one of
+ * the common separator formats:
+ *   yyyy-MM-dd     (HTML date input canonical, ISO short)
+ *   MM/dd/yyyy     (US slash)
+ *   MM-dd-yyyy     (US dash, OCR-friendly)
+ *   dd.MM.yyyy     (EU dot)
+ *
+ * Rejects multi-date strings, embedded whitespace, and any non-digit /
+ * non-separator characters — so LLM-extracted garbage like
+ * `"03/25/2022\n03/30/2022-03/30/2022"` fails validation cleanly.
+ *
+ * **Override:** consumers can provide `validation.pattern` on the field
+ * config for a stricter or completely different format check — when present,
+ * the library defers to the consumer's pattern and skips this default.
+ *
+ * Day/month/year ranges aren't enforced here (the regex won't catch
+ * `"13/45/2022"`); consumers can layer a stricter `validation.pattern` or
+ * register a custom schema via `setSchemaMap` for calendar validation.
+ */
+const DATE_VALUE_PATTERN = /^\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}$/;
+
+/**
+ * Returns true when the consumer has supplied their own `validation.pattern`
+ * on a field — signals that they own the format contract and any built-in
+ * format default for that field type should step aside.
+ */
+const consumerOwnsPattern = (field: FieldElement): boolean =>
+  Boolean(field.validation?.pattern);
+
 export const defaultSchemaMap: SchemaMap = {
   text: () => z.string(),
   phone: () => z.string(),
-  email: () => z.email({ error: "Invalid email address" }),
+  email: (field) =>
+    consumerOwnsPattern(field)
+      ? z.string()
+      : z.email({ error: "Invalid email address" }),
   boolean: () => z.boolean(),
-  date: () => z.string(),
+  date: (field) =>
+    consumerOwnsPattern(field)
+      ? z.string()
+      : z.string().refine((val) => val === "" || DATE_VALUE_PATTERN.test(val), {
+          message: "Must be a valid date",
+        }),
 };
 
 /**
@@ -82,9 +121,12 @@ const buildArraySchema = (field: ArrayFieldElement): ZodTypeAny => {
   const itemShape: Record<string, ZodTypeAny> = {};
 
   for (const itemField of field.itemFields) {
-    // Recursively build schema for each item field
-    // Note: itemFields use simple names (not dot notation), so we can assign directly
-    itemShape[itemField.name] = buildFieldSchema(itemField);
+    // itemField.name may use dot notation (e.g. "from.value") when the row
+    // shape is nested ({ from: { value, confidence } }). Use setNestedSchema
+    // so the Zod object schema mirrors the actual row structure — direct
+    // assignment would create a literal "from.value" key that never matches
+    // the nested data.
+    setNestedSchema(itemShape, itemField.name, buildFieldSchema(itemField));
   }
 
   // Create the item schema — looseObject allows extra keys like the `id`
@@ -367,16 +409,25 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
     } else {
       schema = schema.nullish();
     }
-  } else if (isStringSchema(schema)) {
-    // Required string fields: API may send null for empty values.
-    // Accept null at the type level but reject it via refine so the error
-    // message is "This field is required" instead of "expected string, received null".
+  } else {
+    // Required fields (any base schema): API may send null, undefined, or
+    // empty string for empty values. Accept all three at the type level via
+    // `.nullish()`, then reject them via refine so the error message is
+    // "This field is required" rather than the Zod-default
+    // "expected …, received null/undefined".
+    //
+    // Applies uniformly to string AND non-string schemas (e.g. boolean, or
+    // consumer-defined custom field types that fall through to z.unknown())
+    // so `required: true` is honoured regardless of base type.
     const requiredMessage =
       field.validation?.message ?? "This field is required";
     schema = schema
-      .nullable()
+      .nullish()
       .refine(
-        (val) => val !== null && val !== undefined && String(val).length > 0,
+        (val) =>
+          val !== null &&
+          val !== undefined &&
+          !(typeof val === "string" && val.length === 0),
         { message: requiredMessage }
       );
   }
