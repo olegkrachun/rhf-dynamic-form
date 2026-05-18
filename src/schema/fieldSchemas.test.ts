@@ -98,6 +98,11 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse("01-15-2024").success).toBe(true); // US dash
       expect(schema.safeParse("15.01.2024").success).toBe(true); // EU dot
 
+      // Single-digit month/day variants — common in LLM/OCR output
+      expect(schema.safeParse("1/5/2024").success).toBe(true);
+      expect(schema.safeParse("1/15/2024").success).toBe(true);
+      expect(schema.safeParse("5.1.2024").success).toBe(true);
+
       // Empty string is valid (required-handling lives separately)
       expect(schema.safeParse("").success).toBe(true);
 
@@ -107,6 +112,19 @@ describe("fieldSchemas", () => {
       ).toBe(false);
       expect(schema.safeParse("not-a-date").success).toBe(false);
       expect(schema.safeParse("01/02/03/04").success).toBe(false);
+
+      // Mixed separators must be rejected — each format is single-separator
+      expect(schema.safeParse("01/15-2024").success).toBe(false);
+      expect(schema.safeParse("2024-01/15").success).toBe(false);
+      expect(schema.safeParse("01.15-2024").success).toBe(false);
+
+      // 2-digit year must be rejected — 4-digit year required for non-ISO
+      expect(schema.safeParse("1.2.34").success).toBe(false);
+      expect(schema.safeParse("01/15/24").success).toBe(false);
+
+      // ISO must be strictly zero-padded (matches HTML date input emission)
+      expect(schema.safeParse("2024-1-15").success).toBe(false);
+      expect(schema.safeParse("2024-01-5").success).toBe(false);
     });
 
     it("should defer to consumer's validation.pattern when provided (skip the library default format check)", () => {

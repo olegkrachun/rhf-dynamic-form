@@ -47,10 +47,13 @@ export type SchemaMap = Record<string, SchemaFactory>;
 /**
  * Default format check for `type: "date"` fields — a single date in one of
  * the common separator formats:
- *   yyyy-MM-dd     (HTML date input canonical, ISO short)
- *   MM/dd/yyyy     (US slash)
- *   MM-dd-yyyy     (US dash, OCR-friendly)
- *   dd.MM.yyyy     (EU dot)
+ *   yyyy-MM-dd     (HTML date input canonical, ISO short — zero-padded)
+ *   M/d/yyyy       (US slash — month/day may be 1 or 2 digits)
+ *   M-d-yyyy       (US dash, OCR-friendly — month/day may be 1 or 2 digits)
+ *   d.M.yyyy       (EU dot — day/month may be 1 or 2 digits)
+ *
+ * Each format uses a single separator end-to-end — mixed separators like
+ * `01/15-2024` are rejected. Year must be 4 digits in all non-ISO formats.
  *
  * Rejects multi-date strings, embedded whitespace, and any non-digit /
  * non-separator characters — so LLM-extracted garbage like
@@ -64,7 +67,8 @@ export type SchemaMap = Record<string, SchemaFactory>;
  * `"13/45/2022"`); consumers can layer a stricter `validation.pattern` or
  * register a custom schema via `setSchemaMap` for calendar validation.
  */
-const DATE_VALUE_PATTERN = /^\d{1,4}[/.-]\d{1,2}[/.-]\d{1,4}$/;
+const DATE_VALUE_PATTERN =
+  /^(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|\d{1,2}-\d{1,2}-\d{4}|\d{1,2}\.\d{1,2}\.\d{4})$/;
 
 /**
  * Returns true when the consumer has supplied their own `validation.pattern`
