@@ -5,6 +5,7 @@ import type {
   SelectFieldElement,
   ValidationConfig,
 } from "../types";
+import { setNestedSchema } from "./nestedPaths";
 
 /**
  * Check if a Zod schema is string-based (ZodString or subclasses like ZodEmail).
@@ -43,10 +44,21 @@ export type SchemaMap = Record<string, SchemaFactory>;
  * };
  * ```
  */
+/**
+ * Returns true when the consumer has supplied their own `validation.pattern`
+ * on a field — signals that they own the format contract and any built-in
+ * format default for that field type should step aside.
+ */
+const consumerOwnsPattern = (field: FieldElement): boolean =>
+  Boolean(field.validation?.pattern);
+
 export const defaultSchemaMap: SchemaMap = {
   text: () => z.string(),
   phone: () => z.string(),
-  email: () => z.email({ error: "Invalid email address" }),
+  email: (field) =>
+    consumerOwnsPattern(field)
+      ? z.string()
+      : z.email({ error: "Invalid email address" }),
   boolean: () => z.boolean(),
   date: () => z.string(),
 };
@@ -82,9 +94,12 @@ const buildArraySchema = (field: ArrayFieldElement): ZodTypeAny => {
   const itemShape: Record<string, ZodTypeAny> = {};
 
   for (const itemField of field.itemFields) {
-    // Recursively build schema for each item field
-    // Note: itemFields use simple names (not dot notation), so we can assign directly
-    itemShape[itemField.name] = buildFieldSchema(itemField);
+    // itemField.name may use dot notation (e.g. "from.value") when the row
+    // shape is nested ({ from: { value, confidence } }). Use setNestedSchema
+    // so the Zod object schema mirrors the actual row structure — direct
+    // assignment would create a literal "from.value" key that never matches
+    // the nested data.
+    setNestedSchema(itemShape, itemField.name, buildFieldSchema(itemField));
   }
 
   // Create the item schema — looseObject allows extra keys like the `id`
@@ -367,16 +382,33 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
     } else {
       schema = schema.nullish();
     }
-  } else if (isStringSchema(schema)) {
-    // Required string fields: API may send null for empty values.
-    // Accept null at the type level but reject it via refine so the error
-    // message is "This field is required" instead of "expected string, received null".
+  } else {
+    // Required fields (any base schema): API may send null for empty values
+    // (or empty string for inputs that default to ""). Accept null at the
+    // type level but reject it via refine so the error message is "This
+    // field is required" rather than Zod's default "expected …, received
+    // null".
+    //
+    // We use `.nullable()` (not `.nullish()`) deliberately — `.nullish()`
+    // makes the schema accept `undefined`, which Zod then treats as making
+    // the property *optional* at the object level. Missing nested keys
+    // (e.g. an array row with `{}` instead of `{ value: ... }`) would then
+    // silently pass without ever running this refine. With `.nullable()`,
+    // missing keys are caught as `undefined` → no union branch matches →
+    // Zod's built-in "Required" error fires.
+    //
+    // Applies uniformly to string AND non-string schemas (e.g. boolean, or
+    // consumer-defined custom field types that fall through to z.unknown())
+    // so `required: true` is honoured regardless of base type.
     const requiredMessage =
       field.validation?.message ?? "This field is required";
     schema = schema
       .nullable()
       .refine(
-        (val) => val !== null && val !== undefined && String(val).length > 0,
+        (val) =>
+          val !== null &&
+          val !== undefined &&
+          !(typeof val === "string" && val.length === 0),
         { message: requiredMessage }
       );
   }

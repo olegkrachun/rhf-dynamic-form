@@ -33,6 +33,32 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse("invalid-email").success).toBe(false);
     });
 
+    it("should defer to consumer's validation.pattern on email fields (skip the library default email check)", () => {
+      // Consumer wants ONLY company emails — custom pattern overrides email default
+      const field: BaseFieldElement = {
+        type: "email",
+        name: "workEmail",
+        validation: {
+          pattern: "^[\\w.+-]+@company\\.com$",
+          message: "Must be a @company.com email",
+        },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Strict consumer pattern passes
+      expect(schema.safeParse("alice@company.com").success).toBe(true);
+
+      // Email that's valid by the library default but not by consumer's pattern → fails
+      const wrongDomainResult = schema.safeParse("alice@example.com");
+      expect(wrongDomainResult.success).toBe(false);
+      if (!wrongDomainResult.success) {
+        expect(wrongDomainResult.error.issues[0].message).toBe(
+          "Must be a @company.com email"
+        );
+      }
+    });
+
     it("should build schema for boolean field", () => {
       const field: BaseFieldElement = {
         type: "boolean",
@@ -58,7 +84,7 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse(123).success).toBe(false);
     });
 
-    it("should build schema for date field", () => {
+    it("should build schema for date field (format-agnostic — any string accepted)", () => {
       const field: BaseFieldElement = {
         type: "date",
         name: "birthDate",
@@ -66,8 +92,35 @@ describe("fieldSchemas", () => {
 
       const schema = buildFieldSchema(field);
 
+      // Library is format-agnostic for dates — formatting/validation is a
+      // component responsibility. Any string passes here.
       expect(schema.safeParse("2024-01-15").success).toBe(true);
-      expect(schema.safeParse("").success).toBe(true); // Empty string is valid
+      expect(schema.safeParse("01/15/2024").success).toBe(true);
+      expect(schema.safeParse("").success).toBe(true);
+    });
+
+    it("should produce required-message for empty required date fields", () => {
+      const field: BaseFieldElement = {
+        type: "date",
+        name: "birthDate",
+        validation: { required: true },
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Any non-empty string passes (format check is component-owned)
+      expect(schema.safeParse("01/15/2024").success).toBe(true);
+
+      // Empty / null / undefined produce required-message
+      const emptyResult = schema.safeParse("");
+      expect(emptyResult.success).toBe(false);
+      if (!emptyResult.success) {
+        expect(emptyResult.error.issues[0].message).toBe(
+          "This field is required"
+        );
+      }
+      expect(schema.safeParse(null).success).toBe(false);
+      expect(schema.safeParse(undefined).success).toBe(false);
     });
 
     it("should build schema for custom field (accepts any value)", () => {
@@ -216,6 +269,94 @@ describe("fieldSchemas", () => {
         schema.safeParse([{ name: "John", email: "j@e.com" }]).success
       ).toBe(true);
       expect(schema.safeParse("some string").success).toBe(false);
+    });
+
+    it("should enforce required validation on custom-typed itemFields (e.g. currency)", () => {
+      // Regression: a custom-typed field (consumer-registered component like
+      // "currency") falls through to z.unknown() in the base schema. Without
+      // the uniform required-refine, `required: true` was silently ignored —
+      // the reviewer could submit an empty row and the BE then rejected it.
+      const field: ArrayFieldElement = {
+        type: "array",
+        name: "claims",
+        itemFields: [
+          {
+            type: "custom",
+            component: "currency",
+            name: "ofBill.value",
+            validation: { required: true },
+          },
+          {
+            type: "custom",
+            component: "currency",
+            name: "claimed.value",
+            validation: { required: true },
+          },
+        ],
+      } as unknown as ArrayFieldElement;
+
+      const schema = buildFieldSchema(field);
+
+      // Row with both required values present must pass
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: { value: 100 } }])
+          .success
+      ).toBe(true);
+
+      // Row missing one required custom value must fail
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: {} }]).success
+      ).toBe(false);
+
+      // Row with null required custom value must fail
+      expect(
+        schema.safeParse([{ ofBill: { value: 100 }, claimed: { value: null } }])
+          .success
+      ).toBe(false);
+    });
+
+    it("should expand dot-notation itemField names into nested object schemas", () => {
+      // Regression: row data may be nested like { from: { value, confidence } }.
+      // itemField name "from.value" must produce a nested schema that reads the
+      // nested value, not a literal "from.value" key that never matches.
+      const field: ArrayFieldElement = {
+        type: "array",
+        name: "claims",
+        itemFields: [
+          {
+            type: "date",
+            name: "from.value",
+            validation: { required: true },
+          },
+          {
+            type: "date",
+            name: "to.value",
+            validation: { required: true },
+          },
+        ],
+      };
+
+      const schema = buildFieldSchema(field);
+
+      // Nested row data with the required values present must pass
+      expect(
+        schema.safeParse([
+          {
+            from: { value: "09/21/2021", confidence: 0.93 },
+            to: { value: "09/23/2021", confidence: 0.99 },
+          },
+        ]).success
+      ).toBe(true);
+
+      // Missing nested value must fail with required check, not a type error
+      expect(
+        schema.safeParse([
+          {
+            from: { confidence: 0.93 },
+            to: { value: "09/23/2021", confidence: 0.99 },
+          },
+        ]).success
+      ).toBe(false);
     });
   });
 
