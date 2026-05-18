@@ -410,11 +410,19 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
       schema = schema.nullish();
     }
   } else {
-    // Required fields (any base schema): API may send null, undefined, or
-    // empty string for empty values. Accept all three at the type level via
-    // `.nullish()`, then reject them via refine so the error message is
-    // "This field is required" rather than the Zod-default
-    // "expected …, received null/undefined".
+    // Required fields (any base schema): API may send null for empty values
+    // (or empty string for inputs that default to ""). Accept null at the
+    // type level but reject it via refine so the error message is "This
+    // field is required" rather than Zod's default "expected …, received
+    // null".
+    //
+    // We use `.nullable()` (not `.nullish()`) deliberately — `.nullish()`
+    // makes the schema accept `undefined`, which Zod then treats as making
+    // the property *optional* at the object level. Missing nested keys
+    // (e.g. an array row with `{}` instead of `{ value: ... }`) would then
+    // silently pass without ever running this refine. With `.nullable()`,
+    // missing keys are caught as `undefined` → no union branch matches →
+    // Zod's built-in "Required" error fires.
     //
     // Applies uniformly to string AND non-string schemas (e.g. boolean, or
     // consumer-defined custom field types that fall through to z.unknown())
@@ -422,7 +430,7 @@ export const buildFieldSchema = (field: FieldElement): ZodTypeAny => {
     const requiredMessage =
       field.validation?.message ?? "This field is required";
     schema = schema
-      .nullish()
+      .nullable()
       .refine(
         (val) =>
           val !== null &&
