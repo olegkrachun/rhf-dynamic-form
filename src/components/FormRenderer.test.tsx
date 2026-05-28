@@ -1,12 +1,12 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
 import type { FormConfiguration } from "../types";
 
 describe("FormRenderer", () => {
-  it("renders single element", () => {
+  it("renders single element", async () => {
     const config: FormConfiguration = {
       elements: [{ type: "text", name: "single", label: "Single Field" }],
     };
@@ -19,10 +19,12 @@ describe("FormRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-single")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-single")).toBeInTheDocument();
+    });
   });
 
-  it("renders multiple elements in order", () => {
+  it("renders multiple elements in order", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "first", label: "First" },
@@ -39,24 +41,26 @@ describe("FormRenderer", () => {
       />
     );
 
-    const first = screen.getByTestId("field-first");
-    const second = screen.getByTestId("field-second");
-    const third = screen.getByTestId("field-third");
+    await waitFor(() => {
+      const first = screen.getByTestId("field-first");
+      const second = screen.getByTestId("field-second");
+      const third = screen.getByTestId("field-third");
 
-    expect(first).toBeInTheDocument();
-    expect(second).toBeInTheDocument();
-    expect(third).toBeInTheDocument();
+      expect(first).toBeInTheDocument();
+      expect(second).toBeInTheDocument();
+      expect(third).toBeInTheDocument();
 
-    // Verify order by checking DOM position
-    expect(first.compareDocumentPosition(second)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
-    expect(second.compareDocumentPosition(third)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
+      // Verify order by checking DOM position
+      expect(first.compareDocumentPosition(second)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+      expect(second.compareDocumentPosition(third)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
   });
 
-  it("renders mixed fields and containers", () => {
+  it("renders mixed fields and containers", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "topField", label: "Top Field" },
@@ -93,13 +97,15 @@ describe("FormRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-topField")).toBeInTheDocument();
-    expect(screen.getByTestId("field-leftField")).toBeInTheDocument();
-    expect(screen.getByTestId("field-rightField")).toBeInTheDocument();
-    expect(screen.getByTestId("field-bottomField")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-topField")).toBeInTheDocument();
+      expect(screen.getByTestId("field-leftField")).toBeInTheDocument();
+      expect(screen.getByTestId("field-rightField")).toBeInTheDocument();
+      expect(screen.getByTestId("field-bottomField")).toBeInTheDocument();
+    });
   });
 
-  it("uses field name as key for field elements", () => {
+  it("uses field name as key for field elements", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {
       // Suppress console output during test
     });
@@ -119,19 +125,21 @@ describe("FormRenderer", () => {
       />
     );
 
-    // Verify no React key warnings were emitted
-    expect(consoleSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("key"),
-      expect.anything(),
-      expect.anything()
-    );
-    expect(screen.getByTestId("field-field1")).toBeInTheDocument();
-    expect(screen.getByTestId("field-field2")).toBeInTheDocument();
+    await waitFor(() => {
+      // Verify no React key warnings were emitted
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("key"),
+        expect.anything(),
+        expect.anything()
+      );
+      expect(screen.getByTestId("field-field1")).toBeInTheDocument();
+      expect(screen.getByTestId("field-field2")).toBeInTheDocument();
+    });
 
     consoleSpy.mockRestore();
   });
 
-  it("renders nested paths correctly", () => {
+  it("renders nested paths correctly", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "user.firstName", label: "First Name" },
@@ -148,8 +156,12 @@ describe("FormRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-user.firstName")).toBeInTheDocument();
-    expect(screen.getByTestId("field-user.lastName")).toBeInTheDocument();
-    expect(screen.getByTestId("field-user.contact.email")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-user.firstName")).toBeInTheDocument();
+      expect(screen.getByTestId("field-user.lastName")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("field-user.contact.email")
+      ).toBeInTheDocument();
+    });
   });
 });

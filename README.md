@@ -331,6 +331,21 @@ const config: FormConfiguration = {
 // Submitted: { contact: { firstName: "John", lastName: "Doe", email: "john@example.com" } }
 ```
 
+Numeric path segments are treated as array indexes, matching React Hook Form path syntax:
+
+```typescript
+const config: FormConfiguration = {
+  elements: [
+    {
+      type: "text",
+      name: "extraction_result.policies.0.policy_number",
+      label: "Policy Number",
+    },
+  ],
+};
+// Submitted: { extraction_result: { policies: [{ policy_number: "ABC-123" }] } }
+```
+
 ### Two-Column Layout
 
 ```typescript

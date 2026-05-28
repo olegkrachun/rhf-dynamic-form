@@ -193,7 +193,7 @@ The library supports dot-notation for nested data structures. Field names like `
 }
 ```
 
-This is natively supported by react-hook-form's `useController` and `register` functions, and the Zod schema generator creates properly nested object schemas — for both top-level fields **and** `itemFields` inside array fields. An `itemField` named `from.value` produces a row schema like `{ from: { value: schema } }`, matching the actual nested row data.
+This is natively supported by react-hook-form's `useController` and `register` functions, and the Zod schema generator creates properly nested schemas — for both top-level fields **and** `itemFields` inside array fields. Numeric path segments are treated as homogeneous array indexes, so `extraction_result.policies.0.policy_number` maps to `{ extraction_result: { policies: [{ policy_number: schema }] } }`. An `itemField` named `from.value` produces a row schema like `{ from: { value: schema } }`, matching the actual nested row data.
 
 ### 3.3 JSON Logic
 

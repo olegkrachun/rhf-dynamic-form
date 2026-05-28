@@ -65,6 +65,33 @@ describe("setNestedValue", () => {
       },
     });
   });
+
+  it("should create arrays for numeric path segments", () => {
+    const obj: Record<string, unknown> = {};
+
+    setNestedValue(
+      obj,
+      "extraction_result.policies.0.policy_number",
+      "ABC-123"
+    );
+
+    expect(obj).toEqual({
+      extraction_result: {
+        policies: [{ policy_number: "ABC-123" }],
+      },
+    });
+  });
+
+  it("should preserve sibling fields inside array items", () => {
+    const obj: Record<string, unknown> = {};
+
+    setNestedValue(obj, "policies.0.policy_number", "ABC-123");
+    setNestedValue(obj, "policies.0.carrier", "Acme");
+
+    expect(obj).toEqual({
+      policies: [{ policy_number: "ABC-123", carrier: "Acme" }],
+    });
+  });
 });
 
 describe("getNestedValue", () => {
@@ -205,6 +232,31 @@ describe("mergeDefaults", () => {
       source: {
         firstName: "John",
         lastName: "Doe",
+      },
+    });
+  });
+
+  it("should build default arrays from numeric path segments", () => {
+    const config: FormConfiguration = {
+      elements: [
+        {
+          type: "text",
+          name: "extraction_result.policies.0.policy_number",
+          defaultValue: "ABC-123",
+        },
+        {
+          type: "text",
+          name: "extraction_result.policies.0.carrier",
+          defaultValue: "Acme",
+        },
+      ],
+    };
+
+    const result = mergeDefaults(config);
+
+    expect(result).toEqual({
+      extraction_result: {
+        policies: [{ policy_number: "ABC-123", carrier: "Acme" }],
       },
     });
   });

@@ -495,5 +495,46 @@ describe("generateZodSchema", () => {
       };
       expect(schema.safeParse(validData).success).toBe(true);
     });
+
+    it("should generate array schemas from numeric path segments", () => {
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "container",
+            children: [
+              {
+                label: "Policy Number",
+                name: "extraction_result.policies.0.policy_number",
+                type: "text",
+                validation: { required: true },
+              },
+              {
+                label: "Carrier",
+                name: "extraction_result.policies.0.carrier",
+                type: "text",
+              },
+            ],
+          },
+        ],
+      };
+
+      const schema = generateZodSchema(config);
+
+      expect(
+        schema.safeParse({
+          extraction_result: {
+            policies: [{ policy_number: "ABC-123", carrier: "Acme" }],
+          },
+        }).success
+      ).toBe(true);
+
+      expect(
+        schema.safeParse({
+          extraction_result: {
+            policies: { 0: { policy_number: "ABC-123", carrier: "Acme" } },
+          },
+        }).success
+      ).toBe(false);
+    });
   });
 });

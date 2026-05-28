@@ -40,7 +40,11 @@ export const mockFieldComponents: FieldComponentRegistry = {
   select: ({ config, field }) => (
     <div data-testid={`field-${config.name}`}>
       <label htmlFor={field.name}>{config.label}</label>
-      <select id={field.name} {...field} />
+      <select
+        id={field.name}
+        {...field}
+        value={(field.value as string) ?? ""}
+      />
     </div>
   ),
   array: ({ config }) => (
