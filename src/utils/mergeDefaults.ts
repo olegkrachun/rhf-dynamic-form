@@ -6,6 +6,16 @@ const NUMERIC_PATH_SEGMENT_PATTERN = /^\d+$/;
 const isNumericPathSegment = (segment: string | undefined): boolean =>
   segment !== undefined && NUMERIC_PATH_SEGMENT_PATTERN.test(segment);
 
+const parseArrayIndex = (segment: string): number => {
+  const index = Number(segment);
+
+  if (Number.isFinite(index) && Number.isInteger(index) && index >= 0) {
+    return index;
+  }
+
+  throw new Error(`Invalid array index segment: '${segment}'`);
+};
+
 /**
  * Sets a value in a nested object using dot notation path.
  *
@@ -34,7 +44,7 @@ export const setNestedValue = (
     const nextContainer = isNumericPathSegment(nextPart) ? [] : {};
 
     if (Array.isArray(current)) {
-      const index = Number(part);
+      const index = parseArrayIndex(part);
       if (
         current[index] === undefined ||
         typeof current[index] !== "object" ||
@@ -59,7 +69,8 @@ export const setNestedValue = (
   const lastPart = parts.at(-1);
   if (lastPart !== undefined) {
     if (Array.isArray(current)) {
-      current[Number(lastPart)] = value;
+      const index = parseArrayIndex(lastPart);
+      current[index] = value;
     } else {
       current[lastPart] = value;
     }

@@ -160,4 +160,19 @@ describe("createNestedStructure", () => {
       },
     });
   });
+
+  it("should treat invalid array index segments as object keys", () => {
+    const structure = createNestedStructure([
+      "items.0.name",
+      "items.foo.name",
+      "items.bar",
+    ]);
+    const items = structure.items as Record<string, unknown>[] &
+      Record<string, unknown>;
+
+    expect(items.NaN).toBeUndefined();
+    expect(items[0]).toEqual({ name: undefined });
+    expect(items.foo).toEqual({ name: undefined });
+    expect(items).toHaveProperty("bar");
+  });
 });

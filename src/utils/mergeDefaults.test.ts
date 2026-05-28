@@ -92,6 +92,22 @@ describe("setNestedValue", () => {
       policies: [{ policy_number: "ABC-123", carrier: "Acme" }],
     });
   });
+
+  it("should throw for invalid intermediate array index segments", () => {
+    const obj: Record<string, unknown> = { items: [] };
+
+    expect(() => setNestedValue(obj, "items.foo.name", "Jane")).toThrow(
+      "Invalid array index segment: 'foo'"
+    );
+  });
+
+  it("should throw for invalid leaf array index segments", () => {
+    const obj: Record<string, unknown> = { items: [] };
+
+    expect(() => setNestedValue(obj, "items.foo", "Jane")).toThrow(
+      "Invalid array index segment: 'foo'"
+    );
+  });
 });
 
 describe("getNestedValue", () => {

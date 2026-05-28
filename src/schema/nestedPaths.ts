@@ -23,6 +23,16 @@ const isNestedStructureNode = (value: unknown): value is NestedStructureNode =>
 const createContainerForNextSegment = (nextPart: string | undefined) =>
   isNumericPathSegment(nextPart) ? [] : {};
 
+const getValidArrayIndex = (segment: string): number | undefined => {
+  const index = Number(segment);
+
+  if (Number.isInteger(index) && index >= 0) {
+    return index;
+  }
+
+  return undefined;
+};
+
 const ensureNestedStructureChild = (
   current: NestedStructureNode,
   part: string,
@@ -31,11 +41,20 @@ const ensureNestedStructureChild = (
   const nextContainer = createContainerForNextSegment(nextPart);
 
   if (Array.isArray(current)) {
-    const index = Number(part);
-    if (!isNestedStructureNode(current[index])) {
-      current[index] = nextContainer;
+    const index = getValidArrayIndex(part);
+
+    if (index !== undefined) {
+      if (!isNestedStructureNode(current[index])) {
+        current[index] = nextContainer;
+      }
+      return current[index] as NestedStructureNode;
     }
-    return current[index] as NestedStructureNode;
+
+    const keyedCurrent = current as unknown as Record<string, unknown>;
+    if (!isNestedStructureNode(keyedCurrent[part])) {
+      keyedCurrent[part] = nextContainer;
+    }
+    return keyedCurrent[part] as NestedStructureNode;
   }
 
   if (!isNestedStructureNode(current[part])) {
@@ -49,7 +68,14 @@ const setNestedStructureLeaf = (
   lastPart: string
 ): void => {
   if (Array.isArray(current)) {
-    current[Number(lastPart)] = undefined;
+    const index = getValidArrayIndex(lastPart);
+
+    if (index !== undefined) {
+      current[index] = undefined;
+      return;
+    }
+
+    (current as unknown as Record<string, unknown>)[lastPart] = undefined;
     return;
   }
 
