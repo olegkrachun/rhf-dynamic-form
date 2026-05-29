@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.10.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.9.0...rhf-dynamic-forms-v1.10.0) (2026-05-29)
+
+
+### Features
+
+* **validation:** handle invalid array path segments ([9b83b0d](https://github.com/olegkrachun/rhf-dynamic-form/commit/9b83b0dd9b6bfa271f5338145b3a31ee9b15345e))
+* **validation:** support numeric path segments as arrays ([4c66669](https://github.com/olegkrachun/rhf-dynamic-form/commit/4c6666985fe31a758350af6e4991f23f7a859bcb))
+* **validation:** support numeric path segments as arrays ([5a1c200](https://github.com/olegkrachun/rhf-dynamic-form/commit/5a1c200eb6f00ca5fef0b97775fa41747e61fc42))
+
 ## [1.9.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.8.0...rhf-dynamic-forms-v1.9.0) (2026-05-18)
 
 
