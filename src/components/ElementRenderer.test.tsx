@@ -1,12 +1,12 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
 import type { FormConfiguration } from "../types";
 
 describe("ElementRenderer", () => {
-  it("renders field elements via FieldRenderer", () => {
+  it("renders field elements via FieldRenderer", async () => {
     const config: FormConfiguration = {
       elements: [{ type: "text", name: "username", label: "Username" }],
     };
@@ -19,11 +19,13 @@ describe("ElementRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-username")).toBeInTheDocument();
-    expect(screen.getByLabelText("Username")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-username")).toBeInTheDocument();
+      expect(screen.getByLabelText("Username")).toBeInTheDocument();
+    });
   });
 
-  it("renders container elements via ContainerRenderer", () => {
+  it("renders container elements via ContainerRenderer", async () => {
     const config: FormConfiguration = {
       elements: [
         {
@@ -50,10 +52,12 @@ describe("ElementRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-nested")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-nested")).toBeInTheDocument();
+    });
   });
 
-  it("handles all standard field types", () => {
+  it("handles all standard field types", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "text", label: "Text" },
@@ -79,16 +83,18 @@ describe("ElementRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-text")).toBeInTheDocument();
-    expect(screen.getByTestId("field-email")).toBeInTheDocument();
-    expect(screen.getByTestId("field-bool")).toBeInTheDocument();
-    expect(screen.getByTestId("field-phone")).toBeInTheDocument();
-    expect(screen.getByTestId("field-date")).toBeInTheDocument();
-    expect(screen.getByTestId("field-sel")).toBeInTheDocument();
-    expect(screen.getByTestId("field-arr")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-text")).toBeInTheDocument();
+      expect(screen.getByTestId("field-email")).toBeInTheDocument();
+      expect(screen.getByTestId("field-bool")).toBeInTheDocument();
+      expect(screen.getByTestId("field-phone")).toBeInTheDocument();
+      expect(screen.getByTestId("field-date")).toBeInTheDocument();
+      expect(screen.getByTestId("field-sel")).toBeInTheDocument();
+      expect(screen.getByTestId("field-arr")).toBeInTheDocument();
+    });
   });
 
-  it("renders multiple elements in order", () => {
+  it("renders multiple elements in order", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "first", label: "First" },
@@ -105,20 +111,22 @@ describe("ElementRenderer", () => {
       />
     );
 
-    const first = screen.getByTestId("field-first");
-    const second = screen.getByTestId("field-second");
-    const third = screen.getByTestId("field-third");
+    await waitFor(() => {
+      const first = screen.getByTestId("field-first");
+      const second = screen.getByTestId("field-second");
+      const third = screen.getByTestId("field-third");
 
-    expect(first).toBeInTheDocument();
-    expect(second).toBeInTheDocument();
-    expect(third).toBeInTheDocument();
+      expect(first).toBeInTheDocument();
+      expect(second).toBeInTheDocument();
+      expect(third).toBeInTheDocument();
 
-    // Verify DOM order
-    expect(first.compareDocumentPosition(second)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
-    expect(second.compareDocumentPosition(third)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
+      // Verify DOM order
+      expect(first.compareDocumentPosition(second)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+      expect(second.compareDocumentPosition(third)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
   });
 });

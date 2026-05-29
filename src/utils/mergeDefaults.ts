@@ -1,6 +1,21 @@
 import type { FieldElement, FormConfiguration, FormData } from "../types";
 import { flattenFields } from "./flattenFields";
 
+const NUMERIC_PATH_SEGMENT_PATTERN = /^\d+$/;
+
+const isNumericPathSegment = (segment: string | undefined): boolean =>
+  segment !== undefined && NUMERIC_PATH_SEGMENT_PATTERN.test(segment);
+
+const parseArrayIndex = (segment: string): number => {
+  const index = Number(segment);
+
+  if (Number.isFinite(index) && Number.isInteger(index) && index >= 0) {
+    return index;
+  }
+
+  throw new Error(`Invalid array index segment: '${segment}'`);
+};
+
 /**
  * Sets a value in a nested object using dot notation path.
  *
@@ -21,23 +36,44 @@ export const setNestedValue = (
   value: unknown
 ): void => {
   const parts = path.split(".");
-  let current: Record<string, unknown> = obj;
+  let current: Record<string, unknown> | unknown[] = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
+    const nextPart = parts[i + 1];
+    const nextContainer = isNumericPathSegment(nextPart) ? [] : {};
+
+    if (Array.isArray(current)) {
+      const index = parseArrayIndex(part);
+      if (
+        current[index] === undefined ||
+        typeof current[index] !== "object" ||
+        current[index] === null
+      ) {
+        current[index] = nextContainer;
+      }
+      current = current[index] as Record<string, unknown> | unknown[];
+      continue;
+    }
+
     if (
       !(part in current) ||
       typeof current[part] !== "object" ||
       current[part] === null
     ) {
-      current[part] = {};
+      current[part] = nextContainer;
     }
-    current = current[part] as Record<string, unknown>;
+    current = current[part] as Record<string, unknown> | unknown[];
   }
 
   const lastPart = parts.at(-1);
   if (lastPart !== undefined) {
-    current[lastPart] = value;
+    if (Array.isArray(current)) {
+      const index = parseArrayIndex(lastPart);
+      current[index] = value;
+    } else {
+      current[lastPart] = value;
+    }
   }
 };
 

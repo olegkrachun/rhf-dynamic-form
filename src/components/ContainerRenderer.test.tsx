@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
@@ -10,7 +10,7 @@ import type {
 } from "../types";
 
 describe("ContainerRenderer", () => {
-  it("should render container with children", () => {
+  it("should render container with children", async () => {
     const config: FormConfiguration = {
       elements: [
         {
@@ -31,13 +31,15 @@ describe("ContainerRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-firstName")).toBeInTheDocument();
-    expect(screen.getByTestId("field-lastName")).toBeInTheDocument();
-    expect(screen.getByLabelText("First Name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Last Name")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-firstName")).toBeInTheDocument();
+      expect(screen.getByTestId("field-lastName")).toBeInTheDocument();
+      expect(screen.getByLabelText("First Name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Last Name")).toBeInTheDocument();
+    });
   });
 
-  it("should render nested elements within container", () => {
+  it("should render nested elements within container", async () => {
     const config: FormConfiguration = {
       elements: [
         {
@@ -59,12 +61,14 @@ describe("ContainerRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-name")).toBeInTheDocument();
-    expect(screen.getByTestId("field-email")).toBeInTheDocument();
-    expect(screen.getByTestId("field-phone")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-name")).toBeInTheDocument();
+      expect(screen.getByTestId("field-email")).toBeInTheDocument();
+      expect(screen.getByTestId("field-phone")).toBeInTheDocument();
+    });
   });
 
-  it("should use custom container component when provided", () => {
+  it("should use custom container component when provided", async () => {
     const CustomContainer: ContainerComponent = ({ children }) => (
       <section className="custom-container" data-testid="custom-container">
         {children}
@@ -89,11 +93,13 @@ describe("ContainerRenderer", () => {
       <DynamicForm components={components} config={config} onSubmit={vi.fn()} />
     );
 
-    expect(screen.getByTestId("custom-container")).toBeInTheDocument();
-    expect(screen.getByTestId("field-field1")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("custom-container")).toBeInTheDocument();
+      expect(screen.getByTestId("field-field1")).toBeInTheDocument();
+    });
   });
 
-  it("should render mixed elements (fields and containers)", () => {
+  it("should render mixed elements (fields and containers)", async () => {
     const config: FormConfiguration = {
       elements: [
         { type: "text", name: "title", label: "Title" },
@@ -116,13 +122,15 @@ describe("ContainerRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-title")).toBeInTheDocument();
-    expect(screen.getByTestId("field-firstName")).toBeInTheDocument();
-    expect(screen.getByTestId("field-lastName")).toBeInTheDocument();
-    expect(screen.getByTestId("field-accept")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-title")).toBeInTheDocument();
+      expect(screen.getByTestId("field-firstName")).toBeInTheDocument();
+      expect(screen.getByTestId("field-lastName")).toBeInTheDocument();
+      expect(screen.getByTestId("field-accept")).toBeInTheDocument();
+    });
   });
 
-  it("should render nested containers", () => {
+  it("should render nested containers", async () => {
     const config: FormConfiguration = {
       elements: [
         {
@@ -156,7 +164,9 @@ describe("ContainerRenderer", () => {
       />
     );
 
-    expect(screen.getByTestId("field-nested.field1")).toBeInTheDocument();
-    expect(screen.getByTestId("field-nested.field2")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("field-nested.field1")).toBeInTheDocument();
+      expect(screen.getByTestId("field-nested.field2")).toBeInTheDocument();
+    });
   });
 });

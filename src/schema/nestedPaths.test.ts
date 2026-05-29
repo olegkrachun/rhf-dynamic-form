@@ -48,6 +48,35 @@ describe("setNestedSchema", () => {
     expect(sourceShape.email).toBeDefined();
   });
 
+  it("should treat numeric path segments as homogeneous arrays", () => {
+    const shape: Record<string, z.ZodTypeAny> = {};
+    setNestedSchema(
+      shape,
+      "extraction_result.policies.0.policy_number",
+      z.string()
+    );
+    setNestedSchema(shape, "extraction_result.policies.0.carrier", z.string());
+
+    const extractionShape = (shape.extraction_result as z.ZodObject<any>).shape;
+    expect(extractionShape.policies instanceof z.ZodArray).toBe(true);
+
+    const policyShape = (extractionShape.policies as z.ZodArray<any>).element
+      .shape;
+    expect(policyShape.policy_number instanceof z.ZodString).toBe(true);
+    expect(policyShape.carrier instanceof z.ZodString).toBe(true);
+  });
+
+  it("should support nested arrays from repeated numeric path segments", () => {
+    const shape: Record<string, z.ZodTypeAny> = {};
+    setNestedSchema(shape, "matrix.0.cells.0.value", z.number());
+
+    const matrixItemShape = (shape.matrix as z.ZodArray<any>).element.shape;
+    expect(matrixItemShape.cells instanceof z.ZodArray).toBe(true);
+
+    const cellShape = (matrixItemShape.cells as z.ZodArray<any>).element.shape;
+    expect(cellShape.value instanceof z.ZodNumber).toBe(true);
+  });
+
   it("should create nested objects with passthrough", () => {
     const shape: Record<string, z.ZodTypeAny> = {};
     setNestedSchema(shape, "source.name", z.string());
@@ -81,6 +110,14 @@ describe("getNestedSchema", () => {
     expect(result instanceof z.ZodString).toBe(true);
   });
 
+  it("should get a schema through a numeric array path segment", () => {
+    const shape: Record<string, z.ZodTypeAny> = {};
+    setNestedSchema(shape, "policies.0.policy_number", z.string());
+
+    const result = getNestedSchema(shape, "policies.0.policy_number");
+    expect(result instanceof z.ZodString).toBe(true);
+  });
+
   it("should return undefined for non-existent path", () => {
     const shape: Record<string, z.ZodTypeAny> = {
       name: z.string(),
@@ -110,5 +147,32 @@ describe("createNestedStructure", () => {
     expect((structure.source as Record<string, unknown>).name).toBeUndefined();
     expect((structure.source as Record<string, unknown>).email).toBeUndefined();
     expect(structure).toHaveProperty("active");
+  });
+
+  it("should create arrays for numeric path segments", () => {
+    const structure = createNestedStructure([
+      "extraction_result.policies.0.policy_number",
+    ]);
+
+    expect(structure).toEqual({
+      extraction_result: {
+        policies: [{ policy_number: undefined }],
+      },
+    });
+  });
+
+  it("should treat invalid array index segments as object keys", () => {
+    const structure = createNestedStructure([
+      "items.0.name",
+      "items.foo.name",
+      "items.bar",
+    ]);
+    const items = structure.items as Record<string, unknown>[] &
+      Record<string, unknown>;
+
+    expect(items.NaN).toBeUndefined();
+    expect(items[0]).toEqual({ name: undefined });
+    expect(items.foo).toEqual({ name: undefined });
+    expect(items).toHaveProperty("bar");
   });
 });

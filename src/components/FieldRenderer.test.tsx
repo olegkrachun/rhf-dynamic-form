@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
@@ -7,7 +7,7 @@ import type { FieldWrapperFunction, FormConfiguration } from "../types";
 
 describe("FieldRenderer", () => {
   describe("standard field rendering", () => {
-    it("renders text field with label", () => {
+    it("renders text field with label", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "username", label: "Username" }],
       };
@@ -20,11 +20,13 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("field-username")).toBeInTheDocument();
-      expect(screen.getByLabelText("Username")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("field-username")).toBeInTheDocument();
+        expect(screen.getByLabelText("Username")).toBeInTheDocument();
+      });
     });
 
-    it("renders email field", () => {
+    it("renders email field", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "email", name: "email", label: "Email Address" }],
       };
@@ -37,11 +39,13 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("field-email")).toBeInTheDocument();
-      expect(screen.getByLabelText("Email Address")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("field-email")).toBeInTheDocument();
+        expect(screen.getByLabelText("Email Address")).toBeInTheDocument();
+      });
     });
 
-    it("renders boolean field", () => {
+    it("renders boolean field", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "boolean", name: "agree", label: "I agree" }],
       };
@@ -54,12 +58,14 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("field-agree")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("field-agree")).toBeInTheDocument();
+      });
     });
   });
 
   describe("custom field rendering", () => {
-    it("renders custom component with componentProps", () => {
+    it("renders custom component with componentProps", async () => {
       interface RatingProps {
         maxStars: number;
       }
@@ -93,13 +99,15 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("custom-rating")).toBeInTheDocument();
-      expect(screen.getByText("Stars: 5")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("custom-rating")).toBeInTheDocument();
+        expect(screen.getByText("Stars: 5")).toBeInTheDocument();
+      });
     });
   });
 
   describe("visibility", () => {
-    it("hides field when visibility is false", () => {
+    it("hides field when visibility is false", async () => {
       const config: FormConfiguration = {
         elements: [
           {
@@ -119,10 +127,12 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.queryByTestId("field-hidden")).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId("field-hidden")).not.toBeInTheDocument();
+      });
     });
 
-    it("shows field when visibility is true", () => {
+    it("shows field when visibility is true", async () => {
       const config: FormConfiguration = {
         elements: [
           {
@@ -142,12 +152,14 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("field-visible")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("field-visible")).toBeInTheDocument();
+      });
     });
   });
 
   describe("field wrapper", () => {
-    it("wraps field with custom wrapper", () => {
+    it("wraps field with custom wrapper", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "wrapped", label: "Wrapped Field" }],
       };
@@ -167,11 +179,13 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("wrapper-wrapped")).toBeInTheDocument();
-      expect(screen.getByTestId("field-wrapped")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("wrapper-wrapped")).toBeInTheDocument();
+        expect(screen.getByTestId("field-wrapped")).toBeInTheDocument();
+      });
     });
 
-    it("passes field state to wrapper", () => {
+    it("passes field state to wrapper", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "stateful", label: "Stateful Field" }],
       };
@@ -193,10 +207,12 @@ describe("FieldRenderer", () => {
         />
       );
 
-      expect(screen.getByTestId("wrapper-stateful")).toBeInTheDocument();
-      expect(screen.getByTestId("wrapper-value")).toHaveTextContent(
-        "test-value"
-      );
+      await waitFor(() => {
+        expect(screen.getByTestId("wrapper-stateful")).toBeInTheDocument();
+        expect(screen.getByTestId("wrapper-value")).toHaveTextContent(
+          "test-value"
+        );
+      });
     });
   });
 });
