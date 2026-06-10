@@ -22,6 +22,7 @@ import {
   getFieldDefault,
   getNestedValue,
   getUpdatedVisibility,
+  hasFallbackComponent,
   mergeDefaults,
   setNestedValue,
 } from "./utils";
@@ -50,12 +51,18 @@ export const DynamicForm = ({
   ref,
 }: DynamicFormPropsWithRef): React.ReactElement => {
   const customComponents = components.custom ?? {};
+  const allowMissingCustomComponents = hasFallbackComponent(
+    components.fallback,
+    "custom"
+  );
 
   // Parse and validate configuration, including custom component props
   const parsedConfig = useMemo(() => {
     const parsed = parseConfiguration(config);
-    return validateCustomComponents(parsed, customComponents);
-  }, [config, customComponents]);
+    return validateCustomComponents(parsed, customComponents, {
+      allowMissingCustomComponents,
+    });
+  }, [config, customComponents, allowMissingCustomComponents]);
 
   const zodSchema = useMemo(
     () => generateZodSchema(parsedConfig),

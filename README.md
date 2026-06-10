@@ -608,7 +608,57 @@ interface ComponentRegistry {
   fields: FieldComponentRegistry;           // Required: standard field components
   custom?: CustomComponentRegistry;         // Optional: custom field components
   containers?: CustomContainerRegistry;     // Optional: container components by variant
+  fallback?: {
+    all?: FallbackComponent;                // Optional: fallback for any missing field/custom component
+    field?: FallbackComponent;              // Optional: fallback for missing field types
+    custom?: FallbackComponent;             // Optional: fallback for missing custom components
+  };
 }
+```
+
+The engine has no built-in visual fallback. If a field type is not registered
+and no fallback is configured, no visual field is rendered after a console
+warning; the field may still participate in form state and validation. Missing
+custom components remain configuration errors unless `fallback.custom` or
+`fallback.all` is configured.
+
+Fallback resolution is specific-first:
+
+- Missing field type: `fallback.field ?? fallback.all`
+- Missing custom component: `fallback.custom ?? fallback.all`
+
+Fallback components receive normal field props, so fallbacks for validated
+fields should either wire `field` to an input or render `fieldState.error`.
+Container variants are separate: missing containers keep the existing behavior
+of rendering their children unwrapped via
+`components.containers[variant] ?? components.containers.default`.
+
+```tsx
+const UnsupportedFieldFallback: FallbackComponent = ({
+  config,
+  field,
+  fieldState,
+  missingComponent,
+}) => (
+  <div>
+    <label htmlFor={field.name}>{config.label ?? field.name}</label>
+    <input id={field.name} {...field} />
+    {fieldState.error && <span>{fieldState.error.message}</span>}
+    <small>
+      Unsupported {missingComponent.kind}: {missingComponent.requested}
+    </small>
+  </div>
+);
+
+const components: ComponentRegistry = {
+  fields: {
+    text: TextField,
+    email: EmailField,
+  },
+  fallback: {
+    all: UnsupportedFieldFallback,
+  },
+};
 ```
 
 ### Hooks
@@ -633,7 +683,8 @@ export type {
   BaseFieldElement, BaseFieldProps, BaseFieldComponent,
   ValidationConfig, FormData, DynamicFormProps, DynamicFormRef,
   ComponentRegistry, FieldComponentRegistry, CustomComponentRegistry, CustomContainerRegistry,
-  ContainerComponent, ContainerProps,
+  ContainerComponent, ContainerProps, FallbackComponent, FallbackComponentProps,
+  FallbackComponentRegistry, MissingComponentInfo, MissingComponentKind,
   SelectFieldComponent, ArrayFieldComponent, CustomFieldComponent,
   SelectFieldElement, ArrayFieldElement, CustomFieldElement, SelectOption,
   SchemaFactory, SchemaMap,
