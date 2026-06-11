@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FormConfiguration } from "../types";
+import type { FieldElement, FormConfiguration } from "../types";
 import { generateZodSchema } from "./generateSchema";
 
 describe("generateZodSchema with JSON Logic conditions", () => {
@@ -262,5 +262,237 @@ describe("generateZodSchema with JSON Logic conditions", () => {
 
     expect(schema.safeParse({ name: "" }).success).toBe(false);
     expect(schema.safeParse({ name: "John" }).success).toBe(true);
+  });
+});
+
+describe("generateZodSchema with array itemField conditions", () => {
+  const config: FormConfiguration = {
+    elements: [
+      { type: "boolean", name: "isMedical", label: "Is Medical" },
+      {
+        type: "array",
+        name: "insurers",
+        label: "Insurers",
+        itemFields: [
+          {
+            type: "text",
+            name: "claimNumber.value",
+            label: "Claim Number",
+            validation: {
+              condition: {
+                or: [
+                  { var: "$item.claimNumber.value" },
+                  { var: "$item.policyNumber.value" },
+                ],
+              },
+              message: "Provide a Claim Number or a Policy Number.",
+            },
+          },
+          { type: "text", name: "policyNumber.value", label: "Policy Number" },
+          {
+            type: "text",
+            name: "name.value",
+            label: "Name",
+            validation: {
+              condition: {
+                if: [
+                  { var: "isMedical" },
+                  { "!!": { var: "$item.name.value" } },
+                  true,
+                ],
+              },
+              message: "Name required when Medical.",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const row = (
+    claim: string,
+    policy: string,
+    name: string
+  ): Record<string, { value: string }> => ({
+    claimNumber: { value: claim },
+    policyNumber: { value: policy },
+    name: { value: name },
+  });
+
+  it("blocks when an item's anyOf cross-field condition fails (both empty)", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      isMedical: false,
+      insurers: [row("", "", "Acme")],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Provide a Claim Number or a Policy Number."
+      );
+      expect(issue?.path).toEqual(["insurers", 0, "claimNumber", "value"]);
+    }
+  });
+
+  it("passes when at least one of the anyOf fields is filled", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      isMedical: false,
+      insurers: [row("C-1", "", "Acme")],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("evaluates a top-level gate inside an item condition (conditional required)", () => {
+    const schema = generateZodSchema(config);
+
+    // isMedical true + empty name → blocked
+    const failing = schema.safeParse({
+      isMedical: true,
+      insurers: [row("C-1", "", "")],
+    });
+    expect(failing.success).toBe(false);
+
+    // isMedical false + empty name → allowed
+    const passing = schema.safeParse({
+      isMedical: false,
+      insurers: [row("C-1", "", "")],
+    });
+    expect(passing.success).toBe(true);
+  });
+
+  it("reports the correct item index for multi-row arrays", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      isMedical: false,
+      insurers: [row("C-1", "", "Acme"), row("", "", "Beta")],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Provide a Claim Number or a Policy Number."
+      );
+      expect(issue?.path).toEqual(["insurers", 1, "claimNumber", "value"]);
+    }
+  });
+
+  it("collects conditions from itemFields nested inside a container (unparsed config, defense-in-depth)", () => {
+    // Containers inside itemFields are rejected by both the TS types and
+    // parseConfiguration, but generateZodSchema is a public export and can
+    // receive a config that bypassed parsing — hence the cast.
+    const nestedConfig: FormConfiguration = {
+      elements: [
+        {
+          type: "array",
+          name: "insurers",
+          label: "Insurers",
+          itemFields: [
+            {
+              type: "container",
+              variant: "row",
+              children: [
+                {
+                  type: "text",
+                  name: "claimNumber.value",
+                  label: "Claim Number",
+                  validation: {
+                    condition: { "!!": { var: "$item.claimNumber.value" } },
+                    message: "Claim Number is required.",
+                  },
+                },
+              ],
+            },
+          ] as unknown as FieldElement[],
+        },
+      ],
+    };
+
+    const schema = generateZodSchema(nestedConfig);
+    const result = schema.safeParse({
+      insurers: [{ claimNumber: { value: "" } }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Claim Number is required."
+      );
+      expect(issue?.path).toEqual(["insurers", 0, "claimNumber", "value"]);
+    }
+
+    expect(
+      schema.safeParse({ insurers: [{ claimNumber: { value: "C-1" } }] })
+        .success
+    ).toBe(true);
+  });
+});
+
+describe("generateZodSchema with nested array itemField conditions", () => {
+  const config: FormConfiguration = {
+    elements: [
+      {
+        type: "array",
+        name: "families",
+        label: "Families",
+        itemFields: [
+          { type: "text", name: "familyName.value", label: "Family Name" },
+          {
+            type: "array",
+            name: "children",
+            label: "Children",
+            itemFields: [
+              {
+                type: "text",
+                name: "name.value",
+                label: "Name",
+                validation: {
+                  condition: { "!!": { var: "$item.name.value" } },
+                  message: "Child name required.",
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("enforces a condition on an inner array row with the full nested path", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      families: [
+        { familyName: { value: "Smith" }, children: [{ name: { value: "" } }] },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Child name required."
+      );
+      expect(issue?.path).toEqual([
+        "families",
+        0,
+        "children",
+        0,
+        "name",
+        "value",
+      ]);
+    }
+  });
+
+  it("passes when the inner array row condition is satisfied", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      families: [
+        {
+          familyName: { value: "Smith" },
+          children: [{ name: { value: "Jo" } }],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
   });
 });

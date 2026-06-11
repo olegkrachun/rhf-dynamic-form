@@ -110,7 +110,7 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 
 ## Testing
 
-Tests are colocated with implementation files (257 tests across 21 files):
+Tests are colocated with implementation files (296 tests across 23 files):
 
 **Parser & Schema:**
 - `src/parser/configParser.test.ts` - Configuration parsing
@@ -121,6 +121,7 @@ Tests are colocated with implementation files (257 tests across 21 files):
 - `src/schema/jsonLogicValidation.test.ts` - JSON Logic validation
 
 **Components:**
+- `src/DynamicForm.test.tsx` - Form integration
 - `src/components/ContainerRenderer.test.tsx` - Container rendering
 - `src/components/ElementRenderer.test.tsx` - Element routing
 - `src/components/FieldRenderer.test.tsx` - Field rendering
@@ -136,6 +137,7 @@ Tests are colocated with implementation files (257 tests across 21 files):
 **Utils & Validation:**
 - `src/validation/jsonLogic.test.ts` - JSON Logic evaluation
 - `src/resolver/visibilityAwareResolver.test.ts` - Visibility-aware resolver
+- `src/utils/collectVars.test.ts` - JSON Logic var collection
 - `src/utils/flattenFields.test.ts` - Field extraction
 - `src/utils/mergeDefaults.test.ts` - Default value merging
 - `src/utils/calculateVisibility.test.ts` - Visibility calculation

@@ -369,6 +369,34 @@ interface ValidationConfig {
 
 For completely replacing a type's schema (e.g. ISO 8601 datetimes), use [`setSchemaMap`](#36-field-registry-pattern) at app startup.
 
+**`condition` on array `itemFields` is evaluated once per row.** A `validation.condition` placed on a field inside an array's `itemFields` runs for every row of that array, so anyOf / conditional-required / `regex_match` rules actually block submission per row. Inside such a condition:
+
+- reference the **row's own** fields with `$item.<field>` (row-relative) — e.g. `{ "or": [{ "var": "$item.claimNumber.value" }, { "var": "$item.policyNumber.value" }] }`;
+- reference **form-level** fields with their absolute path — e.g. `{ "var": "applicant.type.value" }`, which resolves against the whole form.
+
+`itemField.name` is row-relative (the same name used to build the row schema), and a failure attaches the error to the full row path `[arrayName, index, ...field]` so it lands on the right cell. **Nested arrays are supported recursively** — `$item` always refers to the *nearest* enclosing row; there is no `$parent` syntax to reach an outer row.
+
+```json
+{
+  "type": "array",
+  "name": "insurers",
+  "itemFields": [
+    {
+      "type": "text",
+      "name": "claimNumber.value",
+      "validation": {
+        "condition": { "or": [
+          { "var": "$item.claimNumber.value" },
+          { "var": "$item.policyNumber.value" }
+        ]},
+        "message": "Provide a Claim Number or a Policy Number."
+      }
+    },
+    { "type": "text", "name": "policyNumber.value" }
+  ]
+}
+```
+
 ### 4.5 Container Element Schema
 
 ```typescript

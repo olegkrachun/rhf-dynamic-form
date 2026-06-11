@@ -84,6 +84,109 @@ describe("createVisibilityAwareResolver", () => {
     expect((result.errors.phone as { type: string }).type).toBe("warning");
   });
 
+  it("should cascade hidden state to array item sub-field errors when the array field is hidden", async () => {
+    // A hidden array field ("insurers": false) must also hide per-row errors
+    // like "insurers.0.claimNumber.value" — those deep paths are never in the
+    // visibility map (calculateVisibility does not recurse into itemFields),
+    // so without ancestor cascading they default to visible and block submit.
+    const arraySchema = z.object({
+      insurers: z.array(
+        z.object({
+          claimNumber: z.object({
+            value: z.string().min(1, "Claim Number is required."),
+          }),
+        })
+      ),
+    });
+
+    const resolver = createVisibilityAwareResolver({
+      schema: arraySchema,
+      getVisibility: () => ({ insurers: false }),
+      invisibleFieldValidation: "skip",
+    });
+
+    const result = await resolver(
+      { insurers: [{ claimNumber: { value: "" } }] },
+      {},
+      {
+        criteriaMode: "all",
+        fields: {},
+        names: [],
+        shouldUseNativeValidation: false,
+      }
+    );
+
+    expect(result.errors.insurers).toBeUndefined();
+  });
+
+  it("should keep array item sub-field errors when the array field is visible", async () => {
+    const arraySchema = z.object({
+      insurers: z.array(
+        z.object({
+          claimNumber: z.object({
+            value: z.string().min(1, "Claim Number is required."),
+          }),
+        })
+      ),
+    });
+
+    const resolver = createVisibilityAwareResolver({
+      schema: arraySchema,
+      getVisibility: () => ({ insurers: true }),
+      invisibleFieldValidation: "skip",
+    });
+
+    const result = await resolver(
+      { insurers: [{ claimNumber: { value: "" } }] },
+      {},
+      {
+        criteriaMode: "all",
+        fields: {},
+        names: [],
+        shouldUseNativeValidation: false,
+      }
+    );
+
+    expect(result.errors.insurers).toBeDefined();
+  });
+
+  it("should mark array item sub-field errors as warnings when the array field is hidden in warn mode", async () => {
+    const arraySchema = z.object({
+      insurers: z.array(
+        z.object({
+          claimNumber: z.object({
+            value: z.string().min(1, "Claim Number is required."),
+          }),
+        })
+      ),
+    });
+
+    const resolver = createVisibilityAwareResolver({
+      schema: arraySchema,
+      getVisibility: () => ({ insurers: false }),
+      invisibleFieldValidation: "warn",
+    });
+
+    const result = await resolver(
+      { insurers: [{ claimNumber: { value: "" } }] },
+      {},
+      {
+        criteriaMode: "all",
+        fields: {},
+        names: [],
+        shouldUseNativeValidation: false,
+      }
+    );
+
+    const leaf = (
+      result.errors as unknown as {
+        insurers?: { claimNumber?: { value?: { type: string } } }[];
+      }
+    ).insurers?.[0]?.claimNumber?.value;
+    expect(leaf).toBeDefined();
+    expect(leaf?.type).toBe("warning");
+  });
+
   it("should include all errors when all fields are visible", async () => {
     const resolver = createVisibilityAwareResolver({
       schema,

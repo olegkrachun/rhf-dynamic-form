@@ -250,6 +250,35 @@ describe("fieldSchemas", () => {
       expect(schema.safeParse(invalidData).success).toBe(false);
     });
 
+    it("should build row schemas for itemFields nested inside a container (unparsed config, defense-in-depth)", () => {
+      // Containers inside itemFields are rejected by both the TS types and
+      // parseConfiguration, but buildFieldSchema is reachable via the public
+      // generateZodSchema export with an unparsed config — hence the cast.
+      const field = {
+        type: "array",
+        name: "contacts",
+        itemFields: [
+          {
+            type: "container",
+            variant: "row",
+            children: [
+              { type: "text", name: "name" },
+              { type: "email", name: "email" },
+            ],
+          },
+        ],
+      } as unknown as ArrayFieldElement;
+
+      const schema = buildFieldSchema(field);
+
+      expect(
+        schema.safeParse([{ name: "John", email: "john@example.com" }]).success
+      ).toBe(true);
+      expect(
+        schema.safeParse([{ name: "John", email: "not-an-email" }]).success
+      ).toBe(false);
+    });
+
     it("should use array schema even when field type matches schema map", () => {
       // Regression: field has type "text" (in schema map) but also has
       // itemFields — structural detection must win over schema map lookup
