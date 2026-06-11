@@ -8,11 +8,13 @@ import { useDynamicFormContext } from "../hooks";
 import type {
   BaseFieldComponent,
   CustomFieldElement,
+  FallbackComponent,
   FieldElement,
   FormData,
+  MissingComponentInfo,
 } from "../types";
 import { isCustomFieldElement } from "../types";
-import { collectVars } from "../utils";
+import { collectVars, resolveFallbackComponent } from "../utils";
 
 export interface FieldRendererProps {
   config: FieldElement;
@@ -25,6 +27,35 @@ interface InternalFieldRendererProps {
   formValues: FormData;
   setValue: (name: string, value: unknown) => void;
 }
+
+interface MissingComponentFallbackProps extends InternalFieldRendererProps {
+  FallbackComponent: FallbackComponent;
+  missingComponent: MissingComponentInfo;
+  componentProps?: Record<string, unknown>;
+}
+
+const MissingComponentFallback = ({
+  FallbackComponent,
+  config,
+  field,
+  fieldState,
+  formValues,
+  setValue,
+  missingComponent,
+  componentProps,
+}: MissingComponentFallbackProps) => {
+  return (
+    <FallbackComponent
+      componentProps={componentProps}
+      config={config}
+      field={field}
+      fieldState={fieldState}
+      formValues={formValues}
+      missingComponent={missingComponent}
+      setValue={setValue}
+    />
+  );
+};
 
 const CustomFieldRenderer = ({
   config,
@@ -44,11 +75,34 @@ const CustomFieldRenderer = ({
   const entry = customComponents[customConfig.component];
 
   if (!entry) {
-    console.warn(
-      `No custom component registered for: "${customConfig.component}". ` +
-        "Make sure to pass it in components.custom."
+    const FallbackComponent = resolveFallbackComponent(
+      components.fallback,
+      "custom"
     );
-    return null;
+
+    if (!FallbackComponent) {
+      console.warn(
+        `No custom component registered for: "${customConfig.component}". ` +
+          "Make sure to pass it in components.custom."
+      );
+      return null;
+    }
+
+    return (
+      <MissingComponentFallback
+        componentProps={customConfig.componentProps}
+        config={customConfig}
+        FallbackComponent={FallbackComponent}
+        field={field}
+        fieldState={fieldState}
+        formValues={formValues}
+        missingComponent={{
+          kind: "custom",
+          requested: customConfig.component,
+        }}
+        setValue={setValue}
+      />
+    );
   }
 
   const definition = normalizeComponentDefinition(
@@ -82,11 +136,30 @@ const StandardFieldRenderer = ({
   const FieldComponent = components.fields[config.type] as BaseFieldComponent;
 
   if (!FieldComponent) {
-    console.warn(
-      `No field component registered for type: "${config.type}". ` +
-        "Make sure to provide all field types in components.fields."
+    const FallbackComponent = resolveFallbackComponent(
+      components.fallback,
+      "field"
     );
-    return null;
+
+    if (!FallbackComponent) {
+      console.warn(
+        `No field component registered for type: "${config.type}". ` +
+          "Make sure to provide all field types in components.fields."
+      );
+      return null;
+    }
+
+    return (
+      <MissingComponentFallback
+        config={config}
+        FallbackComponent={FallbackComponent}
+        field={field}
+        fieldState={fieldState}
+        formValues={formValues}
+        missingComponent={{ kind: "field", requested: config.type }}
+        setValue={setValue}
+      />
+    );
   }
 
   return (

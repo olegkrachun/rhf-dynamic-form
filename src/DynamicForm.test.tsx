@@ -2,10 +2,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ConfigurationError } from "./customComponents";
 import { DynamicForm } from "./DynamicForm";
 import { mockFieldComponents } from "./test-utils/mockFieldComponents";
 import type {
   DynamicFormRef,
+  FallbackComponent,
   FieldComponentRegistry,
   FormConfiguration,
 } from "./types";
@@ -189,6 +191,70 @@ describe("DynamicForm | validateOnMount", () => {
     await waitFor(() => {
       const lastCall = onValidationChange.mock.calls.at(-1);
       expect(lastCall?.[1]).toBe(false);
+    });
+  });
+});
+
+describe("DynamicForm | missing component fallback", () => {
+  const missingCustomConfig: FormConfiguration = {
+    elements: [
+      {
+        type: "custom",
+        name: "rating",
+        component: "MissingRating",
+      },
+    ],
+  };
+
+  it("keeps custom component validation strict when only field fallback is configured", () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {
+      // Suppress React error logging for expected render failure.
+    });
+    const FieldFallback: FallbackComponent = ({ config }) => (
+      <div data-testid={`fallback-${config.name}`}>fallback</div>
+    );
+
+    expect(() =>
+      render(
+        <DynamicForm
+          components={{
+            fields: mockFieldComponents,
+            fallback: { field: FieldFallback },
+          }}
+          config={missingCustomConfig}
+          onSubmit={vi.fn()}
+        />
+      )
+    ).toThrow(ConfigurationError);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("allows missing custom components when custom fallback is configured", async () => {
+    const CustomFallback: FallbackComponent = ({
+      config,
+      missingComponent,
+    }) => (
+      <div data-testid={`fallback-${config.name}`}>
+        {missingComponent.kind}:{missingComponent.requested}
+      </div>
+    );
+
+    render(
+      <DynamicForm
+        components={{
+          fields: mockFieldComponents,
+          fallback: { custom: CustomFallback },
+        }}
+        config={missingCustomConfig}
+        onSubmit={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("fallback-rating")).toHaveTextContent(
+        "custom:MissingRating"
+      );
     });
   });
 });

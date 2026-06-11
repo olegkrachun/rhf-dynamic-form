@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { CustomFieldElement } from "../types/elements";
+import type { ArrayFieldElement, CustomFieldElement } from "../types/elements";
 import { ConfigurationError } from "./ConfigurationError";
 import type { CustomComponentRegistry } from "./types";
 import {
@@ -84,6 +84,30 @@ describe("validateCustomComponents", () => {
     expect(result.elements).toEqual(config.elements);
   });
 
+  it("validates custom elements in array item fields", () => {
+    const config = {
+      elements: [
+        {
+          type: "array" as const,
+          name: "ratings",
+          itemFields: [
+            {
+              type: "custom" as const,
+              name: "rating",
+              component: "RatingField",
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = validateCustomComponents(config, registry);
+    const arrayElement = result.elements[0] as ArrayFieldElement;
+    const ratingElement = arrayElement.itemFields[0] as CustomFieldElement;
+
+    expect(ratingElement.componentProps).toEqual({ maxStars: 5 });
+  });
+
   it("throws for invalid custom component in nested structure", () => {
     const config = {
       elements: [
@@ -125,6 +149,85 @@ describe("validateCustomComponents", () => {
     const result = validateCustomComponents(config, {});
 
     expect(result.elements).toEqual(config.elements);
+  });
+
+  it("throws for missing custom component in array item fields by default", () => {
+    const config = {
+      elements: [
+        {
+          type: "array" as const,
+          name: "ratings",
+          itemFields: [
+            {
+              type: "custom" as const,
+              name: "rating",
+              component: "MissingRating",
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(() => validateCustomComponents(config, registry)).toThrow(
+      ConfigurationError
+    );
+    expect(() => validateCustomComponents(config, registry)).toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining("MissingRating"),
+      })
+    );
+  });
+
+  it("allows missing custom component in array item fields when fallback is configured", () => {
+    const config = {
+      elements: [
+        {
+          type: "array" as const,
+          name: "ratings",
+          itemFields: [
+            {
+              type: "custom" as const,
+              name: "rating",
+              component: "MissingRating",
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = validateCustomComponents(config, registry, {
+      allowMissingCustomComponents: true,
+    });
+    const arrayElement = result.elements[0] as ArrayFieldElement;
+    const ratingElement = arrayElement.itemFields[0] as CustomFieldElement;
+
+    expect(ratingElement.component).toBe("MissingRating");
+    expect(ratingElement.componentProps).toBeUndefined();
+  });
+
+  it("throws for invalid registered custom props in array item fields", () => {
+    const config = {
+      elements: [
+        {
+          type: "array" as const,
+          name: "ratings",
+          itemFields: [
+            {
+              type: "custom" as const,
+              name: "rating",
+              component: "RatingField",
+              componentProps: { maxStars: "many" },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(() =>
+      validateCustomComponents(config, registry, {
+        allowMissingCustomComponents: true,
+      })
+    ).toThrow(ConfigurationError);
   });
 
   it("preserves config name property", () => {
@@ -177,6 +280,30 @@ describe("getValidatedCustomElements", () => {
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe("rating1");
     expect(result[1].name).toBe("rating2");
+  });
+
+  it("collects custom elements from array item fields", () => {
+    const config = {
+      elements: [
+        {
+          type: "array" as const,
+          name: "ratings",
+          itemFields: [
+            {
+              type: "custom" as const,
+              name: "rating",
+              component: "RatingField",
+              componentProps: {},
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = getValidatedCustomElements(config);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("rating");
   });
 
   it("collects custom elements from nested containers", () => {

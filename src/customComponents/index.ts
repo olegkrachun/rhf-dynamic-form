@@ -12,6 +12,7 @@ export {
 } from "./types";
 export {
   getValidatedCustomElements,
+  type ValidateCustomComponentsOptions,
   validateCustomComponents,
 } from "./validateConfiguration";
 export {

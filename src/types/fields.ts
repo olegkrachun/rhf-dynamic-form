@@ -111,6 +111,52 @@ export type ArrayFieldComponent = BaseFieldComponent<ArrayFieldProps>;
 export type CustomFieldComponent = BaseFieldComponent<CustomFieldProps>;
 
 /**
+ * Missing component category passed to fallback components.
+ */
+export type MissingComponentKind = "field" | "custom";
+
+/**
+ * Details about the component lookup that failed.
+ */
+export interface MissingComponentInfo {
+  /** Missing component category */
+  kind: MissingComponentKind;
+
+  /** Requested field type or custom component name */
+  requested: string;
+}
+
+/**
+ * Props passed to fallback components when a field/custom component is missing.
+ */
+export interface FallbackComponentProps extends BaseFieldProps {
+  /** Missing component lookup details */
+  missingComponent: MissingComponentInfo;
+
+  /** Raw custom component props when fallback renders a missing custom component */
+  componentProps?: Record<string, unknown>;
+}
+
+/**
+ * Component type for missing component fallbacks.
+ */
+export type FallbackComponent = React.ComponentType<FallbackComponentProps>;
+
+/**
+ * Registry for optional missing-component fallback renderers.
+ */
+export interface FallbackComponentRegistry {
+  /** Fallback used for any missing field/custom component unless a specific fallback exists */
+  all?: FallbackComponent;
+
+  /** Fallback used when a standard field type has no registered component */
+  field?: FallbackComponent;
+
+  /** Fallback used when a custom component name has no registered component */
+  custom?: FallbackComponent;
+}
+
+/**
  * Open-ended field component registry.
  *
  * Consumers provide components for every field type they use.
@@ -224,4 +270,7 @@ export interface ComponentRegistry {
 
   /** Optional: container components looked up by variant name */
   containers?: CustomContainerRegistry;
+
+  /** Optional: fallback components for missing field/custom registrations */
+  fallback?: FallbackComponentRegistry;
 }

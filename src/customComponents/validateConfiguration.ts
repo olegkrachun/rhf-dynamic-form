@@ -1,27 +1,36 @@
 import type {
+  ArrayFieldElement,
   ContainerElement,
   CustomComponentRegistry,
+  FieldElement,
   FormConfiguration,
   FormElement,
 } from "@/types";
-import { isContainerElement } from "@/types";
+import { isArrayFieldElement, isContainerElement } from "@/types";
 import {
   isCustomElement,
   type ValidatedCustomElement,
   validateCustomElement,
 } from "./validateCustomElement";
 
+export interface ValidateCustomComponentsOptions {
+  /** Allow missing custom components to be handled by render-time fallback */
+  allowMissingCustomComponents?: boolean;
+}
+
 /**
  * Recursively validate all custom elements in a form configuration.
  */
 export function validateCustomComponents(
   config: FormConfiguration,
-  registry: CustomComponentRegistry = {}
+  registry: CustomComponentRegistry = {},
+  options: ValidateCustomComponentsOptions = {}
 ): FormConfiguration {
   const validatedElements = validateElements(
     config.elements,
     registry,
-    "elements"
+    "elements",
+    options
   );
 
   return {
@@ -33,25 +42,34 @@ export function validateCustomComponents(
 function validateElements(
   elements: FormElement[],
   registry: CustomComponentRegistry,
-  basePath: string
+  basePath: string,
+  options: ValidateCustomComponentsOptions
 ): FormElement[] {
   return elements.map((element, index) => {
     const path = `${basePath}[${index}]`;
-    return validateElement(element, registry, path);
+    return validateElement(element, registry, path, options);
   });
 }
 
 function validateElement(
   element: FormElement,
   registry: CustomComponentRegistry,
-  path: string
+  path: string,
+  options: ValidateCustomComponentsOptions
 ): FormElement {
   if (isCustomElement(element)) {
+    if (options.allowMissingCustomComponents && !registry[element.component]) {
+      return element;
+    }
     return validateCustomElement(element, registry, path);
   }
 
   if (isContainerElement(element)) {
-    return validateContainer(element, registry, path);
+    return validateContainer(element, registry, path, options);
+  }
+
+  if (isArrayFieldElement(element)) {
+    return validateArrayField(element, registry, path, options);
   }
 
   return element;
@@ -60,7 +78,8 @@ function validateElement(
 function validateContainer(
   container: ContainerElement,
   registry: CustomComponentRegistry,
-  path: string
+  path: string,
+  options: ValidateCustomComponentsOptions
 ): ContainerElement {
   if (!container.children) {
     return container;
@@ -71,8 +90,26 @@ function validateContainer(
     children: validateElements(
       container.children,
       registry,
-      `${path}.children`
+      `${path}.children`,
+      options
     ),
+  };
+}
+
+function validateArrayField(
+  arrayField: ArrayFieldElement,
+  registry: CustomComponentRegistry,
+  path: string,
+  options: ValidateCustomComponentsOptions
+): ArrayFieldElement {
+  return {
+    ...arrayField,
+    itemFields: validateElements(
+      arrayField.itemFields,
+      registry,
+      `${path}.itemFields`,
+      options
+    ) as FieldElement[],
   };
 }
 
@@ -115,5 +152,10 @@ function collectFromElement(
 
   if (isContainerElement(element) && element.children) {
     collectFromElements(element.children, results);
+    return;
+  }
+
+  if (isArrayFieldElement(element)) {
+    collectFromElements(element.itemFields, results);
   }
 }

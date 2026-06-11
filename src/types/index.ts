@@ -65,8 +65,13 @@ export type {
   CustomContainerRegistry,
   CustomFieldComponent,
   CustomFieldProps,
+  FallbackComponent,
+  FallbackComponentProps,
+  FallbackComponentRegistry,
   FieldComponentRegistry,
   FieldProps,
+  MissingComponentInfo,
+  MissingComponentKind,
   SelectFieldComponent,
   SelectFieldProps,
 } from "./fields";

@@ -11,6 +11,10 @@ export {
   getFieldDefault,
   getFieldTypeDefault,
 } from "./dependencies";
+export {
+  hasFallbackComponent,
+  resolveFallbackComponent,
+} from "./fallbackComponents";
 export { flattenFields, getFieldNames } from "./flattenFields";
 export {
   getNestedValue,
