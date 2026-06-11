@@ -5,6 +5,7 @@ import type {
   SelectFieldElement,
   ValidationConfig,
 } from "../types";
+import { flattenFields } from "../utils";
 import { setNestedSchema } from "./nestedPaths";
 
 /**
@@ -90,10 +91,13 @@ const buildSelectSchema = (field: SelectFieldElement): ZodTypeAny => {
  * @returns Base Zod schema for the array field
  */
 const buildArraySchema = (field: ArrayFieldElement): ZodTypeAny => {
-  // Build schema for each item field
+  // Build schema for each item field. itemFields is typed (and validated by
+  // parseConfiguration) as containing no containers, but generateZodSchema is
+  // a public export and may receive an unparsed config — flatten defensively
+  // so container-wrapped fields still get row schemas instead of crashing.
   const itemShape: Record<string, ZodTypeAny> = {};
 
-  for (const itemField of field.itemFields) {
+  for (const itemField of flattenFields(field.itemFields)) {
     // itemField.name may use dot notation (e.g. "from.value") when the row
     // shape is nested ({ from: { value, confidence } }). Use setNestedSchema
     // so the Zod object schema mirrors the actual row structure — direct

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FormConfiguration } from "../types";
+import type { FieldElement, FormConfiguration } from "../types";
 import { generateZodSchema } from "./generateSchema";
 
 describe("generateZodSchema with JSON Logic conditions", () => {
@@ -376,5 +376,55 @@ describe("generateZodSchema with array itemField conditions", () => {
       );
       expect(issue?.path).toEqual(["insurers", 1, "claimNumber", "value"]);
     }
+  });
+
+  it("collects conditions from itemFields nested inside a container (unparsed config, defense-in-depth)", () => {
+    // Containers inside itemFields are rejected by both the TS types and
+    // parseConfiguration, but generateZodSchema is a public export and can
+    // receive a config that bypassed parsing — hence the cast.
+    const nestedConfig: FormConfiguration = {
+      elements: [
+        {
+          type: "array",
+          name: "insurers",
+          label: "Insurers",
+          itemFields: [
+            {
+              type: "container",
+              variant: "row",
+              children: [
+                {
+                  type: "text",
+                  name: "claimNumber.value",
+                  label: "Claim Number",
+                  validation: {
+                    condition: { "!!": { var: "$item.claimNumber.value" } },
+                    message: "Claim Number is required.",
+                  },
+                },
+              ],
+            },
+          ] as unknown as FieldElement[],
+        },
+      ],
+    };
+
+    const schema = generateZodSchema(nestedConfig);
+    const result = schema.safeParse({
+      insurers: [{ claimNumber: { value: "" } }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Claim Number is required."
+      );
+      expect(issue?.path).toEqual(["insurers", 0, "claimNumber", "value"]);
+    }
+
+    expect(
+      schema.safeParse({ insurers: [{ claimNumber: { value: "C-1" } }] })
+        .success
+    ).toBe(true);
   });
 });

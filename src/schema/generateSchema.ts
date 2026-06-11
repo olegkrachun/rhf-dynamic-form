@@ -81,6 +81,10 @@ const normalizeItemFieldPath = (
  * unrolling their itemFields), so without this they are silently ignored and
  * never block submission. No double-collection risk for the same reason.
  *
+ * itemFields are themselves flattened defensively: containers inside them are
+ * rejected by the types and by `parseConfiguration`, but `generateZodSchema`
+ * is a public export and may receive an unparsed config.
+ *
  * @param fields - Flattened field elements (array fields included)
  * @returns Conditions to evaluate per array row
  */
@@ -93,7 +97,7 @@ const collectArrayItemConditions = (
     if (!isArrayField(field)) {
       continue;
     }
-    for (const itemField of field.itemFields) {
+    for (const itemField of flattenFields(field.itemFields)) {
       if (itemField.validation?.condition) {
         conditions.push({
           arrayPath: field.name,
