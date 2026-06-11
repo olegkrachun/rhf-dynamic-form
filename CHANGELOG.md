@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.10.0...rhf-dynamic-forms-v1.10.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* enforce validation.condition on array itemFields ([95b854f](https://github.com/olegkrachun/rhf-dynamic-form/commit/95b854fd52f10a8ad66473a9754963b762b1466c))
+* enforce validation.condition on array itemFields ([818c88d](https://github.com/olegkrachun/rhf-dynamic-form/commit/818c88dc9ad64b4646963e8b749d53b06e6480b0))
+* flatten itemFields when collecting conditions and building row schema ([aa31c89](https://github.com/olegkrachun/rhf-dynamic-form/commit/aa31c89919585c6874bc35ea8b2583d4769c40c1))
+* flatten itemFields when collecting conditions and building row schema" -m "Also cascade hidden state to array item sub-field errors in the visibility-aware resolver: a hidden array field no longer blocks submission via its per-row validation errors. ([c56e2ed](https://github.com/olegkrachun/rhf-dynamic-form/commit/c56e2ed189a167679a747aa2e88a6971a6b56b83))
+* lint errors ([26e745c](https://github.com/olegkrachun/rhf-dynamic-form/commit/26e745cfbc6f5822d5d81a38aa3669e5f6bb542f))
+* recurse array itemField conditions into nested arrays; drop path normalization ([5068f87](https://github.com/olegkrachun/rhf-dynamic-form/commit/5068f879a780a7d7f489a7935b716e13cd75b65f))
+
 ## [1.10.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.9.0...rhf-dynamic-forms-v1.10.0) (2026-05-29)
 
 
