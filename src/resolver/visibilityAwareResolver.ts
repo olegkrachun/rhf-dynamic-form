@@ -22,21 +22,15 @@ const createWarningError = (error: unknown): unknown => ({
 });
 
 /**
- * Process a single error entry based on visibility rules.
+ * Process a single error entry based on its resolved hidden state.
  * Returns the error to include or undefined to skip.
  */
 const processLeafError = (
   value: unknown,
-  path: string,
-  visibility: Record<string, boolean>,
+  hidden: boolean,
   warnMode: boolean
 ): unknown => {
-  // Fields not in the visibility map (e.g. array item sub-fields like
-  // "claimantMembers.1.cpm_email") default to visible — only explicitly
-  // hidden fields (visibility[path] === false) should be filtered out.
-  const isVisible = visibility[path] !== false;
-
-  if (isVisible) {
+  if (!hidden) {
     return value;
   }
   if (warnMode) {
@@ -48,17 +42,25 @@ const processLeafError = (
 /**
  * Recursively filter errors based on field visibility.
  * Handles nested error structures for dot-notation paths.
+ *
+ * Paths not in the visibility map default to visible — only explicit
+ * `visibility[path] === false` hides. An explicitly hidden node cascades to
+ * all descendants: a hidden array field (e.g. "insurers") must also hide
+ * per-row errors like "insurers.0.claimNumber.value", whose deep paths never
+ * appear in the map (calculateVisibility does not recurse into itemFields).
  */
 const filterErrorsByVisibility = (
   errors: FieldErrors<FieldValues>,
   visibility: Record<string, boolean>,
   warnMode: boolean,
-  parentPath = ""
+  parentPath = "",
+  parentHidden = false
 ): FieldErrors<FieldValues> => {
   const acc: FieldErrors<FieldValues> = {};
 
   for (const [key, value] of Object.entries(errors)) {
     const path = parentPath ? `${parentPath}.${key}` : key;
+    const hidden = parentHidden || visibility[path] === false;
 
     // Handle nested objects (recurse)
     if (!isLeafError(value) && value && typeof value === "object") {
@@ -66,7 +68,8 @@ const filterErrorsByVisibility = (
         value as FieldErrors<FieldValues>,
         visibility,
         warnMode,
-        path
+        path,
+        hidden
       );
       if (Object.keys(nested).length > 0) {
         // biome-ignore lint/suspicious/noExplicitAny: react-hook-form error types are complex
@@ -76,7 +79,7 @@ const filterErrorsByVisibility = (
     }
 
     // Handle leaf errors
-    const processed = processLeafError(value, path, visibility, warnMode);
+    const processed = processLeafError(value, hidden, warnMode);
     if (processed !== undefined) {
       // biome-ignore lint/suspicious/noExplicitAny: react-hook-form error types are complex
       (acc as any)[key] = processed;
