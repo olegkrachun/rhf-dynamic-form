@@ -496,6 +496,47 @@ const components: ComponentRegistry = {
 }
 ```
 
+**Per-row conditions on array `itemFields`** — `validation.condition` also works on fields inside an array's `itemFields`. The condition is evaluated once per row; `{ var: "$item.<path>" }` resolves against the current row, while plain `{ var: "<path>" }` still resolves against the whole form — so a top-level field can gate a per-row rule. Failures are reported at the row-scoped path (e.g. `insurers.0.claimNumber.value`), so the error lands on the right input of the right row.
+
+```typescript
+{ type: "boolean", name: "isMedical", label: "Is Medical" },
+{
+  type: "array",
+  name: "insurers",
+  label: "Insurers",
+  itemFields: [
+    {
+      type: "text",
+      name: "claimNumber.value",
+      label: "Claim Number",
+      validation: {
+        // Per row: at least one of Claim Number / Policy Number is required
+        condition: {
+          or: [
+            { var: "$item.claimNumber.value" },
+            { var: "$item.policyNumber.value" },
+          ],
+        },
+        message: "Provide a Claim Number or a Policy Number.",
+      },
+    },
+    { type: "text", name: "policyNumber.value", label: "Policy Number" },
+    {
+      type: "text",
+      name: "name.value",
+      label: "Name",
+      validation: {
+        // Top-level gate + row-relative check in one rule
+        condition: {
+          if: [{ var: "isMedical" }, { "!!": { var: "$item.name.value" } }, true],
+        },
+        message: "Name required when Medical.",
+      },
+    },
+  ],
+}
+```
+
 **Available JSON Logic Operations:**
 - Standard: `var`, `and`, `or`, `!`, `==`, `!=`, `>`, `<`, `>=`, `<=`, `if`
 - Custom: `regex_match` - `["pattern", { var: "fieldName" }]`
@@ -533,6 +574,8 @@ interface DynamicFormProps {
   ref?: React.Ref<DynamicFormRef>;
 }
 ```
+
+**`invisibleFieldValidation`** controls what happens to validation errors on fields hidden by a `visible` rule: `"skip"` (default) discards them, `"warn"` keeps them with `type: "warning"`, `"validate"` keeps them as regular blocking errors. Hidden state cascades to nested errors — when an array field is hidden, its per-row errors (e.g. `insurers.0.claimNumber.value`) are skipped or downgraded along with it, so a hidden array never blocks submission.
 
 ### DynamicFormRef
 
