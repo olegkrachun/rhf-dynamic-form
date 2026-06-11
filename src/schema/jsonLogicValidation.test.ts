@@ -428,3 +428,71 @@ describe("generateZodSchema with array itemField conditions", () => {
     ).toBe(true);
   });
 });
+
+describe("generateZodSchema with nested array itemField conditions", () => {
+  const config: FormConfiguration = {
+    elements: [
+      {
+        type: "array",
+        name: "families",
+        label: "Families",
+        itemFields: [
+          { type: "text", name: "familyName.value", label: "Family Name" },
+          {
+            type: "array",
+            name: "children",
+            label: "Children",
+            itemFields: [
+              {
+                type: "text",
+                name: "name.value",
+                label: "Name",
+                validation: {
+                  condition: { "!!": { var: "$item.name.value" } },
+                  message: "Child name required.",
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("enforces a condition on an inner array row with the full nested path", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      families: [
+        { familyName: { value: "Smith" }, children: [{ name: { value: "" } }] },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issue = result.error.issues.find(
+        (i) => i.message === "Child name required."
+      );
+      expect(issue?.path).toEqual([
+        "families",
+        0,
+        "children",
+        0,
+        "name",
+        "value",
+      ]);
+    }
+  });
+
+  it("passes when the inner array row condition is satisfied", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      families: [
+        {
+          familyName: { value: "Smith" },
+          children: [{ name: { value: "Jo" } }],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+});

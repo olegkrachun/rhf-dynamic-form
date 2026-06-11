@@ -44,72 +44,83 @@ const collectConditions = (fields: FieldElement[]): FieldCondition[] => {
   return conditions;
 };
 
-/**
- * A JSON Logic condition that lives on an array field's `itemFields` and must
- * be evaluated once per row.
- */
-interface ArrayItemCondition {
-  /** Dot-notation path to the array field (e.g., "supplemental.insurers") */
-  arrayPath: string;
-  /** Dot-notation path to the field within a row (e.g., "claimNumber.value") */
-  itemFieldPath: string;
-  /** JSON Logic rule — may reference `$item.*` (row-relative) or absolute paths */
-  condition: JsonLogicRule;
-  /** Error message to display when condition fails */
-  message: string;
-}
-
 const isArrayField = (field: FieldElement): field is ArrayFieldElement =>
   "itemFields" in field && Array.isArray(field.itemFields);
 
 /**
- * Strip a leading array-path prefix from an itemField name, so the per-row path
- * stays relative even if an authoring tool emits absolute itemField names.
+ * Whether an array field — or any array nested inside its rows — carries an
+ * itemField `validation.condition` that needs per-row evaluation. Used to skip
+ * the array superRefine when nothing depends on it.
+ *
+ * `flattenFields` unrolls containers wrapped inside itemFields (defensive: the
+ * types and `parseConfiguration` reject them, but `generateZodSchema` is public
+ * and may receive an unparsed config) while pushing nested arrays whole, so we
+ * recurse into those explicitly.
  */
-const normalizeItemFieldPath = (
-  arrayPath: string,
-  itemFieldName: string
-): string =>
-  itemFieldName.startsWith(`${arrayPath}.`)
-    ? itemFieldName.slice(arrayPath.length + 1)
-    : itemFieldName;
+const arrayHasItemCondition = (field: ArrayFieldElement): boolean =>
+  flattenFields(field.itemFields).some(
+    (itemField) =>
+      Boolean(itemField.validation?.condition) ||
+      (isArrayField(itemField) && arrayHasItemCondition(itemField))
+  );
 
 /**
- * Extract JSON Logic conditions defined on array `itemFields`. These are NOT
- * covered by `collectConditions` (which only sees flattened top-level fields —
- * `flattenFields` recurses into containers but pushes array fields whole, never
- * unrolling their itemFields), so without this they are silently ignored and
- * never block submission. No double-collection risk for the same reason.
+ * Evaluate every itemField `validation.condition` of an array, once per row,
+ * recursing into nested arrays. `$item` resolves to the *nearest* row while
+ * absolute paths resolve against the form root; the issue path carries the full
+ * `[array, index, ...field]` prefix so the error attaches to the right cell.
  *
- * itemFields are themselves flattened defensively: containers inside them are
- * rejected by the types and by `parseConfiguration`, but `generateZodSchema`
- * is a public export and may receive an unparsed config.
+ * `itemField.name` is used raw — the same row-relative name `buildArraySchema`
+ * feeds to `setNestedSchema` — so condition paths and row schemas share one
+ * contract (no separate normalization). A nested condition can reference its own
+ * row (`$item`) and absolute form paths, but not an *outer* row (there is no
+ * `$parent` syntax).
  *
- * @param fields - Flattened field elements (array fields included)
- * @returns Conditions to evaluate per array row
+ * These conditions are invisible to `collectConditions`: `flattenFields` pushes
+ * array fields whole and never unrolls their itemFields, so without this walk
+ * per-row rules are silently ignored and never block submission.
  */
-const collectArrayItemConditions = (
-  fields: FieldElement[]
-): ArrayItemCondition[] => {
-  const conditions: ArrayItemCondition[] = [];
-
-  for (const field of fields) {
-    if (!isArrayField(field)) {
-      continue;
-    }
-    for (const itemField of flattenFields(field.itemFields)) {
-      if (itemField.validation?.condition) {
-        conditions.push({
-          arrayPath: field.name,
-          itemFieldPath: normalizeItemFieldPath(field.name, itemField.name),
-          condition: itemField.validation.condition,
-          message: itemField.validation.message || "Validation failed",
-        });
-      }
-    }
+const validateArrayRows = (
+  arrayField: ArrayFieldElement,
+  rows: unknown,
+  pathPrefix: (string | number)[],
+  root: Record<string, unknown>,
+  addIssue: (message: string, path: (string | number)[]) => void
+): void => {
+  if (!Array.isArray(rows)) {
+    return;
   }
 
-  return conditions;
+  const itemFields = flattenFields(arrayField.itemFields);
+
+  rows.forEach((row, index) => {
+    const rowData = (row ?? {}) as Record<string, unknown>;
+    const itemContext = { ...root, $item: rowData };
+
+    for (const itemField of itemFields) {
+      const fieldPath = [...pathPrefix, index, ...itemField.name.split(".")];
+
+      if (
+        itemField.validation?.condition &&
+        !evaluateCondition(itemField.validation.condition, itemContext)
+      ) {
+        addIssue(
+          itemField.validation.message || "Validation failed",
+          fieldPath
+        );
+      }
+
+      if (isArrayField(itemField)) {
+        validateArrayRows(
+          itemField,
+          getValueAtPath(rowData, itemField.name),
+          fieldPath,
+          root,
+          addIssue
+        );
+      }
+    }
+  });
 };
 
 /**
@@ -192,50 +203,34 @@ export const generateZodSchema = (
 
   // Collect JSON Logic conditions from fields
   const conditions = collectConditions(fields);
-  const arrayItemConditions = collectArrayItemConditions(fields);
+  const conditionArrayFields = fields
+    .filter(isArrayField)
+    .filter(arrayHasItemCondition);
 
   // If there are JSON Logic conditions, add superRefine for cross-field validation
-  if (conditions.length > 0 || arrayItemConditions.length > 0) {
+  if (conditions.length > 0 || conditionArrayFields.length > 0) {
     schema = schema.superRefine((data, ctx) => {
       const root = data as Record<string, unknown>;
+      const addIssue = (message: string, path: (string | number)[]) =>
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message, path });
 
       // Top-level (and nested object) field conditions.
       for (const { fieldPath, condition, message } of conditions) {
         if (!evaluateCondition(condition, root)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message,
-            path: fieldPath.split("."),
-          });
+          addIssue(message, fieldPath.split("."));
         }
       }
 
-      // Array itemField conditions — evaluated once per row. `$item` resolves to
-      // the row, while absolute paths still resolve against the full form data.
-      for (const {
-        arrayPath,
-        itemFieldPath,
-        condition,
-        message,
-      } of arrayItemConditions) {
-        const rows = getValueAtPath(root, arrayPath);
-        if (!Array.isArray(rows)) {
-          continue;
-        }
-        rows.forEach((row, index) => {
-          const isValid = evaluateCondition(condition, { ...root, $item: row });
-          if (!isValid) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message,
-              path: [
-                ...arrayPath.split("."),
-                index,
-                ...itemFieldPath.split("."),
-              ],
-            });
-          }
-        });
+      // Array itemField conditions — evaluated per row, recursing into nested
+      // arrays. `$item` resolves to the nearest row; absolute paths to the root.
+      for (const arrayField of conditionArrayFields) {
+        validateArrayRows(
+          arrayField,
+          getValueAtPath(root, arrayField.name),
+          arrayField.name.split("."),
+          root,
+          addIssue
+        );
       }
     }) as ZodObject<Record<string, ZodTypeAny>>;
   }
