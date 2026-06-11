@@ -1,5 +1,10 @@
 import { ZodObject, type ZodTypeAny, z } from "zod";
-import type { FieldElement, FormConfiguration, JsonLogicRule } from "../types";
+import type {
+  ArrayFieldElement,
+  FieldElement,
+  FormConfiguration,
+  JsonLogicRule,
+} from "../types";
 import { flattenFields } from "../utils";
 import { evaluateCondition } from "../validation";
 import { buildFieldSchema } from "./fieldSchemas";
@@ -38,6 +43,85 @@ const collectConditions = (fields: FieldElement[]): FieldCondition[] => {
 
   return conditions;
 };
+
+/**
+ * A JSON Logic condition that lives on an array field's `itemFields` and must
+ * be evaluated once per row.
+ */
+interface ArrayItemCondition {
+  /** Dot-notation path to the array field (e.g., "supplemental.insurers") */
+  arrayPath: string;
+  /** Dot-notation path to the field within a row (e.g., "claimNumber.value") */
+  itemFieldPath: string;
+  /** JSON Logic rule — may reference `$item.*` (row-relative) or absolute paths */
+  condition: JsonLogicRule;
+  /** Error message to display when condition fails */
+  message: string;
+}
+
+const isArrayField = (field: FieldElement): field is ArrayFieldElement =>
+  "itemFields" in field && Array.isArray(field.itemFields);
+
+/**
+ * Strip a leading array-path prefix from an itemField name, so the per-row path
+ * stays relative even if an authoring tool emits absolute itemField names.
+ */
+const normalizeItemFieldPath = (
+  arrayPath: string,
+  itemFieldName: string
+): string =>
+  itemFieldName.startsWith(`${arrayPath}.`)
+    ? itemFieldName.slice(arrayPath.length + 1)
+    : itemFieldName;
+
+/**
+ * Extract JSON Logic conditions defined on array `itemFields`. These are NOT
+ * covered by `collectConditions` (which only sees flattened top-level fields —
+ * `flattenFields` recurses into containers but pushes array fields whole, never
+ * unrolling their itemFields), so without this they are silently ignored and
+ * never block submission. No double-collection risk for the same reason.
+ *
+ * @param fields - Flattened field elements (array fields included)
+ * @returns Conditions to evaluate per array row
+ */
+const collectArrayItemConditions = (
+  fields: FieldElement[]
+): ArrayItemCondition[] => {
+  const conditions: ArrayItemCondition[] = [];
+
+  for (const field of fields) {
+    if (!isArrayField(field)) {
+      continue;
+    }
+    for (const itemField of field.itemFields) {
+      if (itemField.validation?.condition) {
+        conditions.push({
+          arrayPath: field.name,
+          itemFieldPath: normalizeItemFieldPath(field.name, itemField.name),
+          condition: itemField.validation.condition,
+          message: itemField.validation.message || "Validation failed",
+        });
+      }
+    }
+  }
+
+  return conditions;
+};
+
+/**
+ * Read a nested value from form data by dot-notation path.
+ */
+const getValueAtPath = (
+  data: Record<string, unknown>,
+  path: string
+): unknown =>
+  path.split(".").reduce<unknown>(
+    (acc, key) =>
+      acc && typeof acc === "object"
+        ? (acc as Record<string, unknown>)[key]
+        : undefined,
+    data
+  );
 
 /**
  * Generated schema type - a Zod object schema.
@@ -105,25 +189,50 @@ export const generateZodSchema = (
 
   // Collect JSON Logic conditions from fields
   const conditions = collectConditions(fields);
+  const arrayItemConditions = collectArrayItemConditions(fields);
 
   // If there are JSON Logic conditions, add superRefine for cross-field validation
-  if (conditions.length > 0) {
+  if (conditions.length > 0 || arrayItemConditions.length > 0) {
     schema = schema.superRefine((data, ctx) => {
-      for (const { fieldPath, condition, message } of conditions) {
-        // Evaluate the JSON Logic condition against full form data
-        const isValid = evaluateCondition(
-          condition,
-          data as Record<string, unknown>
-        );
+      const root = data as Record<string, unknown>;
 
-        if (!isValid) {
-          // Add error at the specific field path
+      // Top-level (and nested object) field conditions.
+      for (const { fieldPath, condition, message } of conditions) {
+        if (!evaluateCondition(condition, root)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message,
             path: fieldPath.split("."),
           });
         }
+      }
+
+      // Array itemField conditions — evaluated once per row. `$item` resolves to
+      // the row, while absolute paths still resolve against the full form data.
+      for (const {
+        arrayPath,
+        itemFieldPath,
+        condition,
+        message,
+      } of arrayItemConditions) {
+        const rows = getValueAtPath(root, arrayPath);
+        if (!Array.isArray(rows)) {
+          continue;
+        }
+        rows.forEach((row, index) => {
+          const isValid = evaluateCondition(condition, { ...root, $item: row });
+          if (!isValid) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message,
+              path: [
+                ...arrayPath.split("."),
+                index,
+                ...itemFieldPath.split("."),
+              ],
+            });
+          }
+        });
       }
     }) as ZodObject<Record<string, ZodTypeAny>>;
   }
