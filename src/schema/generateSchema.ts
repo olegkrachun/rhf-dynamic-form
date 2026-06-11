@@ -111,17 +111,16 @@ const collectArrayItemConditions = (
 /**
  * Read a nested value from form data by dot-notation path.
  */
-const getValueAtPath = (
-  data: Record<string, unknown>,
-  path: string
-): unknown =>
-  path.split(".").reduce<unknown>(
-    (acc, key) =>
-      acc && typeof acc === "object"
-        ? (acc as Record<string, unknown>)[key]
-        : undefined,
-    data
-  );
+const getValueAtPath = (data: Record<string, unknown>, path: string): unknown =>
+  path
+    .split(".")
+    .reduce<unknown>(
+      (acc, key) =>
+        acc && typeof acc === "object"
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
+      data
+    );
 
 /**
  * Generated schema type - a Zod object schema.
