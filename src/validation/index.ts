@@ -1,1 +1,5 @@
-export { applyJsonLogic, evaluateCondition } from "./jsonLogic";
+export {
+  addJsonLogicOperation,
+  applyJsonLogic,
+  evaluateCondition,
+} from "./jsonLogic";

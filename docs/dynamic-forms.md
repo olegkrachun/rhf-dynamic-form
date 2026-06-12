@@ -230,6 +230,35 @@ JSON Logic is a domain-specific language for expressing logical operations in JS
 { "regex_match": ["^[0-9]{10}$", "source.phone"] }
 ```
 
+**Custom Operations**
+
+Beyond the standard operators and the built-in `regex_match`, consumers can
+register their own operations and reference them by name in any `condition`
+or `visible` rule:
+
+```typescript
+import { addJsonLogicOperation } from "rhf-dynamic-forms";
+
+addJsonLogicOperation("dateValid", (value) => isValidDate(value));
+```
+
+Registration must go through `addJsonLogicOperation` — a direct
+`json-logic-js` import can resolve to a different module instance than the
+one the library evaluates with (e.g. with linked packages), making the
+operation invisible to the validator.
+
+**Fail-Closed Evaluation**
+
+A validation `condition` that throws — typically a rule referencing an
+operation that was never registered — counts as failed: the field reports its
+validation message and blocks submission. A single broken rule can not
+silently disable the rest of the form's conditional validation.
+
+Note for API-transport layers: JSON Logic operator names are part of the rule
+*data*. Pipelines that rename keys (e.g. snake_case → camelCase response
+transforms) must exclude the form configuration payload, or operators like
+`regex_match` arrive corrupted (`regexMatch`) and their rules fail closed.
+
 ### 3.4 Zod Schema Generation
 
 The library dynamically generates Zod schemas from form configuration. This provides:

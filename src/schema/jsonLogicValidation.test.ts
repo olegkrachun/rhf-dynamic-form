@@ -496,3 +496,113 @@ describe("generateZodSchema with nested array itemField conditions", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("generateZodSchema condition / base-error independence", () => {
+  const config: FormConfiguration = {
+    elements: [
+      {
+        type: "text",
+        name: "requiredField.value",
+        label: "Required",
+        validation: { required: true },
+      },
+      {
+        type: "checkbox",
+        name: "flag.value",
+        label: "Flag",
+        validation: {
+          condition: { "!": { var: "flag.value" } },
+          message: "Flag must be off",
+        },
+      },
+    ],
+  };
+
+  it("fires a cross-field condition even when a required base field is empty", () => {
+    const schema = generateZodSchema(config);
+    // requiredField empty (base error) AND flag on (condition error)
+    const result = schema.safeParse({
+      requiredField: { value: "" },
+      flag: { value: true },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message);
+      // base required error still surfaces…
+      expect(
+        result.error.issues.some(
+          (i) => i.path.join(".") === "requiredField.value"
+        )
+      ).toBe(true);
+      // …and the condition error fires alongside it (not suppressed)
+      expect(messages).toContain("Flag must be off");
+    }
+  });
+
+  it("passes once both base and condition are satisfied", () => {
+    const schema = generateZodSchema(config);
+    const result = schema.safeParse({
+      requiredField: { value: "ok" },
+      flag: { value: false },
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("generateZodSchema with a throwing condition", () => {
+  const config: FormConfiguration = {
+    elements: [
+      {
+        type: "text",
+        name: "broken.value",
+        label: "Broken",
+        validation: {
+          condition: { unknown_operation: [{ var: "broken.value" }] },
+          message: "Broken condition",
+        },
+      },
+      {
+        type: "checkbox",
+        name: "flag.value",
+        label: "Flag",
+        validation: {
+          condition: { "!": { var: "flag.value" } },
+          message: "Flag must be off",
+        },
+      },
+    ],
+  };
+
+  it("fails closed on the broken condition instead of throwing", () => {
+    const schema = generateZodSchema(config);
+
+    const result = schema.safeParse({
+      broken: { value: "x" },
+      flag: { value: false },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const broken = result.error.issues.find(
+        (issue) => issue.path.join(".") === "broken.value"
+      );
+      expect(broken?.message).toBe("Broken condition");
+    }
+  });
+
+  it("still evaluates the remaining conditions", () => {
+    const schema = generateZodSchema(config);
+
+    const result = schema.safeParse({
+      broken: { value: "x" },
+      flag: { value: true },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((issue) => issue.message);
+      expect(messages).toContain("Flag must be off");
+    }
+  });
+});

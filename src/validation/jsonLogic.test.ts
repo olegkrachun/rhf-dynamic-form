@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyJsonLogic, evaluateCondition } from "./jsonLogic";
+import {
+  addJsonLogicOperation,
+  applyJsonLogic,
+  evaluateCondition,
+} from "./jsonLogic";
 
 describe("applyJsonLogic", () => {
   describe("basic operations", () => {
@@ -164,5 +168,32 @@ describe("evaluateCondition", () => {
     expect(evaluateCondition(rule, { hasPhone: true, phone: "123" })).toBe(
       false
     );
+  });
+});
+
+describe("addJsonLogicOperation", () => {
+  it("registers a consumer-supplied operation usable in rules", () => {
+    addJsonLogicOperation(
+      "test_isUppercase",
+      (value: unknown) =>
+        typeof value === "string" && value === value.toUpperCase()
+    );
+
+    const rule = { test_isUppercase: [{ var: "code" }] };
+    expect(applyJsonLogic(rule, { code: "ABC" })).toBe(true);
+    expect(applyJsonLogic(rule, { code: "abc" })).toBe(false);
+  });
+
+  it("makes the operation visible to evaluateCondition", () => {
+    addJsonLogicOperation("test_alwaysTrue", () => true);
+
+    expect(evaluateCondition({ test_alwaysTrue: [] }, {})).toBe(true);
+  });
+
+  it("lets a re-registration overwrite the previous implementation", () => {
+    addJsonLogicOperation("test_overwritable", () => false);
+    addJsonLogicOperation("test_overwritable", () => true);
+
+    expect(evaluateCondition({ test_overwritable: [] }, {})).toBe(true);
   });
 });

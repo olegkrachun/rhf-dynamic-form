@@ -541,6 +541,31 @@ const components: ComponentRegistry = {
 - Standard: `var`, `and`, `or`, `!`, `==`, `!=`, `>`, `<`, `>=`, `<=`, `if`
 - Custom: `regex_match` - `["pattern", { var: "fieldName" }]`
 
+**Consumer-Registered Operations**
+
+The library stays agnostic about domain semantics — register your own
+operations and reference them by name in config conditions:
+
+```typescript
+import { addJsonLogicOperation } from "rhf-dynamic-forms";
+
+addJsonLogicOperation("dateValid", (value) => isValidDate(value));
+// config: { "condition": { "dateValid": [{ "var": "dob" }] } }
+```
+
+Always register through `addJsonLogicOperation`, never via a direct
+`json-logic-js` import: your bundler may resolve a *different copy* of
+json-logic-js than the one the library evaluates with (typical with linked
+packages), and operations registered there are invisible to the validator.
+Re-registering a name overwrites the previous implementation.
+
+**Error Behavior (fail closed)**
+
+A validation condition that throws during evaluation — most commonly a rule
+referencing an unregistered operation — is treated as *failed*: the field
+shows its validation message and submission stays blocked. One broken rule
+never disables the rest of the form's validation.
+
 ### Visibility Control
 
 ```typescript
@@ -740,7 +765,7 @@ export { buildFieldSchema, generateZodSchema, defaultSchemaMap, setSchemaMap, re
 export {
   createVisibilityAwareResolver, calculateVisibility,
   flattenFields, getFieldNames, mergeDefaults, getNestedValue, setNestedValue,
-  applyJsonLogic, evaluateCondition,
+  addJsonLogicOperation, applyJsonLogic, evaluateCondition,
   isFieldElement, isContainerElement, isCustomFieldElement, isArrayFieldElement, isSectionContainer,
 };
 ```
