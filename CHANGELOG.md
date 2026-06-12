@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.11.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.10.1...rhf-dynamic-forms-v1.11.0) (2026-06-12)
+
+
+### Features
+
+* add addJsonLogicOperation for consumer-registered operations ([89a4c64](https://github.com/olegkrachun/rhf-dynamic-form/commit/89a4c64db662f49dbbf972635ac8e669fced2c29))
+
+
+### Bug Fixes
+
+* evaluate conditions independently of base errors; fail closed on rule errors ([0bc4db4](https://github.com/olegkrachun/rhf-dynamic-form/commit/0bc4db45b6a4e524365763c903b25c5f784e8a49))
+
 ## [1.10.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.10.0...rhf-dynamic-forms-v1.10.1) (2026-06-11)
 
 
