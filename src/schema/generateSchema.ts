@@ -48,6 +48,24 @@ const isArrayField = (field: FieldElement): field is ArrayFieldElement =>
   "itemFields" in field && Array.isArray(field.itemFields);
 
 /**
+ * Evaluate a condition, failing CLOSED on evaluation errors: a rule that
+ * throws (e.g. an unregistered custom operation) reports as failed, so its
+ * validation message surfaces on the field and submission stays blocked.
+ * Without this, one broken rule would throw out of the superRefine and
+ * silently disable every condition in the form.
+ */
+const conditionPasses = (
+  condition: JsonLogicRule,
+  data: Record<string, unknown>
+): boolean => {
+  try {
+    return evaluateCondition(condition, data);
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Whether an array field — or any array nested inside its rows — carries an
  * itemField `validation.condition` that needs per-row evaluation. Used to skip
  * the array superRefine when nothing depends on it.
@@ -102,7 +120,7 @@ const validateArrayRows = (
 
       if (
         itemField.validation?.condition &&
-        !evaluateCondition(itemField.validation.condition, itemContext)
+        !conditionPasses(itemField.validation.condition, itemContext)
       ) {
         addIssue(
           itemField.validation.message || "Validation failed",
@@ -197,9 +215,11 @@ export const generateZodSchema = (
     setNestedSchema(schemaShape, field.name, fieldSchema);
   }
 
-  // Create base schema
-  let schema: ZodObject<Record<string, ZodTypeAny>> =
-    z.looseObject(schemaShape);
+  // Base schema — built from each field. Conditions are NOT attached directly:
+  // Zod aborts a schema's refinements once its base parse fails, which would
+  // suppress every cross-field condition while any required field is still
+  // empty (a normal, half-filled form). Cross-field rules must fire regardless.
+  const baseSchema = z.looseObject(schemaShape);
 
   // Collect JSON Logic conditions from fields
   const conditions = collectConditions(fields);
@@ -207,35 +227,54 @@ export const generateZodSchema = (
     .filter(isArrayField)
     .filter(arrayHasItemCondition);
 
-  // If there are JSON Logic conditions, add superRefine for cross-field validation
-  if (conditions.length > 0 || conditionArrayFields.length > 0) {
-    schema = schema.superRefine((data, ctx) => {
-      const root = data as Record<string, unknown>;
-      const addIssue = (message: string, path: (string | number)[]) =>
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message, path });
-
-      // Top-level (and nested object) field conditions.
-      for (const { fieldPath, condition, message } of conditions) {
-        if (!evaluateCondition(condition, root)) {
-          addIssue(message, fieldPath.split("."));
-        }
-      }
-
-      // Array itemField conditions — evaluated per row, recursing into nested
-      // arrays. `$item` resolves to the nearest row; absolute paths to the root.
-      for (const arrayField of conditionArrayFields) {
-        validateArrayRows(
-          arrayField,
-          getValueAtPath(root, arrayField.name),
-          arrayField.name.split("."),
-          root,
-          addIssue
-        );
-      }
-    }) as ZodObject<Record<string, ZodTypeAny>>;
+  if (conditions.length === 0 && conditionArrayFields.length === 0) {
+    return baseSchema;
   }
 
-  return schema;
+  // Run base validation AND cross-field conditions in a single pass that never
+  // aborts: `z.any()` always invokes its refinement, so we merge the base
+  // issues and then evaluate conditions unconditionally. This makes condition
+  // errors surface independently of base (required/type/format) errors.
+  const schema = z.any().superRefine((data, ctx) => {
+    const baseResult = baseSchema.safeParse(data);
+    if (!baseResult.success) {
+      // Re-emit base issues as `custom` (preserving path + already-formatted
+      // message) — passing the raw $ZodIssue back into addIssue isn't type-safe
+      // across Zod's issue union, and only path/message matter for display.
+      for (const issue of baseResult.error.issues) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...issue.path],
+          message: issue.message,
+        });
+      }
+    }
+
+    const root = (data ?? {}) as Record<string, unknown>;
+    const addIssue = (message: string, path: (string | number)[]) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message, path });
+
+    // Top-level (and nested object) field conditions.
+    for (const { fieldPath, condition, message } of conditions) {
+      if (!conditionPasses(condition, root)) {
+        addIssue(message, fieldPath.split("."));
+      }
+    }
+
+    // Array itemField conditions — evaluated per row, recursing into nested
+    // arrays. `$item` resolves to the nearest row; absolute paths to the root.
+    for (const arrayField of conditionArrayFields) {
+      validateArrayRows(
+        arrayField,
+        getValueAtPath(root, arrayField.name),
+        arrayField.name.split("."),
+        root,
+        addIssue
+      );
+    }
+  });
+
+  return schema as unknown as GeneratedSchema;
 };
 
 /**
