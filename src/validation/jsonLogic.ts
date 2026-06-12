@@ -35,6 +35,36 @@ const registerCustomOperations = (): void => {
 registerCustomOperations();
 
 /**
+ * Register a consumer-supplied JSON Logic operation on the library's
+ * evaluator instance.
+ *
+ * The library stays agnostic about domain semantics — consumers bring their
+ * own operations (date comparisons, lookups, …) and configs reference them by
+ * name. Registering through this function (instead of importing json-logic-js
+ * directly) guarantees the operation lands on the same instance the library
+ * evaluates conditions with — a direct import may resolve to a different copy
+ * of json-logic-js (e.g. with linked packages), where the operation would be
+ * invisible and every rule using it would throw "Unrecognized operation".
+ *
+ * Re-registering an existing name overwrites the previous implementation.
+ *
+ * @param name - Operation name as referenced in rules
+ * @param operation - Implementation receiving the rule's arguments
+ *
+ * @example
+ * ```typescript
+ * addJsonLogicOperation("dateValid", (value) => isValidDate(value));
+ * // config: { "condition": { "dateValid": [{ "var": "dob" }] } }
+ * ```
+ */
+export const addJsonLogicOperation = (
+  name: string,
+  operation: (...args: never[]) => unknown
+): void => {
+  jsonLogic.add_operation(name, operation);
+};
+
+/**
  * Evaluate a JSON Logic rule against form data.
  *
  * @param rule - JSON Logic rule to evaluate

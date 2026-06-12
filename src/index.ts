@@ -141,4 +141,8 @@ export {
 // =============================================================================
 // Validation Utilities (Phase 3 - JSON Logic)
 // =============================================================================
-export { applyJsonLogic, evaluateCondition } from "./validation";
+export {
+  addJsonLogicOperation,
+  applyJsonLogic,
+  evaluateCondition,
+} from "./validation";
