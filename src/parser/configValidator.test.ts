@@ -230,6 +230,23 @@ describe("configValidator", () => {
       expect(() => validateConfiguration(config)).toThrow(ZodError);
     });
 
+    it("should reject a resolver descriptor whose name is empty (isolates the name rule)", () => {
+      // An empty name fails only the resolver branch's `name.min(1)`; if that
+      // rule were dropped this resolver-shaped object would validate, so this
+      // case specifically guards the name constraint rather than just rejection.
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "x",
+            options: { type: "resolver", name: "" },
+          },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
     it("should reject a select field with neither options nor optionsSource", () => {
       const config = {
         elements: [{ type: "select", name: "x" }],

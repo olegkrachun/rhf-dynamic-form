@@ -76,7 +76,11 @@ const renderItemField = (
         </div>
       );
 
-    case "select":
+    case "select": {
+      // The sample uses static option lists; narrow the options union.
+      const itemOptions = (itemField as SelectFieldElement).options;
+      const selectOptions =
+        itemOptions && isStaticOptions(itemOptions) ? itemOptions : [];
       return (
         <div className="array-item-field" key={fieldId}>
           <label className="field-label" htmlFor={fieldId}>
@@ -92,12 +96,7 @@ const renderItemField = (
             value={(currentValue as string) ?? ""}
           >
             <option value="">Select...</option>
-            {(() => {
-              const itemOptions = (itemField as SelectFieldElement).options;
-              return itemOptions && isStaticOptions(itemOptions)
-                ? itemOptions
-                : [];
-            })().map((opt) => (
+            {selectOptions.map((opt) => (
               <option disabled={opt.disabled} key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -106,6 +105,7 @@ const renderItemField = (
           {error && <span className="field-error">{error}</span>}
         </div>
       );
+    }
 
     case "boolean":
       return (

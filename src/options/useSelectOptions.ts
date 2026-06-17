@@ -1,12 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { useDynamicFormContext } from "../hooks";
-import type {
-  DataMapOptions,
-  ResolverOptions,
-  SelectFieldElement,
-  SelectOption,
-} from "../types";
+import type { SelectFieldElement, SelectOption } from "../types";
 import { isDataMapOptions, isResolverOptions } from "../types";
 import { resolveSelectOptions } from "./resolveSelectOptions";
 
@@ -24,14 +19,22 @@ export interface UseSelectOptionsResult {
 
 const EMPTY_OPTIONS: SelectOption[] = [];
 
+/** Structural thenable check — more robust than `instanceof Promise` across realms. */
+const isThenable = (value: unknown): value is Promise<SelectOption[]> =>
+  typeof (value as { then?: unknown } | null)?.then === "function";
+
 /**
  * Resolves a select field's `options` config into a reactive list of options,
  * reading form values and the resolver registry from the form context.
  *
  * - **static** / **data-map** resolve synchronously; data-map recomputes
  *   whenever the `sourceField` data changes (subscribed via `useWatch`).
- * - **resolver** options may be async — `isLoading` reflects in-flight work and
- *   stale results are ignored on unmount or when the resolver changes.
+ * - **resolver** options may be sync or async — `isLoading` reflects in-flight
+ *   work and stale results are ignored on unmount or when the resolver changes.
+ *   A resolver re-runs when the field's declared `dependsOn` value changes, so
+ *   cascading selects (e.g. accounts that depend on a selected customer) stay
+ *   in sync. Declare `dependsOn` on the field for resolvers that read other
+ *   fields' values.
  * - When `config.options` is absent, returns an empty list and leaves the
  *   legacy `config.optionsSource` for the consumer's field component to handle.
  *
@@ -43,27 +46,35 @@ export function useSelectOptions(
 ): UseSelectOptionsResult {
   const { form, components } = useDynamicFormContext();
   const options = config.options;
-  const resolvers = components.resolvers;
 
-  const isResolver = options !== undefined && isResolverOptions(options);
-  // Stable resolver identity. Depending on the parsed `options` object directly
-  // would re-run the effect on every render if a consumer rebuilds config
-  // inline; the resolver name is the only field that meaningfully changes it.
-  const resolverName = isResolver ? (options as ResolverOptions).name : null;
-
-  // Single unconditional subscription. For data-map, watch the source array so
-  // options recompute when it changes; otherwise watch this field (bounded).
-  const watchName =
+  // In-branch narrowing keeps the type guards authoritative (no `as` casts).
+  const resolverName =
+    options !== undefined && isResolverOptions(options) ? options.name : null;
+  const sourceField =
     options !== undefined && isDataMapOptions(options)
-      ? (options as DataMapOptions).sourceField
-      : fieldName;
-  useWatch({ control: form.control, name: watchName });
+      ? options.sourceField
+      : undefined;
+  const isResolver = resolverName !== null;
+
+  // Single unconditional subscription that drives reactivity:
+  // - data-map → watch the source array
+  // - resolver → watch the field it declares a dependency on (`dependsOn`)
+  // - otherwise → watch this field (bounded, no-op for static lists)
+  const watchName = sourceField ?? config.dependsOn ?? fieldName;
+  const watched = useWatch({ control: form.control, name: watchName });
+
+  // Hold the resolver registry in a ref so the effect reads the latest
+  // resolvers without re-running when the registry's object identity changes
+  // (a consumer passing `components` inline would otherwise refetch every render).
+  const resolversRef = useRef(components.resolvers);
+  resolversRef.current = components.resolvers;
 
   const [resolverState, setResolverState] = useState<UseSelectOptionsResult>({
     options: EMPTY_OPTIONS,
     isLoading: false,
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `watched` is an intentional trigger — it re-runs the resolver when its declared `dependsOn` value changes; `resolvers` is read via a ref to avoid identity-churn refetches.
   useEffect(() => {
     if (resolverName === null) {
       return;
@@ -77,11 +88,11 @@ export function useSelectOptions(
       {
         formValues: form.getValues(),
         fieldName,
-        resolvers,
+        resolvers: resolversRef.current,
       }
     );
 
-    if (result instanceof Promise) {
+    if (isThenable(result)) {
       setResolverState({ options: EMPTY_OPTIONS, isLoading: true });
       result.then(
         (resolved) => {
@@ -106,7 +117,7 @@ export function useSelectOptions(
     return () => {
       cancelled = true;
     };
-  }, [resolverName, resolvers, fieldName, form]);
+  }, [resolverName, fieldName, form, watched]);
 
   if (isResolver) {
     return resolverState;
@@ -117,7 +128,6 @@ export function useSelectOptions(
   const resolved = resolveSelectOptions(options, {
     formValues: form.getValues(),
     fieldName,
-    resolvers,
   }) as SelectOption[];
 
   return { options: resolved, isLoading: false };

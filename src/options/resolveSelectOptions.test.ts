@@ -157,3 +157,55 @@ describe("resolveSelectOptions — resolver", () => {
     expect(warn).toHaveBeenCalledOnce();
   });
 });
+
+describe("resolveSelectOptions — label coercion and misconfig safety", () => {
+  it("falls back to the value when labelPath resolves to a non-primitive", () => {
+    const result = resolveSelectOptions(
+      { sourceField: "items", labelPath: "label", valuePath: "id" },
+      {
+        ...baseCtx,
+        formValues: {
+          items: [
+            { id: "1", label: { nested: "A" } },
+            { id: "2", label: undefined },
+          ],
+        },
+      }
+    );
+    // Object/undefined labels coerce to the value, never "[object Object]".
+    expect(result).toEqual([
+      { label: "1", value: "1" },
+      { label: "2", value: "2" },
+    ]);
+  });
+
+  it("warns when a populated object source maps to zero options (labelPath but no valuePath)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const result = resolveSelectOptions(
+      { sourceField: "data.bankAccounts", labelPath: "bankName" },
+      {
+        ...baseCtx,
+        formValues: {
+          data: { bankAccounts: [{ bankName: "Chase" }, { bankName: "Citi" }] },
+        },
+      }
+    );
+    expect(result).toEqual([]);
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("warns and returns [] for an unrecognized options object instead of crashing", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Bypass the type to simulate an unvalidated/legacy object reaching the API.
+    const malformed = {
+      type: "map",
+      key: "countries",
+    } as unknown as Parameters<typeof resolveSelectOptions>[0];
+    const result = resolveSelectOptions(malformed, {
+      ...baseCtx,
+      formValues: {},
+    });
+    expect(result).toEqual([]);
+    expect(warn).toHaveBeenCalledOnce();
+  });
+});

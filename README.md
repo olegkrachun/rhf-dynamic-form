@@ -260,7 +260,16 @@ const components: ComponentRegistry = {
 };
 ```
 
-**Consuming options in a select component** — the `useSelectOptions` hook resolves all three shapes, subscribes reactively to the data-map `sourceField`, and exposes async loading state:
+When a resolver reads other fields (e.g. `formValues.customerId`), declare that
+dependency with `dependsOn` so the resolver re-runs when it changes — this reuses
+the same field-dependency mechanism as cascading selects:
+
+```ts
+{ type: 'select', name: 'bank', dependsOn: 'customerId',
+  options: { type: 'resolver', name: 'bankAccountsResolver' } }
+```
+
+**Consuming options in a select component** — the `useSelectOptions` hook resolves all three shapes, recomputes data-map options when the `sourceField` data changes (and resolver options when the `dependsOn` value changes), and exposes async loading state. The returned `options` array must not be mutated in place:
 
 ```tsx
 import {
@@ -288,7 +297,7 @@ const MySelect: BaseFieldComponent = ({ field, config: baseConfig }) => {
 
 Need raw resolution outside React (e.g. tests)? Use the pure `resolveSelectOptions(options, { formValues, fieldName, resolvers })`.
 
-> **Deprecation:** the older `optionsSource` descriptor (`static | map | api | search | resolver`) still works unchanged, but is **deprecated** in favor of `options`. When both are present, `options` wins.
+> **Deprecation:** the older `optionsSource` descriptor (`static | map | api | search | resolver`) still works unchanged, but is **deprecated** in favor of `options`. When both are present, `options` wins. Note that `useSelectOptions` only resolves the new `options` field; the legacy `optionsSource` (including its `resolver` variant) remains entirely consumer-resolved as before — the `components.resolvers` registry applies only to `options: { type: 'resolver' }`. Migrate `optionsSource` usages to `options` to opt into library resolution.
 
 ### Validation Configuration
 

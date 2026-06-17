@@ -189,3 +189,127 @@ describe("useSelectOptions — backward compatibility", () => {
     expect(result.current.isLoading).toBe(false);
   });
 });
+
+describe("useSelectOptions — resolver reactivity via dependsOn", () => {
+  it("re-runs the resolver when the dependsOn field changes", async () => {
+    const byCustomer: Record<string, SelectOption[]> = {
+      A: [{ label: "Acc-A", value: "a" }],
+      B: [{ label: "Acc-B", value: "b" }],
+    };
+    testDefaults = { customerId: "A" };
+    testResolvers = {
+      accounts: ({ formValues }) =>
+        byCustomer[formValues.customerId as string] ?? [],
+    };
+    const config: SelectFieldElement = {
+      type: "select",
+      name: "accounts",
+      options: { type: "resolver", name: "accounts" },
+      dependsOn: "customerId",
+    };
+    const { result } = renderHook(() => useSelectOptions(config, "accounts"), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.options).toEqual([{ label: "Acc-A", value: "a" }]);
+    });
+
+    act(() => {
+      const path: string = "customerId";
+      getForm().setValue(path, "B");
+    });
+
+    await waitFor(() => {
+      expect(result.current.options).toEqual([{ label: "Acc-B", value: "b" }]);
+    });
+  });
+});
+
+describe("useSelectOptions — data-map nested reactivity", () => {
+  it("recomputes when a nested leaf of the source array changes", async () => {
+    testDefaults = { data: { accounts: [{ id: "1", name: "Old" }] } };
+    const config = selectConfig({
+      sourceField: "data.accounts",
+      labelPath: "name",
+      valuePath: "id",
+    });
+    const { result } = renderHook(() => useSelectOptions(config, "field"), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.options).toEqual([{ label: "Old", value: "1" }]);
+
+    act(() => {
+      const path: string = "data.accounts.0.name";
+      getForm().setValue(path, "New");
+    });
+
+    await waitFor(() => {
+      expect(result.current.options).toEqual([{ label: "New", value: "1" }]);
+    });
+  });
+});
+
+describe("useSelectOptions — resolver stale-guard and errors", () => {
+  it("ignores a superseded slow resolver after the resolver name changes", async () => {
+    const releasers: Record<string, (o: SelectOption[]) => void> = {};
+    testResolvers = {
+      slowA: () =>
+        new Promise<SelectOption[]>((res) => {
+          releasers.slowA = res;
+        }),
+      fastB: () =>
+        new Promise<SelectOption[]>((res) => {
+          releasers.fastB = res;
+        }),
+    };
+    const { result, rerender } = renderHook(
+      ({ name }: { name: string }) =>
+        useSelectOptions(selectConfig({ type: "resolver", name }), "field"),
+      { wrapper: Wrapper, initialProps: { name: "slowA" } }
+    );
+    expect(result.current.isLoading).toBe(true);
+
+    rerender({ name: "fastB" });
+    await act(async () => {
+      releasers.fastB([{ label: "B", value: "b" }]);
+      await Promise.resolve();
+    });
+    expect(result.current.options).toEqual([{ label: "B", value: "b" }]);
+
+    // The superseded resolver resolving late must NOT clobber the current value.
+    await act(async () => {
+      releasers.slowA([{ label: "A", value: "a" }]);
+      await Promise.resolve();
+    });
+    expect(result.current.options).toEqual([{ label: "B", value: "b" }]);
+  });
+
+  it("captures the error and clears loading when an async resolver rejects", async () => {
+    let reject: (e: unknown) => void = () => undefined;
+    testResolvers = {
+      banks: () =>
+        new Promise<SelectOption[]>((_, rej) => {
+          reject = rej;
+        }),
+    };
+    const { result } = renderHook(
+      () =>
+        useSelectOptions(
+          selectConfig({ type: "resolver", name: "banks" }),
+          "field"
+        ),
+      { wrapper: Wrapper }
+    );
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      reject(new Error("boom"));
+      await Promise.resolve();
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.options).toEqual([]);
+    expect(result.current.error).toBeInstanceOf(Error);
+  });
+});

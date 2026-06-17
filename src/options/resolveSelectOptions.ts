@@ -5,7 +5,7 @@ import type {
   SelectOption,
   SelectOptionsConfig,
 } from "../types";
-import { isResolverOptions, isStaticOptions } from "../types";
+import { isDataMapOptions, isResolverOptions, isStaticOptions } from "../types";
 import { getNestedValue } from "../utils";
 
 /**
@@ -48,7 +48,13 @@ const itemToOption = (
 
   const rawLabel =
     labelPath === undefined ? rawValue : readPath(item, labelPath);
-  return { label: String(rawLabel ?? rawValue), value: rawValue };
+  // Only primitive labels are meaningful; fall back to the value for
+  // null/undefined/object labels rather than rendering "[object Object]".
+  const label =
+    typeof rawLabel === "string" || typeof rawLabel === "number"
+      ? String(rawLabel)
+      : String(rawValue);
+  return { label, value: rawValue };
 };
 
 /**
@@ -75,6 +81,18 @@ const resolveDataMap = (
       result.push(option);
     }
   }
+
+  // Surface the silent-drop footgun: a populated source that maps to nothing
+  // usually means a misconfigured path (e.g. labelPath set but valuePath
+  // omitted over an object array, so every value resolves to a non-primitive).
+  if (source.length > 0 && result.length === 0) {
+    console.warn(
+      `resolveSelectOptions: data-map sourceField "${options.sourceField}" had ` +
+        `${source.length} item(s) but none produced a valid option. Check ` +
+        "labelPath/valuePath — omit both only for primitive arrays."
+    );
+  }
+
   return result;
 };
 
@@ -121,5 +139,16 @@ export function resolveSelectOptions(
     return resolver({ formValues: ctx.formValues, fieldName: ctx.fieldName });
   }
 
-  return resolveDataMap(options, ctx.formValues);
+  if (isDataMapOptions(options)) {
+    return resolveDataMap(options, ctx.formValues);
+  }
+
+  // Not static, resolver, or data-map — an unrecognized shape (e.g. an
+  // unvalidated object missing `sourceField`). Warn instead of crashing in
+  // resolveDataMap on `getNestedValue(values, undefined)`.
+  console.warn(
+    "resolveSelectOptions: unrecognized options config (expected an array, " +
+      "{ type: 'resolver', name }, or { sourceField, ... }). Returning no options."
+  );
+  return [];
 }
