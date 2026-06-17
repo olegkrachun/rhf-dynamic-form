@@ -138,7 +138,8 @@ export const sampleFormConfig: FormConfiguration = {
       variant: "section",
       meta: {
         title: "Location",
-        description: "Select your country and city.",
+        description:
+          "Country uses static options; City uses an async resolver keyed on the selected country (options shapes #1 and #3).",
       },
       children: [
         {
@@ -151,6 +152,7 @@ export const sampleFormConfig: FormConfiguration = {
               meta: { width: "calc(50% - 0.5rem)" },
               children: [
                 {
+                  // options shape #1 — STATIC: a plain SelectOption[] list.
                   type: "select",
                   name: "source.country",
                   label: "Country",
@@ -172,23 +174,16 @@ export const sampleFormConfig: FormConfiguration = {
               meta: { width: "calc(50% - 0.5rem)" },
               children: [
                 {
+                  // options shape #3 — RESOLVER: cities are fetched by a named
+                  // resolver (see sample/resolvers.ts). `dependsOn` makes the
+                  // resolver re-run when the country changes; the resolver is
+                  // async, so the field shows a "Loading…" state briefly.
                   type: "select",
                   name: "source.city",
                   label: "City",
                   dependsOn: "source.country",
                   resetOnParentChange: true,
-                  options: [
-                    { value: "kyiv", label: "Kyiv" },
-                    { value: "lviv", label: "Lviv" },
-                    { value: "odesa", label: "Odesa" },
-                    { value: "nyc", label: "New York" },
-                    { value: "la", label: "Los Angeles" },
-                    { value: "chicago", label: "Chicago" },
-                    { value: "berlin", label: "Berlin" },
-                    { value: "munich", label: "Munich" },
-                    { value: "warsaw", label: "Warsaw" },
-                    { value: "krakow", label: "Krakow" },
-                  ],
+                  options: { type: "resolver", name: "citiesByCountry" },
                   clearable: true,
                   searchable: true,
                 },
@@ -305,7 +300,8 @@ export const sampleFormConfig: FormConfiguration = {
 
     // =========================================================================
     // Section: Emergency Contacts (Array Field)
-    // Demonstrates: array/repeater, itemFields, min/max items
+    // Demonstrates: array/repeater, itemFields, min/max items, and a data-map
+    // select whose options are DERIVED from the contacts array (options #2).
     // =========================================================================
     {
       type: "container",
@@ -356,6 +352,21 @@ export const sampleFormConfig: FormConfiguration = {
           minItems: 1,
           maxItems: 5,
           addButtonLabel: "Add Emergency Contact",
+        },
+        {
+          // options shape #2 — DATA-MAP: options are derived from the
+          // `source.emergencyContacts` array entered above. labelPath/valuePath
+          // pick fields out of each item. The list updates reactively as you
+          // add, remove, or rename contacts.
+          type: "select",
+          name: "source.primaryContact",
+          label: "Primary contact",
+          options: {
+            sourceField: "source.emergencyContacts",
+            labelPath: "contactName",
+            valuePath: "contactName",
+          },
+          clearable: true,
         },
       ],
     },
