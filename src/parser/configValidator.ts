@@ -71,6 +71,9 @@ const selectOptionSchema = z.object({
 
 /**
  * Options source schema - describes how to resolve options.
+ *
+ * @deprecated Prefer the `options` union (see `selectOptionsConfigSchema`).
+ * Retained for backward compatibility.
  */
 const optionsSourceSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("static") }),
@@ -85,13 +88,48 @@ const optionsSourceSchema = z.discriminatedUnion("type", [
 ]);
 
 /**
+ * Data-map options schema — derive options from an array in the form data.
+ * `labelPath`/`valuePath` are optional (omit for primitive arrays).
+ */
+const dataMapOptionsSchema = z
+  .object({
+    sourceField: z.string().min(1),
+    labelPath: z.string().optional(),
+    valuePath: z.string().optional(),
+  })
+  .strict();
+
+/**
+ * Resolver options schema — resolve options via a named registered function.
+ */
+const resolverOptionsSchema = z
+  .object({
+    type: z.literal("resolver"),
+    name: z.string().min(1),
+  })
+  .strict();
+
+/**
+ * The full set of shapes accepted by `options`.
+ *
+ * Order matters: the static array is tried first, then the resolver
+ * descriptor (discriminated by `type: "resolver"`), then the data-map
+ * descriptor (`{ sourceField, labelPath?, valuePath? }`).
+ */
+const selectOptionsConfigSchema = z.union([
+  z.array(selectOptionSchema),
+  resolverOptionsSchema,
+  dataMapOptionsSchema,
+]);
+
+/**
  * Select field element schema.
  * Options are required when optionsSource is not provided.
  */
 const selectFieldSchema = baseFieldSchema
   .extend({
     type: z.literal("select"),
-    options: z.array(selectOptionSchema).optional(),
+    options: selectOptionsConfigSchema.optional(),
     optionsSource: optionsSourceSchema.optional(),
     multiple: z.boolean().optional(),
     clearable: z.boolean().optional(),
@@ -100,10 +138,13 @@ const selectFieldSchema = baseFieldSchema
   })
   .refine(
     (data) => {
-      if (!data.optionsSource || data.optionsSource.type === "static") {
-        return data.options !== undefined;
-      }
-      return true;
+      // Valid when options are present in ANY form (array or object descriptor)
+      // or a non-static options source is provided.
+      const hasOptions = data.options !== undefined;
+      const hasNonStaticSource =
+        data.optionsSource !== undefined &&
+        data.optionsSource.type !== "static";
+      return hasOptions || hasNonStaticSource;
     },
     { message: "Options are required when optionsSource is not provided" }
   );

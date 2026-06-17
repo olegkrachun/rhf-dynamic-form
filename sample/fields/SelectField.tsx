@@ -3,7 +3,7 @@ import type {
   SelectFieldElement,
   SelectOption,
 } from "../../src";
-import { getNestedValue } from "../../src";
+import { getNestedValue, isStaticOptions } from "../../src";
 
 /**
  * Demo: City options grouped by country.
@@ -78,8 +78,10 @@ export const SelectField: BaseFieldComponent = ({
   const isParentEmpty =
     parentValue === null || parentValue === undefined || parentValue === "";
 
-  // Filter options based on parent value (demo implementation)
-  let options = config.options ?? [];
+  // Filter options based on parent value (demo implementation).
+  // The sample uses static option lists; narrow the options union accordingly.
+  let options: SelectOption[] =
+    config.options && isStaticOptions(config.options) ? config.options : [];
   if (config.dependsOn) {
     if (isParentEmpty) {
       // No parent value - show no options

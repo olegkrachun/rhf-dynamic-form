@@ -24,6 +24,16 @@ export {
 } from "./hooks";
 
 // =============================================================================
+// Select Options Resolution (Phase 5 - options union: static | data-map | resolver)
+// =============================================================================
+export {
+  type ResolveSelectOptionsContext,
+  resolveSelectOptions,
+  type UseSelectOptionsResult,
+  useSelectOptions,
+} from "./options";
+
+// =============================================================================
 // Parser (for advanced use cases)
 // =============================================================================
 export type { ParseResult } from "./parser";
@@ -80,6 +90,7 @@ export type {
   CustomFieldComponent,
   CustomFieldElement,
   CustomFieldProps,
+  DataMapOptions,
   DynamicFormProps,
   DynamicFormRef,
   ElementType,
@@ -106,23 +117,29 @@ export type {
   OnResetHandler,
   OnSubmitHandler,
   OnValidationChangeHandler,
+  OptionsResolver,
   OptionsSource,
+  ResolverOptions,
   ResolverOptionsSource,
   SearchOptionsSource,
   SelectFieldComponent,
   SelectFieldElement,
   SelectFieldProps,
   SelectOption,
+  SelectOptionsConfig,
   StaticOptionsSource,
   ValidationConfig,
 } from "./types";
-// Element type guards
+// Element & options type guards
 export {
   isArrayFieldElement,
   isContainerElement,
   isCustomFieldElement,
+  isDataMapOptions,
   isFieldElement,
+  isResolverOptions,
   isSectionContainer,
+  isStaticOptions,
 } from "./types";
 
 // =============================================================================

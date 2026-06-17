@@ -5,6 +5,7 @@ import type {
   FieldElement,
   SelectFieldElement,
 } from "../../src";
+import { isStaticOptions } from "../../src";
 
 /**
  * Get nested error from form errors object.
@@ -91,7 +92,12 @@ const renderItemField = (
             value={(currentValue as string) ?? ""}
           >
             <option value="">Select...</option>
-            {((itemField as SelectFieldElement).options ?? []).map((opt) => (
+            {(() => {
+              const itemOptions = (itemField as SelectFieldElement).options;
+              return itemOptions && isStaticOptions(itemOptions)
+                ? itemOptions
+                : [];
+            })().map((opt) => (
               <option disabled={opt.disabled} key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

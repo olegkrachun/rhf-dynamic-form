@@ -11,8 +11,28 @@ import type {
   ContainerElement,
   CustomFieldElement,
   SelectFieldElement,
+  SelectOption,
 } from "./elements";
 import type { FormData } from "./events";
+
+/**
+ * Resolves select options via a named function registered on the form
+ * (`components.resolvers`). Invoked for `options: { type: "resolver", name }`.
+ *
+ * Resolvers may be sync or async.
+ *
+ * @example
+ * ```ts
+ * const bankAccountsResolver: OptionsResolver = ({ formValues }) =>
+ *   fetchBankAccounts(formValues.customerId);
+ * ```
+ */
+export type OptionsResolver = (ctx: {
+  /** All current form values. */
+  formValues: FormData;
+  /** The name (dot-path) of the field whose options are being resolved. */
+  fieldName: string;
+}) => SelectOption[] | Promise<SelectOption[]>;
 
 /**
  * Base props passed to all field components.
@@ -273,4 +293,11 @@ export interface ComponentRegistry {
 
   /** Optional: fallback components for missing field/custom registrations */
   fallback?: FallbackComponentRegistry;
+
+  /**
+   * Optional: named option resolvers, invoked for select fields configured
+   * with `options: { type: "resolver", name }`. Each resolver may be sync or
+   * async. Consumed via the {@link OptionsResolver} hook `useSelectOptions`.
+   */
+  resolvers?: Record<string, OptionsResolver>;
 }
