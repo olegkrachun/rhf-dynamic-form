@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.11.0...rhf-dynamic-forms-v1.12.0) (2026-06-18)
+
+
+### Features
+
+* **select:** accept options union (static | data-map | resolver) ([1262bae](https://github.com/olegkrachun/rhf-dynamic-form/commit/1262baee6ea3b0fd5043d5290d11cf248e878f7f))
+
+
+### Bug Fixes
+
+* **select:** harden option resolution from code review ([8a8ea76](https://github.com/olegkrachun/rhf-dynamic-form/commit/8a8ea767ba80773165c17138e29d7525e9a5d090))
+
 ## [1.11.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.10.1...rhf-dynamic-forms-v1.11.0) (2026-06-12)
 
 
