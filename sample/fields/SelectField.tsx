@@ -1,34 +1,5 @@
-import type {
-  BaseFieldComponent,
-  SelectFieldElement,
-  SelectOption,
-} from "../../src";
-import { getNestedValue } from "../../src";
-
-/**
- * Demo: City options grouped by country.
- * In real app this would come from API via optionsSource resolver.
- */
-const cityOptionsByCountry: Record<string, SelectOption[]> = {
-  ua: [
-    { value: "kyiv", label: "Kyiv" },
-    { value: "lviv", label: "Lviv" },
-    { value: "odesa", label: "Odesa" },
-  ],
-  us: [
-    { value: "nyc", label: "New York" },
-    { value: "la", label: "Los Angeles" },
-    { value: "chicago", label: "Chicago" },
-  ],
-  de: [
-    { value: "berlin", label: "Berlin" },
-    { value: "munich", label: "Munich" },
-  ],
-  pl: [
-    { value: "warsaw", label: "Warsaw" },
-    { value: "krakow", label: "Krakow" },
-  ],
-};
+import type { BaseFieldComponent, SelectFieldElement } from "../../src";
+import { getNestedValue, useSelectOptions } from "../../src";
 
 /**
  * Normalize select value for single vs multi-select.
@@ -58,8 +29,15 @@ const getSelectValue = (
 
 /**
  * Sample select field component.
- * This is a basic, unstyled implementation for testing and reference.
- * Supports dependsOn for cascading selects.
+ *
+ * Resolves its `options` via the library's `useSelectOptions` hook, so the same
+ * component handles all three option shapes with no special-casing:
+ *   - static    → `options: SelectOption[]`
+ *   - data-map  → `options: { sourceField, labelPath?, valuePath? }`
+ *   - resolver  → `options: { type: "resolver", name }` (sync or async)
+ *
+ * For dependent selects (`dependsOn`), the field is disabled until its parent
+ * has a value; `useSelectOptions` re-resolves whenever the dependency changes.
  */
 export const SelectField: BaseFieldComponent = ({
   field,
@@ -68,29 +46,26 @@ export const SelectField: BaseFieldComponent = ({
   formValues,
 }) => {
   const config = baseConfig as SelectFieldElement;
-  // Get parent value if dependsOn is set
+  const { options, isLoading } = useSelectOptions(config, field.name);
+
+  // Disable a dependent select until its parent has a value (UX nicety).
+  // Avoid `!parentValue` so valid falsy values (0, false) are not treated empty.
   const parentValue = config.dependsOn
     ? getNestedValue(formValues, config.dependsOn)
     : null;
-
-  // Check if parent value is empty (null, undefined, or empty string)
-  // Avoid using !parentValue which treats valid falsy values (0, false) as empty
   const isParentEmpty =
     parentValue === null || parentValue === undefined || parentValue === "";
-
-  // Filter options based on parent value (demo implementation)
-  let options = config.options ?? [];
-  if (config.dependsOn) {
-    if (isParentEmpty) {
-      // No parent value - show no options
-      options = [];
-    } else if (field.name === "source.city") {
-      // Demo: filter cities by country
-      options = cityOptionsByCountry[parentValue as string] ?? [];
-    }
-  }
-
   const isDisabled = Boolean(config.dependsOn && isParentEmpty);
+
+  const placeholder = (() => {
+    if (isLoading) {
+      return "Loading…";
+    }
+    if (isDisabled) {
+      return "Select country first...";
+    }
+    return "Select...";
+  })();
 
   return (
     <div className="field-wrapper">
@@ -101,20 +76,17 @@ export const SelectField: BaseFieldComponent = ({
         </label>
       )}
       <select
+        aria-busy={isLoading}
         aria-describedby={fieldState.error ? `${field.name}-error` : undefined}
         aria-invalid={fieldState.invalid}
         className={`field-input ${fieldState.error ? "field-input--error" : ""}`}
-        disabled={isDisabled}
+        disabled={isDisabled || isLoading}
         id={field.name}
         multiple={config.multiple}
         {...field}
         value={getSelectValue(field.value, config.multiple)}
       >
-        {!config.multiple && (
-          <option value="">
-            {isDisabled ? "Select country first..." : "Select..."}
-          </option>
-        )}
+        {!config.multiple && <option value="">{placeholder}</option>}
         {options.map((option) => (
           <option
             disabled={option.disabled}

@@ -8,6 +8,7 @@ import {
 import { sampleContainerComponents } from "./containers";
 import { sampleFieldComponents } from "./fields";
 import { RatingField } from "./fields/RatingField";
+import { sampleResolvers } from "./resolvers";
 import { sampleFormConfig } from "./sampleFormConfig";
 
 /**
@@ -24,6 +25,8 @@ const components: ComponentRegistry = {
     RatingField,
   },
   containers: sampleContainerComponents,
+  // Named option resolvers for select fields using `options: { type: "resolver" }`.
+  resolvers: sampleResolvers,
 };
 
 /**
@@ -72,7 +75,8 @@ export function App() {
         <h1>Dynamic Form Engine — Sample</h1>
         <p>
           Variant-based containers (section, row, column) · Validation ·
-          Visibility · Dependent selects · Arrays · Custom components
+          Visibility · Select options (static · data-map · resolver) · Arrays ·
+          Custom components
         </p>
       </header>
 

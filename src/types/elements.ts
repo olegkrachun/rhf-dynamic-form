@@ -136,15 +136,74 @@ export type OptionsSource =
   | ResolverOptionsSource;
 
 /**
+ * Derive select options from an array already present in the form data.
+ *
+ * @example
+ * ```ts
+ * // Object array: pick label/value from each item
+ * { sourceField: "data.bankAccounts", labelPath: "bankName", valuePath: "bankAccountNumber" }
+ * // Primitive array: each item is both label and value
+ * { sourceField: "data.bankAccounts" }
+ * ```
+ */
+export interface DataMapOptions {
+  /** Dot-path to the source array within the form values, e.g. "data.bankAccounts". */
+  sourceField: string;
+  /** Dot-path within each item → option label. Omit for primitive arrays (item is the label). */
+  labelPath?: string;
+  /** Dot-path within each item → option value. Omit for primitive arrays (item is the value). */
+  valuePath?: string;
+}
+
+/**
+ * Resolve select options via a function registered on the form
+ * (`components.resolvers`).
+ *
+ * @example
+ * ```ts
+ * { type: "resolver", name: "bankAccountsResolver" }
+ * ```
+ */
+export interface ResolverOptions {
+  type: "resolver";
+  /** Name of a resolver registered on the form. */
+  name: string;
+}
+
+/**
+ * The full set of shapes accepted by `SelectFieldElement.options`.
+ *
+ * Discrimination order:
+ * 1. `Array.isArray(options)` → static {@link SelectOption}[]
+ * 2. `options.type === "resolver"` → {@link ResolverOptions}
+ * 3. otherwise (object with `sourceField`) → {@link DataMapOptions}
+ */
+export type SelectOptionsConfig =
+  | SelectOption[]
+  | DataMapOptions
+  | ResolverOptions;
+
+/**
  * Select field element for dropdowns and multi-selects.
  */
 export interface SelectFieldElement extends BaseFieldElement {
   type: "select";
 
-  /** Available options (required when optionsSource is not provided) */
-  options?: SelectOption[];
+  /**
+   * Available options. Accepts three shapes (see {@link SelectOptionsConfig}):
+   * a static `SelectOption[]`, a {@link DataMapOptions} descriptor, or a
+   * {@link ResolverOptions} descriptor. Required unless `optionsSource` is provided.
+   */
+  options?: SelectOptionsConfig;
 
-  /** Describes how to resolve options (when provided, options become optional) */
+  /**
+   * Describes how to resolve options (when provided, options become optional).
+   *
+   * @deprecated Use {@link options} instead — it now accepts a static list, a
+   * data-map descriptor (`{ sourceField, labelPath?, valuePath? }`), or a
+   * resolver descriptor (`{ type: "resolver", name }`). When both are present,
+   * `options` takes precedence.
+   */
   optionsSource?: OptionsSource;
 
   /** Allow selecting multiple values (default: false) */
@@ -292,3 +351,33 @@ export const isSectionContainer = (
 ): element is ContainerElement =>
   element.type === "container" &&
   (element as ContainerElement).variant === "section";
+
+// ============================================================================
+// SelectOptionsConfig type guards
+// Discrimination order: static array → resolver → data-map.
+// ============================================================================
+
+/**
+ * Type guard: the options config is a static `SelectOption[]`.
+ */
+export const isStaticOptions = (
+  options: SelectOptionsConfig
+): options is SelectOption[] => Array.isArray(options);
+
+/**
+ * Type guard: the options config is a {@link ResolverOptions} descriptor.
+ */
+export const isResolverOptions = (
+  options: SelectOptionsConfig
+): options is ResolverOptions =>
+  !Array.isArray(options) && (options as ResolverOptions).type === "resolver";
+
+/**
+ * Type guard: the options config is a {@link DataMapOptions} descriptor.
+ */
+export const isDataMapOptions = (
+  options: SelectOptionsConfig
+): options is DataMapOptions =>
+  !Array.isArray(options) &&
+  (options as ResolverOptions).type !== "resolver" &&
+  "sourceField" in options;

@@ -119,6 +119,142 @@ describe("configValidator", () => {
       });
     });
 
+    it("should accept a data-map options descriptor with label/value paths", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "bankAccount",
+            options: {
+              sourceField: "data.bankAccounts",
+              labelPath: "bankName",
+              valuePath: "bankAccountNumber",
+            },
+          },
+        ],
+      };
+
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        type: "select",
+        options: { sourceField: "data.bankAccounts", labelPath: "bankName" },
+      });
+    });
+
+    it("should accept a data-map options descriptor without label/value paths", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "bankAccount",
+            options: { sourceField: "data.bankAccounts" },
+          },
+        ],
+      };
+
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        options: { sourceField: "data.bankAccounts" },
+      });
+    });
+
+    it("should accept a resolver options descriptor", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "bankAccount",
+            options: { type: "resolver", name: "bankAccountsResolver" },
+          },
+        ],
+      };
+
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        options: { type: "resolver", name: "bankAccountsResolver" },
+      });
+    });
+
+    it("should accept a select field using only optionsSource (deprecated, backward compat)", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "country",
+            optionsSource: { type: "api", endpoint: "/api/countries" },
+          },
+        ],
+      };
+
+      const result = validateConfiguration(config);
+
+      expect(result.elements[0]).toMatchObject({
+        optionsSource: { type: "api", endpoint: "/api/countries" },
+      });
+    });
+
+    it("should reject a data-map descriptor missing sourceField", () => {
+      const config = {
+        elements: [
+          { type: "select", name: "x", options: { labelPath: "name" } },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject a data-map descriptor with unknown keys (strict)", () => {
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "x",
+            options: { sourceField: "data.x", extra: "nope" },
+          },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject a resolver descriptor with a missing name", () => {
+      const config = {
+        elements: [
+          { type: "select", name: "x", options: { type: "resolver" } },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject a resolver descriptor whose name is empty (isolates the name rule)", () => {
+      // An empty name fails only the resolver branch's `name.min(1)`; if that
+      // rule were dropped this resolver-shaped object would validate, so this
+      // case specifically guards the name constraint rather than just rejection.
+      const config = {
+        elements: [
+          {
+            type: "select",
+            name: "x",
+            options: { type: "resolver", name: "" },
+          },
+        ],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
+    it("should reject a select field with neither options nor optionsSource", () => {
+      const config = {
+        elements: [{ type: "select", name: "x" }],
+      };
+
+      expect(() => validateConfiguration(config)).toThrow(ZodError);
+    });
+
     it("should validate a valid array field with itemFields", () => {
       const config = {
         elements: [

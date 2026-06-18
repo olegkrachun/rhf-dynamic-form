@@ -22,6 +22,7 @@ export type {
   BaseFieldElement,
   ContainerElement,
   CustomFieldElement,
+  DataMapOptions,
   ElementType,
   FieldElement,
   FieldType,
@@ -29,10 +30,12 @@ export type {
   LayoutElement,
   MapOptionsSource,
   OptionsSource,
+  ResolverOptions,
   ResolverOptionsSource,
   SearchOptionsSource,
   SelectFieldElement,
   SelectOption,
+  SelectOptionsConfig,
   StaticOptionsSource,
 } from "./elements";
 
@@ -40,8 +43,11 @@ export {
   isArrayFieldElement,
   isContainerElement,
   isCustomFieldElement,
+  isDataMapOptions,
   isFieldElement,
+  isResolverOptions,
   isSectionContainer,
+  isStaticOptions,
 } from "./elements";
 // Event types
 export type {
@@ -72,6 +78,7 @@ export type {
   FieldProps,
   MissingComponentInfo,
   MissingComponentKind,
+  OptionsResolver,
   SelectFieldComponent,
   SelectFieldProps,
 } from "./fields";

@@ -139,16 +139,21 @@ const components: ComponentRegistry = {
         <input {...field} type="date" />
       </div>
     ),
-    select: ({ field, config }) => (
-      <div>
-        <label>{config.label}</label>
-        <select {...field}>
-          {config.options?.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-    ),
+    // `options` accepts a static list, a data-map descriptor, or a resolver —
+    // useSelectOptions resolves all three. See "Select Options" below.
+    select: ({ field, config }) => {
+      const { options } = useSelectOptions(config, field.name);
+      return (
+        <div>
+          <label>{config.label}</label>
+          <select {...field}>
+            {options.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      );
+    },
     array: ({ field, config }) => <div>{/* array implementation */}</div>,
   },
 };
@@ -215,6 +220,84 @@ interface BaseFieldElement {
   meta?: Record<string, unknown>;  // Consumer-specific metadata (passed through)
 }
 ```
+
+### Select Options
+
+A `select` field's `options` accepts **three shapes** (`SelectOptionsConfig`). They are discriminated in this exact order: `Array.isArray(options)` → static; `options.type === 'resolver'` → resolver; otherwise (object with `sourceField`) → data-map.
+
+```typescript
+// 1) Static list
+{ type: 'select', name: 'bank', options: [{ label: 'Chase', value: 'chase' }] }
+
+// 2) Data-map — derive options from an array already in the form data
+{
+  type: 'select',
+  name: 'bank',
+  options: {
+    sourceField: 'data.bankAccounts', // dot-path to the source ARRAY in form values
+    labelPath: 'bankName',            // dot-path within each item → option label
+    valuePath: 'bankAccountNumber',   // dot-path within each item → option value
+  },
+}
+
+// 2b) Data-map over a primitive array — omit labelPath/valuePath
+//     ["Chase", "Citibank"] → [{ label: 'Chase', value: 'Chase' }, ...]
+{ type: 'select', name: 'bank', options: { sourceField: 'data.bankAccounts' } }
+
+// 3) Resolver — call a named function registered on the form
+{ type: 'select', name: 'bank', options: { type: 'resolver', name: 'bankAccountsResolver' } }
+```
+
+**Resolvers** are registered on the component registry and may be sync or async:
+
+```tsx
+const components: ComponentRegistry = {
+  fields: { select: MySelect /* ...others */ },
+  resolvers: {
+    bankAccountsResolver: async ({ formValues, fieldName }) =>
+      fetchBankAccounts(formValues.customerId), // → SelectOption[] | Promise<SelectOption[]>
+  },
+};
+```
+
+When a resolver reads other fields (e.g. `formValues.customerId`), declare that
+dependency with `dependsOn` so the resolver re-runs when it changes — this reuses
+the same field-dependency mechanism as cascading selects:
+
+```ts
+{ type: 'select', name: 'bank', dependsOn: 'customerId',
+  options: { type: 'resolver', name: 'bankAccountsResolver' } }
+```
+
+**Consuming options in a select component** — the `useSelectOptions` hook resolves all three shapes, recomputes data-map options when the `sourceField` data changes (and resolver options when the `dependsOn` value changes), and exposes async loading state. The returned `options` array must not be mutated in place:
+
+```tsx
+import {
+  type BaseFieldComponent,
+  type SelectFieldElement,
+  useSelectOptions,
+} from 'rhf-dynamic-forms';
+
+const MySelect: BaseFieldComponent = ({ field, config: baseConfig }) => {
+  const config = baseConfig as SelectFieldElement;
+  const { options, isLoading } = useSelectOptions(config, field.name);
+
+  if (isLoading) {
+    return <span>Loading…</span>;
+  }
+  return (
+    <select {...field}>
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+};
+```
+
+Need raw resolution outside React (e.g. tests)? Use the pure `resolveSelectOptions(options, { formValues, fieldName, resolvers })`.
+
+> **Deprecation:** the older `optionsSource` descriptor (`static | map | api | search | resolver`) still works unchanged, but is **deprecated** in favor of `options`. When both are present, `options` wins. Note that `useSelectOptions` only resolves the new `options` field; the legacy `optionsSource` (including its `resolver` variant) remains entirely consumer-resolved as before — the `components.resolvers` registry applies only to `options: { type: 'resolver' }`. Migrate `optionsSource` usages to `options` to opt into library resolution.
 
 ### Validation Configuration
 
@@ -755,11 +838,17 @@ export type {
   FallbackComponentRegistry, MissingComponentInfo, MissingComponentKind,
   SelectFieldComponent, ArrayFieldComponent, CustomFieldComponent,
   SelectFieldElement, ArrayFieldElement, CustomFieldElement, SelectOption,
+  // Select options union + resolution
+  SelectOptionsConfig, DataMapOptions, ResolverOptions, OptionsResolver,
+  ResolveSelectOptionsContext, UseSelectOptionsResult,
   SchemaFactory, SchemaMap,
 };
 
 // Schema (configurable type → schema mapping)
 export { buildFieldSchema, generateZodSchema, defaultSchemaMap, setSchemaMap, resetSchemaMap };
+
+// Select options resolution
+export { resolveSelectOptions, useSelectOptions };
 
 // Utilities
 export {
@@ -767,6 +856,7 @@ export {
   flattenFields, getFieldNames, mergeDefaults, getNestedValue, setNestedValue,
   addJsonLogicOperation, applyJsonLogic, evaluateCondition,
   isFieldElement, isContainerElement, isCustomFieldElement, isArrayFieldElement, isSectionContainer,
+  isStaticOptions, isDataMapOptions, isResolverOptions,
 };
 ```
 
@@ -786,16 +876,21 @@ const TextField: BaseFieldComponent = ({ field, fieldState, config }) => (
 );
 ```
 
-For structurally-specific fields (select, array), cast `config` to access extra properties:
+For structurally-specific fields (select, array), cast `config` to access extra properties. For `select`, resolve the `options` union with the `useSelectOptions` hook (see [Select Options](#select-options)):
 
 ```tsx
-import type { BaseFieldComponent, SelectFieldElement } from 'rhf-dynamic-forms';
+import {
+  type BaseFieldComponent,
+  type SelectFieldElement,
+  useSelectOptions,
+} from 'rhf-dynamic-forms';
 
-const SelectField: BaseFieldComponent = ({ field, fieldState, config: baseConfig }) => {
+const SelectField: BaseFieldComponent = ({ field, config: baseConfig }) => {
   const config = baseConfig as SelectFieldElement;
+  const { options } = useSelectOptions(config, field.name);
   return (
     <select {...field}>
-      {config.options?.map(opt => (
+      {options.map(opt => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
     </select>
