@@ -226,8 +226,8 @@ JSON Logic is a domain-specific language for expressing logical operations in JS
 // Negation (double negation for truthy check)
 { "!!": [{ "var": "source.has_phone" }] }
 
-// Regex match - note: uses string path directly, not {"var": ...}
-{ "regex_match": ["^[0-9]{10}$", "source.phone"] }
+// Regex match - second arg is the resolved value, passed via {"var": ...}
+{ "regex_match": ["^[0-9]{10}$", { "var": "source.phone" }] }
 ```
 
 **Custom Operations**
@@ -342,8 +342,8 @@ type FieldType = string;
 
 ```typescript
 interface FieldElement {
-  /** Element type identifier */
-  type: 'text' | 'email' | 'boolean' | 'phone' | 'date';
+  /** Element type identifier — open string; only "container" is special */
+  type: string;
   
   /** Unique identifier for form data binding (supports dot notation) */
   name: string;
@@ -372,8 +372,8 @@ interface ValidationConfig {
   /** Field is required */
   required?: boolean;
   
-  /** Type-specific validation */
-  type?: 'number' | 'email' | 'date';
+  /** Type-specific validation hint (open string — engine does not enforce a closed set) */
+  type?: string;
   
   /** Minimum length for text fields */
   minLength?: number;
@@ -511,8 +511,7 @@ interface CustomElement {
               },
               "type": {
                 "type": "string",
-                "enum": ["number", "email", "date"],
-                "description": "Built-in type validation"
+                "description": "Optional type-specific validation hint (open string — not a closed set)"
               },
               "minLength": {
                 "type": "integer",
@@ -1108,60 +1107,21 @@ Layouts can be nested to create complex form structures by composing containers:
 
 ### 8.1 Overview
 
-The library supports flexible validation with three approaches, applied in priority order:
+Validation is **config-driven**. The library generates a Zod schema once from the
+field `validation` configs and validates through a visibility-aware resolver. If no
+field declares `validation`, the form runs without validation.
 
-1. **External Resolver** (`resolver` prop) - Full control with any validation library
-2. **External Zod Schema** (`schema` prop) - Your Zod schema with visibility-aware wrapping
-3. **Config-Driven** (default) - Auto-generated Zod schema from field `validation` configs
+`DynamicForm` does **not** accept `resolver` or `schema` props — validation always
+derives from configuration. To customize behavior, use these extension points:
 
-If no validation is provided (no `resolver`, no `schema`, no `validation` in config), the form runs without validation.
+- **Per-type base schema** — register factories via `setSchemaMap` (see §3.6 / §8.3),
+  e.g. to map `currency` → `z.number()` or replace `date` with an ISO-8601 schema.
+- **Custom condition operators** — register via `addJsonLogicOperation` (see §3.3),
+  then reference them by name in any `validation.condition` or `visible` rule.
 
 ### 8.2 Validation Approaches
 
-#### Option 1: External Resolver (Full Control)
-
-Use any validation library (Yup, Joi, Vest, custom) by passing a react-hook-form resolver:
-
-```tsx
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-
-const schema = yup.object({
-  name: yup.string().required(),
-  email: yup.string().email().required(),
-});
-
-<DynamicForm
-  config={config}
-  resolver={yupResolver(schema)}
-  components={components}
-  onSubmit={handleSubmit}
-/>
-```
-
-#### Option 2: External Zod Schema (Visibility-Aware)
-
-Pass your own Zod schema - it will be wrapped with the visibility-aware resolver:
-
-```tsx
-import { z } from 'zod';
-
-const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email'),
-  phone: z.string().optional(),
-});
-
-<DynamicForm
-  config={config}
-  schema={schema}
-  invisibleFieldValidation="skip"
-  components={components}
-  onSubmit={handleSubmit}
-/>
-```
-
-#### Option 3: Config-Driven Validation (Default)
+#### Config-Driven Validation (Default)
 
 Define validation rules in the form configuration - schemas are auto-generated:
 
@@ -1190,7 +1150,7 @@ const config = {
 />
 ```
 
-#### Option 4: No Validation
+#### No Validation
 
 For forms that don't need validation:
 
@@ -1222,6 +1182,13 @@ import jsonLogic from 'json-logic-js';
 
 ### 8.3 Schema Generation from Configuration
 
+> **Illustrative.** The real engine resolves base schemas through a configurable
+> `defaultSchemaMap` (`src/schema/fieldSchemas.ts`), not a hardcoded `switch`.
+> Consumers override or extend it via `setSchemaMap`. The sketch below shows the
+> concept; the actual defaults are `text`/`phone`/`date` → `z.string()`,
+> `email` → `z.email()` (opting out to `z.string()` when `validation.pattern` is
+> supplied), and `boolean` → `z.boolean()`.
+
 ```typescript
 /**
  * Generate a Zod schema from form configuration.
@@ -1249,19 +1216,15 @@ function buildFieldSchema(field: FieldElement): ZodTypeAny {
   switch (field.type) {
     case 'text':
     case 'phone':
+    case 'date': // format-agnostic; date parsing/validation is the component's job
       schema = z.string();
       break;
     case 'email':
-      schema = z.string().email('Invalid email address');
+      // Opts out to z.string() when validation.pattern is supplied
+      schema = z.email({ error: 'Invalid email address' });
       break;
     case 'boolean':
       schema = z.boolean();
-      break;
-    case 'date':
-      schema = z.string().refine(
-        (val) => !val || !isNaN(Date.parse(val)),
-        { message: 'Invalid date' }
-      );
       break;
     default:
       schema = z.unknown();
@@ -1378,11 +1341,11 @@ function getNestedValue(obj: Record<string, any>, path: string): any {
 For complex validation rules using JSON Logic `condition`:
 
 ```typescript
-// Register custom regex_match operation for JSON Logic
-jsonLogic.add_operation('regex_match', (pattern: string, fieldPath: string) => {
-  // Note: fieldPath is a string path, value will be resolved from context
-  const value = getNestedValue((jsonLogic as any)._data, fieldPath);
-  if (typeof value !== 'string') return false;
+// Register custom regex_match operation for JSON Logic.
+// The second argument is the already-resolved value — pass it as { "var": ... }
+// in the rule, not a string path.
+jsonLogic.add_operation('regex_match', (pattern: string, value: unknown) => {
+  if (typeof value !== 'string' || typeof pattern !== 'string') return false;
   try {
     return new RegExp(pattern).test(value);
   } catch {
@@ -1440,7 +1403,12 @@ function generateZodSchemaWithConditions(config: FormConfiguration): ZodObject<a
 
 ### 8.6 Visibility-Aware Resolver
 
-The schema is generated once and remains stable. Visibility is passed as a parameter to the resolver and evaluated at validation time:
+The schema is generated once and remains stable. Visibility is evaluated at validation time.
+
+> **Illustrative.** The actual signature is
+> `createVisibilityAwareResolver({ schema, getVisibility, invisibleFieldValidation })`
+> — it takes a single options object and reads live visibility through a
+> `getVisibility()` callback rather than the positional snapshot shown below.
 
 ```typescript
 /**
@@ -1580,7 +1548,7 @@ From the specification - phone number validation that depends on `has_phone` fie
         {
           "and": [
             { "var": "source.has_phone" },
-            { "regex_match": ["^[0-9]{10}$", "source.phone"] }
+            { "regex_match": ["^[0-9]{10}$", { "var": "source.phone" }] }
           ]
         },
         { "!": { "var": "source.has_phone" } }
@@ -1640,7 +1608,7 @@ Given this configuration:
             {
               "and": [
                 { "var": "source.has_phone" },
-                { "regex_match": ["^[0-9]{10}$", "source.phone"] }
+                { "regex_match": ["^[0-9]{10}$", { "var": "source.phone" }] }
               ]
             },
             { "!": { "var": "source.has_phone" } }
@@ -2985,7 +2953,7 @@ describe('JSON Logic Validation with Zod', () => {
               "or": [
                 { "and": [
                   { "var": "source.has_phone" },
-                  { "regex_match": ["^[0-9]{10}$", "source.phone"] }
+                  { "regex_match": ["^[0-9]{10}$", { "var": "source.phone" }] }
                 ]},
                 { "!": { "var": "source.has_phone" } }
               ]
@@ -3291,7 +3259,7 @@ describe('DynamicForm Integration', () => {
                     {
                       "and": [
                         { "var": "source.has_phone" },
-                        { "regex_match": ["^[0-9]{10}$", "source.phone"] }
+                        { "regex_match": ["^[0-9]{10}$", { "var": "source.phone" }] }
                       ]
                     },
                     { "!": { "var": "source.has_phone" } }
