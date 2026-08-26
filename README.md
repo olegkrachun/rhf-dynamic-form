@@ -815,9 +815,22 @@ const components: ComponentRegistry = {
 ### Hooks
 
 ```typescript
-const { config, form } = useDynamicFormContext();
+const { config, form, validation } = useDynamicFormContext();
 const context = useDynamicFormContextSafe(); // returns null outside form
+
+// Validation state is pull-based: read it on demand without subscribing…
+if (!validation.getIsValid()) {
+  console.log(validation.getErrors());
+}
+
+// …or opt into reactivity in the one place that needs it:
+const isValid = useSyncExternalStore(validation.subscribe, validation.getIsValid);
 ```
+
+The context value keeps a stable identity for the lifetime of the form —
+consuming it never re-renders on keystrokes or validation passes. Fields get
+their own error through `useController`'s `fieldState`, so the reactive
+subscription above is only for form-level consumers such as a submit button.
 
 ### Exports
 

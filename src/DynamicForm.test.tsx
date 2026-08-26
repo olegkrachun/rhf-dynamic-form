@@ -417,3 +417,97 @@ describe("DynamicForm | pull-based validation access", () => {
     expect(snapshots.length).toBeGreaterThan(0);
   });
 });
+
+describe("DynamicForm | manual errors set by children on mount", () => {
+  const emailConfig: FormConfiguration = {
+    elements: [{ type: "text", name: "contactEmail", label: "Email" }],
+  };
+
+  const MountErrorSetter = () => {
+    const { form } = useDynamicFormContext();
+
+    useEffect(() => {
+      form.setError("contactEmail", {
+        type: "manual-gate",
+        message: "Set before any form interaction",
+      });
+    }, [form]);
+
+    return null;
+  };
+
+  it("exposes a child's mount-time setError through getErrors and onValidationChange", async () => {
+    // arrange — a child effect runs before the parent's passive effects, so
+    // this reproduces a gate stamping an error before any subscription set up
+    // in a passive effect would exist
+    const onValidationChange = vi.fn();
+    const ref = createRef<DynamicFormRef>();
+
+    // act
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "someone@example.com" }}
+        onSubmit={vi.fn()}
+        onValidationChange={onValidationChange}
+        ref={ref}
+      >
+        <MountErrorSetter />
+      </DynamicForm>
+    );
+
+    // assert — the snapshot sees the manual error
+    await waitFor(() => {
+      expect(ref.current?.getErrors()).toHaveProperty("contactEmail");
+    });
+    const lastCall = onValidationChange.mock.calls.at(-1);
+    expect(lastCall?.[0]).toHaveProperty("contactEmail");
+  });
+
+  it("does not notify validation listeners for dirty-only changes", async () => {
+    // arrange
+    const notify = vi.fn();
+    const ref = createRef<DynamicFormRef>();
+
+    const DirtyProbe = () => {
+      const { validation } = useDynamicFormContext();
+      useEffect(() => validation.subscribe(notify), [validation]);
+      return null;
+    };
+
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "someone@example.com" }}
+        mode="onSubmit"
+        onSubmit={vi.fn()}
+        ref={ref}
+      >
+        <DirtyProbe />
+      </DynamicForm>
+    );
+    // First edit legitimately notifies: isValid is computed for the first
+    // time. Settle it, then measure a dirty-only transition.
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "typed@example.com" },
+    });
+    await waitFor(() => {
+      expect(ref.current?.getIsDirty()).toBe(true);
+    });
+    const before = notify.mock.calls.length;
+
+    // act — revert to the default value: only isDirty/dirtyFields change,
+    // validity stays exactly as it was
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "someone@example.com" },
+    });
+
+    // assert — dirty state is tracked, validation listeners stay quiet
+    await waitFor(() => {
+      expect(ref.current?.getIsDirty()).toBe(false);
+    });
+    expect(notify.mock.calls.length).toBe(before);
+  });
+});
