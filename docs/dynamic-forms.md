@@ -633,14 +633,32 @@ interface DynamicFormContextValue {
   /** Optional wrapper function for each field */
   fieldWrapper?: FieldWrapperFunction;
 
-  /** Current form validity state (reactive) */
-  isValid: boolean;
+  /** Pull-based validation state (stable identity, read on demand) */
+  validation: DynamicFormValidationApi;
+}
 
-  /** Current form errors (reactive) */
-  errors: Record<string, unknown>;
+interface DynamicFormValidationApi {
+  getErrors: () => Record<string, unknown>;
+  getFieldError: (name: string) => unknown;
+  isFieldValid: (name: string) => boolean;
+  getIsValid: () => boolean;
+  /** Fires after every validation pass; returns the unsubscribe function */
+  subscribe: (listener: () => void) => () => void;
 }
 
 const DynamicFormContext = createContext<DynamicFormContextValue | null>(null);
+```
+
+The context value keeps one identity for the lifetime of the form: validation
+state is **pulled** through `validation.*` accessors rather than published as
+reactive context values. A validation pass therefore never re-renders context
+consumers — a field's own error still arrives through `useController`'s
+`fieldState`. Where a component genuinely must re-render on validation changes
+(a submit button, an error summary), opt in explicitly:
+
+```tsx
+const { validation } = useDynamicFormContext();
+const isValid = useSyncExternalStore(validation.subscribe, validation.getIsValid);
 ```
 
 ### 5.4 Form Initialization with Zod
