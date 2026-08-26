@@ -7,8 +7,7 @@
 // =============================================================================
 export type {
   DynamicFormContextValue,
-  DynamicFormControlValue,
-  DynamicFormValidationValue,
+  DynamicFormValidationApi,
 } from "./context";
 export { DynamicFormContext } from "./context";
 // =============================================================================
@@ -25,9 +24,6 @@ export { DynamicForm, default } from "./DynamicForm";
 export {
   useDynamicFormContext,
   useDynamicFormContextSafe,
-  useDynamicFormControl,
-  useDynamicFormControlSafe,
-  useDynamicFormValidation,
 } from "./hooks";
 
 // =============================================================================

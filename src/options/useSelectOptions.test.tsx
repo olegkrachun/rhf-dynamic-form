@@ -30,8 +30,15 @@ function Wrapper({ children }: { children: ReactNode }) {
     config: { elements: [] },
     components,
     visibility: {},
-    isValid: true,
-    errors: {},
+    validation: {
+      getErrors: () => ({}),
+      getFieldError: () => undefined,
+      isFieldValid: () => true,
+      getIsValid: () => true,
+      subscribe: () => () => {
+        // no validation passes in this test
+      },
+    },
   };
   return (
     <DynamicFormContext.Provider value={value}>

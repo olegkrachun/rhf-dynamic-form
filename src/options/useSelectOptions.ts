@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useWatch } from "react-hook-form";
-import { useDynamicFormControl } from "../hooks";
+import { useDynamicFormContext } from "../hooks";
 import type { SelectFieldElement, SelectOption } from "../types";
 import { isDataMapOptions, isResolverOptions } from "../types";
 import { resolveSelectOptions } from "./resolveSelectOptions";
@@ -44,7 +44,7 @@ export function useSelectOptions(
   config: SelectFieldElement,
   fieldName: string
 ): UseSelectOptionsResult {
-  const { form, components } = useDynamicFormControl();
+  const { form, components } = useDynamicFormContext();
   const options = config.options;
 
   // In-branch narrowing keeps the type guards authoritative (no `as` casts).

@@ -1,9 +1,10 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, useEffect, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "./customComponents";
 import { DynamicForm } from "./DynamicForm";
+import { useDynamicFormContext } from "./hooks";
 import { mockFieldComponents } from "./test-utils/mockFieldComponents";
 import type {
   DynamicFormRef,
@@ -301,5 +302,118 @@ describe("DynamicForm | form context data access", () => {
         expect(formRef.current?.getIsDirty()).toBe(true);
       });
     });
+  });
+});
+
+describe("DynamicForm | pull-based validation access", () => {
+  const emailOnlyConfig: FormConfiguration = {
+    elements: [
+      {
+        type: "email",
+        name: "contactEmail",
+        label: "Email",
+        validation: { message: "Invalid email" },
+      },
+    ],
+  };
+
+  const ValidationProbe = ({
+    onRender,
+    onNotify,
+  }: {
+    onRender: (snapshot: { isValid: boolean; fieldError: unknown }) => void;
+    onNotify: () => void;
+  }) => {
+    const { validation } = useDynamicFormContext();
+    const notifyRef = useRef(onNotify);
+    notifyRef.current = onNotify;
+
+    onRender({
+      isValid: validation.getIsValid(),
+      fieldError: validation.getFieldError("contactEmail"),
+    });
+
+    useEffect(
+      () => validation.subscribe(() => notifyRef.current()),
+      [validation]
+    );
+
+    return null;
+  };
+
+  it("reports the current field error without re-rendering the consumer", async () => {
+    // arrange
+    const onRender = vi.fn();
+    const onNotify = vi.fn();
+
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailOnlyConfig}
+        initialData={{ contactEmail: "not-an-email" }}
+        onSubmit={vi.fn()}
+        validateOnMount
+      >
+        <ValidationProbe onNotify={onNotify} onRender={onRender} />
+      </DynamicForm>
+    );
+
+    await waitFor(() => {
+      expect(onNotify).toHaveBeenCalled();
+    });
+
+    const rendersAfterMount = onRender.mock.calls.length;
+
+    // act
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+
+    // assert — the validation pass reaches the subscriber, not the renderer
+    await waitFor(() => {
+      expect(onNotify.mock.calls.length).toBeGreaterThan(1);
+    });
+    expect(onRender.mock.calls.length).toBe(rendersAfterMount);
+  });
+
+  it("exposes the error for an invalid field and clears it once fixed", async () => {
+    // arrange
+    const snapshots: { isValid: boolean; fieldError: unknown }[] = [];
+    const notify = vi.fn();
+    const ref = createRef<DynamicFormRef>();
+
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailOnlyConfig}
+        initialData={{ contactEmail: "not-an-email" }}
+        onSubmit={vi.fn()}
+        ref={ref}
+        validateOnMount
+      >
+        <ValidationProbe
+          onNotify={notify}
+          onRender={(snapshot) => snapshots.push(snapshot)}
+        />
+      </DynamicForm>
+    );
+
+    // assert — invalid initial data is readable through the accessors
+    await waitFor(() => {
+      expect(ref.current?.getIsValid()).toBe(false);
+    });
+    expect(ref.current?.getErrors()).toHaveProperty("contactEmail");
+
+    // act
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+
+    // assert
+    await waitFor(() => {
+      expect(ref.current?.getIsValid()).toBe(true);
+    });
+    expect(ref.current?.getErrors()).not.toHaveProperty("contactEmail");
+    expect(snapshots.length).toBeGreaterThan(0);
   });
 });

@@ -7,13 +7,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { FormProvider, useForm, useFormState } from "react-hook-form";
+import type { FieldErrors } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { FormRenderer } from "./components";
 import {
   DynamicFormContext,
-  type DynamicFormControlValue,
-  DynamicFormValidationContext,
-  type DynamicFormValidationValue,
+  type DynamicFormContextValue,
+  type DynamicFormValidationApi,
 } from "./context";
 import { validateCustomComponents } from "./customComponents";
 import { parseConfiguration } from "./parser";
@@ -104,9 +104,59 @@ export const DynamicForm = ({
   );
 
   const form = useForm<FormData>({ defaultValues, resolver, mode });
-  const { isDirty, errors, isValid, dirtyFields } = useFormState({
-    control: form.control,
-  });
+
+  // Form state is tracked without subscribing this component. `useFormState`
+  // here would re-render the whole form on every keystroke and every
+  // validation pass; `form.subscribe` delivers the same updates outside
+  // React's render cycle. Fields get their own state through `useController`,
+  // so nothing above them needs to re-render at all.
+  const formStateRef = useRef<{
+    errors: FieldErrors<FormData>;
+    isValid: boolean;
+    isDirty: boolean;
+    dirtyFields: Record<string, unknown>;
+  }>({ errors: {}, isValid: false, isDirty: false, dirtyFields: {} });
+
+  const validationListenersRef = useRef(new Set<() => void>());
+
+  useEffect(
+    () =>
+      form.subscribe({
+        formState: {
+          errors: true,
+          isValid: true,
+          isDirty: true,
+          dirtyFields: true,
+        },
+        callback: (state) => {
+          formStateRef.current = {
+            errors: state.errors ?? {},
+            isValid: state.isValid ?? false,
+            isDirty: state.isDirty ?? false,
+            dirtyFields: (state.dirtyFields ?? {}) as Record<string, unknown>,
+          };
+          for (const listener of validationListenersRef.current) {
+            listener();
+          }
+        },
+      }),
+    [form]
+  );
+
+  const validation = useRef<DynamicFormValidationApi>({
+    getErrors: () => formStateRef.current.errors as Record<string, unknown>,
+    getFieldError: (name: string) =>
+      getNestedValue(formStateRef.current.errors, name),
+    isFieldValid: (name: string) =>
+      getNestedValue(formStateRef.current.errors, name) === undefined,
+    getIsValid: () => formStateRef.current.isValid,
+    subscribe: (listener: () => void) => {
+      validationListenersRef.current.add(listener);
+      return () => {
+        validationListenersRef.current.delete(listener);
+      };
+    },
+  }).current;
 
   // Run validation once after mount so pre-filled invalid values surface
   // errors immediately. Empty deps array — fires per mount, not per render.
@@ -126,12 +176,12 @@ export const DynamicForm = ({
       watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
-      getIsValid: () => isValid,
-      getErrors: () => errors,
-      getIsDirty: () => isDirty,
-      getDirtyFields: () => dirtyFields,
+      getIsValid: () => formStateRef.current.isValid,
+      getErrors: () => formStateRef.current.errors as Record<string, unknown>,
+      getIsDirty: () => formStateRef.current.isDirty,
+      getDirtyFields: () => formStateRef.current.dirtyFields,
     }),
-    [form, defaultValues, isValid, errors, isDirty, dirtyFields]
+    [form, defaultValues]
   );
 
   const dependencyMap = useMemo(
@@ -205,39 +255,35 @@ export const DynamicForm = ({
     return () => subscription.unsubscribe();
   }, [form, parsedConfig, dependencyMap]);
 
-  const { errors: formErrors, isValid: formIsValid } = useFormState({
-    control: form.control,
-  });
+  const onValidationChangeRef = useRef(onValidationChange);
+  onValidationChangeRef.current = onValidationChange;
 
   useEffect(() => {
-    if (!onValidationChange) {
+    if (!onValidationChangeRef.current) {
       return;
     }
-    onValidationChange(formErrors, formIsValid);
-  }, [formErrors, formIsValid, onValidationChange]);
 
-  // Split deliberately: `controlValue` must not change when validation does.
-  // `DynamicForm` re-renders on every form-state change, and a new context
-  // identity re-renders every consumer of it — in a large form that is every
-  // field, on every keystroke that first dirties one. Per-field updates already
-  // arrive through `useController`.
-  const controlValue: DynamicFormControlValue = useMemo(
+    const notify = () => {
+      onValidationChangeRef.current?.(
+        formStateRef.current.errors,
+        formStateRef.current.isValid
+      );
+    };
+
+    notify();
+    return validation.subscribe(notify);
+  }, [validation]);
+
+  const contextValue: DynamicFormContextValue = useMemo(
     () => ({
       form,
       config: parsedConfig,
       components,
       visibility,
       fieldWrapper,
+      validation,
     }),
-    [form, parsedConfig, components, visibility, fieldWrapper]
-  );
-
-  const validationValue: DynamicFormValidationValue = useMemo(
-    () => ({
-      isValid: formIsValid,
-      errors: formErrors as Record<string, unknown>,
-    }),
-    [formIsValid, formErrors]
+    [form, parsedConfig, components, visibility, fieldWrapper, validation]
   );
 
   const handleSubmit = form.handleSubmit(onSubmit, (errors) =>
@@ -251,20 +297,18 @@ export const DynamicForm = ({
 
   return (
     <FormProvider {...form}>
-      <DynamicFormContext.Provider value={controlValue}>
-        <DynamicFormValidationContext.Provider value={validationValue}>
-          <form
-            className={className}
-            id={id}
-            noValidate
-            onReset={handleReset}
-            onSubmit={handleSubmit}
-            style={style}
-          >
-            <FormRenderer elements={parsedConfig.elements} />
-            {children}
-          </form>
-        </DynamicFormValidationContext.Provider>
+      <DynamicFormContext.Provider value={contextValue}>
+        <form
+          className={className}
+          id={id}
+          noValidate
+          onReset={handleReset}
+          onSubmit={handleSubmit}
+          style={style}
+        >
+          <FormRenderer elements={parsedConfig.elements} />
+          {children}
+        </form>
       </DynamicFormContext.Provider>
     </FormProvider>
   );
