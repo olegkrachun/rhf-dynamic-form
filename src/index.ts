@@ -5,7 +5,10 @@
 // =============================================================================
 // Context (for advanced use cases)
 // =============================================================================
-export type { DynamicFormContextValue } from "./context";
+export type {
+  DynamicFormContextValue,
+  DynamicFormValidationApi,
+} from "./context";
 export { DynamicFormContext } from "./context";
 // =============================================================================
 // Custom Components (Phase 5)
