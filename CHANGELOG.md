@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v2.0.0...rhf-dynamic-forms-v2.0.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **form:** don't lose state updates ([714d89e](https://github.com/olegkrachun/rhf-dynamic-form/commit/714d89edd759ede7560d113ba40fca0b00131be8))
+* **form:** don't lose state updates dispatched before the subscription exists ([76d3fb3](https://github.com/olegkrachun/rhf-dynamic-form/commit/76d3fb36b0e973b66dd3e071aa2b0324a2c58a1f))
+
 ## [2.0.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.12.0...rhf-dynamic-forms-v2.0.0) (2026-08-26)
 
 
