@@ -723,6 +723,9 @@ interface DynamicFormRef {
    * changes?" prompts without hand-rolled deep-equality on form snapshots.
    */
   getIsDirty: () => boolean;
+
+  /** All fields that currently diverge from their `defaultValues` baseline. */
+  getDirtyFields: () => Record<string, unknown>;
 }
 ```
 
@@ -845,7 +848,7 @@ export type {
 };
 
 // Schema (configurable type → schema mapping)
-export { buildFieldSchema, generateZodSchema, defaultSchemaMap, setSchemaMap, resetSchemaMap };
+export { buildFieldSchema, generateZodSchema, getSchemaFieldPaths, defaultSchemaMap, setSchemaMap, resetSchemaMap };
 
 // Select options resolution
 export { resolveSelectOptions, useSelectOptions };

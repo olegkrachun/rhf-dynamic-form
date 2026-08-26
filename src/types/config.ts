@@ -154,7 +154,7 @@ export interface DynamicFormProps {
 
   /**
    * Controls validation behavior for invisible fields.
-   * Only applies when using `schema` prop (not custom `resolver`).
+   * Applies to the auto-generated, config-driven Zod schema validation.
    * - 'skip': Do not validate invisible fields (default)
    * - 'validate': Validate all fields regardless of visibility
    * - 'warn': Validate but treat errors as warnings (non-blocking)
