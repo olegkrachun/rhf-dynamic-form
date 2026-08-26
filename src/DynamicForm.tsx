@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -35,6 +36,9 @@ import {
 interface DynamicFormPropsWithRef extends DynamicFormProps {
   ref?: React.Ref<DynamicFormRef>;
 }
+
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export const DynamicForm = ({
   config,
@@ -119,29 +123,58 @@ export const DynamicForm = ({
 
   const validationListenersRef = useRef(new Set<() => void>());
 
-  useEffect(
-    () =>
-      form.subscribe({
-        formState: {
-          errors: true,
-          isValid: true,
-          isDirty: true,
-          dirtyFields: true,
-        },
-        callback: (state) => {
-          formStateRef.current = {
-            errors: state.errors ?? {},
-            isValid: state.isValid ?? false,
-            isDirty: state.isDirty ?? false,
-            dirtyFields: (state.dirtyFields ?? {}) as Record<string, unknown>,
-          };
+  // Snapshot react-hook-form's authoritative state rather than the
+  // subscription payload — payloads carry only the keys that changed.
+  const syncFormState = useCallback(() => {
+    const state = form.control._formState;
+    formStateRef.current = {
+      errors: state.errors,
+      isValid: state.isValid,
+      isDirty: state.isDirty,
+      dirtyFields: state.dirtyFields as Record<string, unknown>,
+    };
+  }, [form]);
+
+  // A layout effect, not a passive one: children's effects run before their
+  // parent's passive effects, so a child calling `setError`/`setValue` on
+  // mount would fire before a passive subscription exists and its update
+  // would never reach the snapshot. Layout effects run before any passive
+  // effect, closing that window; the explicit `syncFormState()` after
+  // subscribing covers updates dispatched during the render phase itself.
+  useIsomorphicLayoutEffect(() => {
+    // `form.subscribe` keeps react-hook-form computing the subscribed keys
+    // (isValid in particular is only maintained while something subscribes to
+    // it) and refreshes the snapshot — but its callback receives the payload
+    // merged over the whole form state, so it cannot tell a validation change
+    // from a dirty-only one.
+    const unsubscribe = form.subscribe({
+      formState: {
+        errors: true,
+        isValid: true,
+        isDirty: true,
+        dirtyFields: true,
+      },
+      callback: syncFormState,
+    });
+    // The raw state subject carries only the keys that actually changed, so
+    // it is the one place a dirty-only update can be told apart. Registered
+    // after `form.subscribe`, so the snapshot is already fresh when listeners
+    // run. Validation listeners fire only when validation state moved.
+    const subjectSubscription = form.control._subjects.state.subscribe({
+      next: (payload) => {
+        if ("errors" in payload || "isValid" in payload) {
           for (const listener of validationListenersRef.current) {
             listener();
           }
-        },
-      }),
-    [form]
-  );
+        }
+      },
+    });
+    syncFormState();
+    return () => {
+      unsubscribe();
+      subjectSubscription.unsubscribe();
+    };
+  }, [form, syncFormState]);
 
   const validation = useRef<DynamicFormValidationApi>({
     getErrors: () => formStateRef.current.errors as Record<string, unknown>,
