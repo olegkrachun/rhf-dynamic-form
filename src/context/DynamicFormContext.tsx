@@ -8,10 +8,15 @@ import type {
 } from "../types";
 
 /**
- * Value provided by the DynamicFormContext.
- * Contains everything needed by child components to render and interact with the form.
+ * The stable half of the form context: everything a renderer needs that does
+ * not change when validation state changes.
+ *
+ * Kept in its own context so a validation pass does not invalidate it.
+ * `DynamicForm` re-renders on every form-state change, and a new context
+ * identity re-renders every consumer — in a large form that is every field, on
+ * every keystroke that first dirties one.
  */
-export interface DynamicFormContextValue {
+export interface DynamicFormControlValue {
   /**
    * react-hook-form methods.
    * Provides access to form state, validation, and control.
@@ -40,7 +45,13 @@ export interface DynamicFormContextValue {
    * When provided, every field is wrapped with this function.
    */
   fieldWrapper?: FieldWrapperFunction;
+}
 
+/**
+ * The reactive half: validation state. Split out so subscribing to it is
+ * opt-in — it is correct for a submit button and wasteful for a field.
+ */
+export interface DynamicFormValidationValue {
   /**
    * Current form validity state.
    * Reactive - updates when validation state changes.
@@ -59,13 +70,28 @@ export interface DynamicFormContextValue {
 }
 
 /**
+ * Value returned by `useDynamicFormContext` — unchanged from previous versions:
+ * the control slice plus validation state.
+ */
+export type DynamicFormContextValue = DynamicFormControlValue &
+  DynamicFormValidationValue;
+
+/**
  * Context for sharing form state and configuration with child components.
  *
  * This context is set up by the DynamicForm component and consumed by
  * field renderers and other internal components.
  */
-export const DynamicFormContext = createContext<DynamicFormContextValue | null>(
+export const DynamicFormContext = createContext<DynamicFormControlValue | null>(
   null
 );
 
 DynamicFormContext.displayName = "DynamicFormContext";
+
+/**
+ * Reactive validation state, provided alongside {@link DynamicFormContext}.
+ */
+export const DynamicFormValidationContext =
+  createContext<DynamicFormValidationValue | null>(null);
+
+DynamicFormValidationContext.displayName = "DynamicFormValidationContext";

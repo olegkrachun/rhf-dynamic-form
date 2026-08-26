@@ -1,5 +1,47 @@
-import { useContext } from "react";
-import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
+import { useContext, useMemo } from "react";
+import {
+  DynamicFormContext,
+  type DynamicFormContextValue,
+  type DynamicFormControlValue,
+  DynamicFormValidationContext,
+  type DynamicFormValidationValue,
+} from "@/context";
+
+const OUTSIDE_FORM =
+  "must be used within a DynamicForm component. " +
+  "Make sure your component is a child of <DynamicForm>.";
+
+/**
+ * Access the stable half of the context: form methods, configuration, component
+ * registry, visibility and the field wrapper.
+ *
+ * Prefer this over {@link useDynamicFormContext} in anything that renders per
+ * field — it does not subscribe to validation, so a validation pass does not
+ * re-render the consumer.
+ */
+export const useDynamicFormControl = (): DynamicFormControlValue => {
+  const control = useContext(DynamicFormContext);
+  if (!control) {
+    throw new Error(`useDynamicFormControl ${OUTSIDE_FORM}`);
+  }
+  return control;
+};
+
+/** Same as {@link useDynamicFormControl}, but returns null outside a form. */
+export const useDynamicFormControlSafe = (): DynamicFormControlValue | null =>
+  useContext(DynamicFormContext);
+
+/**
+ * Access reactive validation state. Subscribing re-renders the consumer on
+ * every validation pass, so use it only where that is the point.
+ */
+export const useDynamicFormValidation = (): DynamicFormValidationValue => {
+  const validation = useContext(DynamicFormValidationContext);
+  if (!validation) {
+    throw new Error(`useDynamicFormValidation ${OUTSIDE_FORM}`);
+  }
+  return validation;
+};
 
 /**
  * Hook to access the DynamicForm context.
@@ -21,16 +63,10 @@ import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
  * ```
  */
 export const useDynamicFormContext = (): DynamicFormContextValue => {
-  const context = useContext(DynamicFormContext);
+  const control = useDynamicFormControl();
+  const validation = useDynamicFormValidation();
 
-  if (!context) {
-    throw new Error(
-      "useDynamicFormContext must be used within a DynamicForm component. " +
-        "Make sure your component is a child of <DynamicForm>."
-    );
-  }
-
-  return context;
+  return useMemo(() => ({ ...control, ...validation }), [control, validation]);
 };
 
 /**
@@ -53,5 +89,11 @@ export const useDynamicFormContext = (): DynamicFormContextValue => {
  * ```
  */
 export const useDynamicFormContextSafe = (): DynamicFormContextValue | null => {
-  return useContext(DynamicFormContext);
+  const control = useContext(DynamicFormContext);
+  const validation = useContext(DynamicFormValidationContext);
+
+  return useMemo(
+    () => (control && validation ? { ...control, ...validation } : null),
+    [control, validation]
+  );
 };

@@ -9,7 +9,12 @@ import {
 } from "react";
 import { FormProvider, useForm, useFormState } from "react-hook-form";
 import { FormRenderer } from "./components";
-import { DynamicFormContext, type DynamicFormContextValue } from "./context";
+import {
+  DynamicFormContext,
+  type DynamicFormControlValue,
+  DynamicFormValidationContext,
+  type DynamicFormValidationValue,
+} from "./context";
 import { validateCustomComponents } from "./customComponents";
 import { parseConfiguration } from "./parser";
 import { createVisibilityAwareResolver } from "./resolver";
@@ -211,25 +216,28 @@ export const DynamicForm = ({
     onValidationChange(formErrors, formIsValid);
   }, [formErrors, formIsValid, onValidationChange]);
 
-  const contextValue: DynamicFormContextValue = useMemo(
+  // Split deliberately: `controlValue` must not change when validation does.
+  // `DynamicForm` re-renders on every form-state change, and a new context
+  // identity re-renders every consumer of it — in a large form that is every
+  // field, on every keystroke that first dirties one. Per-field updates already
+  // arrive through `useController`.
+  const controlValue: DynamicFormControlValue = useMemo(
     () => ({
       form,
       config: parsedConfig,
       components,
       visibility,
       fieldWrapper,
+    }),
+    [form, parsedConfig, components, visibility, fieldWrapper]
+  );
+
+  const validationValue: DynamicFormValidationValue = useMemo(
+    () => ({
       isValid: formIsValid,
       errors: formErrors as Record<string, unknown>,
     }),
-    [
-      form,
-      parsedConfig,
-      components,
-      visibility,
-      fieldWrapper,
-      formIsValid,
-      formErrors,
-    ]
+    [formIsValid, formErrors]
   );
 
   const handleSubmit = form.handleSubmit(onSubmit, (errors) =>
@@ -243,18 +251,20 @@ export const DynamicForm = ({
 
   return (
     <FormProvider {...form}>
-      <DynamicFormContext.Provider value={contextValue}>
-        <form
-          className={className}
-          id={id}
-          noValidate
-          onReset={handleReset}
-          onSubmit={handleSubmit}
-          style={style}
-        >
-          <FormRenderer elements={parsedConfig.elements} />
-          {children}
-        </form>
+      <DynamicFormContext.Provider value={controlValue}>
+        <DynamicFormValidationContext.Provider value={validationValue}>
+          <form
+            className={className}
+            id={id}
+            noValidate
+            onReset={handleReset}
+            onSubmit={handleSubmit}
+            style={style}
+          >
+            <FormRenderer elements={parsedConfig.elements} />
+            {children}
+          </form>
+        </DynamicFormValidationContext.Provider>
       </DynamicFormContext.Provider>
     </FormProvider>
   );

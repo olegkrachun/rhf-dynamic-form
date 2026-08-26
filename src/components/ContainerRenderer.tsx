@@ -1,4 +1,4 @@
-import { useDynamicFormContext } from "../hooks";
+import { useDynamicFormControl } from "../hooks";
 import type { ContainerElement } from "../types";
 import { evaluateCondition } from "../validation";
 import { ElementRenderer } from "./ElementRenderer";
@@ -26,7 +26,7 @@ export interface ContainerRendererProps {
 export const ContainerRenderer: React.FC<ContainerRendererProps> = ({
   config,
 }) => {
-  const { components, form } = useDynamicFormContext();
+  const { components, form } = useDynamicFormControl();
   const containers = components.containers ?? {};
 
   // Enforce container-level visibility

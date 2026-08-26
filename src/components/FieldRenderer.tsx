@@ -4,7 +4,7 @@ import {
   type CustomComponentRenderProps,
   normalizeComponentDefinition,
 } from "../customComponents";
-import { useDynamicFormContext } from "../hooks";
+import { useDynamicFormControl } from "../hooks";
 import type {
   BaseFieldComponent,
   CustomFieldElement,
@@ -64,7 +64,7 @@ const CustomFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
+  const { components } = useDynamicFormControl();
   const customComponents = components.custom ?? {};
 
   if (config.type !== "custom") {
@@ -132,7 +132,7 @@ const StandardFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
+  const { components } = useDynamicFormControl();
   const FieldComponent = components.fields[config.type] as BaseFieldComponent;
 
   if (!FieldComponent) {
@@ -174,7 +174,7 @@ const StandardFieldRenderer = ({
 };
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
-  const { form, visibility, fieldWrapper } = useDynamicFormContext();
+  const { form, visibility, fieldWrapper } = useDynamicFormControl();
 
   // Cross-field re-validation: every `var` referenced by this field's
   // condition is a peer whose change should re-trigger this field's
