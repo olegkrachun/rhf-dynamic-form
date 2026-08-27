@@ -28,6 +28,7 @@ export const DynamicForm = ({
   onSubmit,
   onChange,
   onValidationChange,
+  onDirtyChange,
   onReset,
   onError,
   mode = "onChange",
@@ -88,7 +89,8 @@ export const DynamicForm = ({
   const { stateRef, validation } = useFormStateSnapshot(
     form,
     validateOnMount,
-    onValidationChange
+    onValidationChange,
+    onDirtyChange
   );
   useDynamicFormHandle({ defaultValues, form, ref, stateRef });
   useFormValueEffects({

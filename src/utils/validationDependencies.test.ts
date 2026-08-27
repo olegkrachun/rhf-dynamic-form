@@ -38,11 +38,7 @@ describe("validationDependencies", () => {
           name: "total",
           validation: {
             condition: {
-              and: [
-                { var: "subtotal" },
-                { var: "subtotal" },
-                { var: "total" },
-              ],
+              and: [{ var: "subtotal" }, { var: "subtotal" }, { var: "total" }],
             },
           },
         },

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { FieldErrors, UseFormReturn } from "react-hook-form";
 import type { DynamicFormValidationApi } from "../context";
-import type { FormData, OnValidationChangeHandler } from "../types";
+import type {
+  FormData,
+  OnDirtyChangeHandler,
+  OnValidationChangeHandler,
+} from "../types";
 import { getNestedValue } from "../utils";
 
 export interface FormStateSnapshot {
@@ -17,7 +21,8 @@ const useIsomorphicLayoutEffect =
 export const useFormStateSnapshot = (
   form: UseFormReturn<FormData>,
   validateOnMount: boolean,
-  onValidationChange?: OnValidationChangeHandler
+  onValidationChange?: OnValidationChangeHandler,
+  onDirtyChange?: OnDirtyChangeHandler
 ) => {
   const stateRef = useRef<FormStateSnapshot>({
     errors: {},
@@ -26,11 +31,17 @@ export const useFormStateSnapshot = (
     dirtyFields: {},
   });
   const listenersRef = useRef(new Set<() => void>());
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
 
   const syncState = useCallback(() => {
     const state = form.control._formState;
     stateRef.current = {
-      errors: state.errors,
+      // Validation errors are synchronized by the state subject below. Keeping
+      // them out of the public subscription avoids marking the whole form's
+      // errors as globally observed; individual controllers already subscribe
+      // to their own fieldState.error.
+      errors: stateRef.current.errors,
       // Do not subscribe to RHF's global isValid. Its unnamed broadcasts wake
       // every useController; resolver errors are authoritative instead.
       isValid: stateRef.current.isValid,
@@ -41,8 +52,18 @@ export const useFormStateSnapshot = (
 
   useIsomorphicLayoutEffect(() => {
     const unsubscribe = form.subscribe({
-      formState: { errors: true, isDirty: true, dirtyFields: true },
-      callback: syncState,
+      formState: { isDirty: true, dirtyFields: true },
+      callback: ({ isDirty, dirtyFields }) => {
+        const nextState = {
+          ...stateRef.current,
+          isDirty: isDirty ?? stateRef.current.isDirty,
+          dirtyFields:
+            (dirtyFields as Record<string, unknown> | undefined) ??
+            stateRef.current.dirtyFields,
+        };
+        stateRef.current = nextState;
+        onDirtyChangeRef.current?.(nextState.isDirty, nextState.dirtyFields);
+      },
     });
     const subjectSubscription = form.control._subjects.state.subscribe({
       next: (payload) => {
@@ -61,6 +82,10 @@ export const useFormStateSnapshot = (
       },
     });
     syncState();
+    onDirtyChangeRef.current?.(
+      stateRef.current.isDirty,
+      stateRef.current.dirtyFields
+    );
     return () => {
       unsubscribe();
       subjectSubscription.unsubscribe();

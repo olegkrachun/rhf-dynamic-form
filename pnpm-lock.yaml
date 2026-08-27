@@ -10,13 +10,10 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.2.2(react-hook-form@7.71.1(react@19.2.3))
+        version: 5.2.2(react-hook-form@7.81.0(react@19.2.3))
       json-logic-js:
         specifier: ^2.0.5
         version: 2.0.5
-      react-hook-form:
-        specifier: ^7.71.1
-        version: 7.71.1(react@19.2.3)
       zod:
         specifier: ^4.3.5
         version: 4.3.5
@@ -57,6 +54,9 @@ importers:
       react-dom:
         specifier: ^19.2.3
         version: 19.2.3(react@19.2.3)
+      react-hook-form:
+        specifier: 7.81.0
+        version: 7.81.0(react@19.2.3)
       tsdown:
         specifier: 0.20.0-beta.3
         version: 0.20.0-beta.3(typescript@5.9.3)
@@ -1176,8 +1176,8 @@ packages:
     peerDependencies:
       react: ^19.2.3
 
-  react-hook-form@7.71.1:
-    resolution: {integrity: sha512-9SUJKCGKo8HUSsCO+y0CtqkqI5nNuaDqTxyqPsZPqIwudpj4rCrAz/jZV+jn57bx5gtZKOh3neQu94DXMc+w5w==}
+  react-hook-form@7.81.0:
+    resolution: {integrity: sha512-ocbmr2p5KBMoAfj4WCUvped33lVi1Kd5DuDUvQDnB6VEAacOjPI/jMbtDdbhco4y9ct4xUuCmMY0b/C9L0QHjw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
@@ -1820,10 +1820,10 @@ snapshots:
 
   '@exodus/bytes@1.8.0': {}
 
-  '@hookform/resolvers@5.2.2(react-hook-form@7.71.1(react@19.2.3))':
+  '@hookform/resolvers@5.2.2(react-hook-form@7.81.0(react@19.2.3))':
     dependencies:
       '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.71.1(react@19.2.3)
+      react-hook-form: 7.81.0(react@19.2.3)
 
   '@isaacs/balanced-match@4.0.1': {}
 
@@ -2478,7 +2478,7 @@ snapshots:
       react: 19.2.3
       scheduler: 0.27.0
 
-  react-hook-form@7.71.1(react@19.2.3):
+  react-hook-form@7.81.0(react@19.2.3):
     dependencies:
       react: 19.2.3
 

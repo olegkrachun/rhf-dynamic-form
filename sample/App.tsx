@@ -65,6 +65,10 @@ const components: ComponentRegistry = {
  * Sample application demonstrating the DynamicForm engine.
  */
 export function App() {
+  const [dirtyState, setDirtyState] = useState({
+    isDirty: false,
+    dirtyFields: {} as Record<string, unknown>,
+  });
   const [submittedData, setSubmittedData] = useState<FormData | null>(null);
   const [changeLog, setChangeLog] = useState<{ id: number; text: string }[]>(
     []
@@ -120,6 +124,9 @@ export function App() {
             config={reviewPipelineConfig}
             initialData={reviewPipelineInitialData}
             onChange={handleChange}
+            onDirtyChange={(isDirty, dirtyFields) =>
+              setDirtyState({ isDirty, dirtyFields })
+            }
             onError={handleError}
             onSubmit={handleSubmit}
             ref={formRef}
@@ -139,12 +146,12 @@ export function App() {
         <aside className="sidebar">
           <section className="output-section">
             <h3>Is Dirty</h3>
-            <p>{formRef.current?.getIsDirty() ? "Yes" : "No"}</p>
+            <p>{dirtyState.isDirty ? "Yes" : "No"}</p>
           </section>
           <section className="output-section">
             <h3>Dirty Fields</h3>
             <pre className="json-output">
-              {JSON.stringify(formRef.current?.getDirtyFields() ?? {}, null, 2)}
+              {JSON.stringify(dirtyState.dirtyFields, null, 2)}
             </pre>
           </section>
           <section className="output-section">

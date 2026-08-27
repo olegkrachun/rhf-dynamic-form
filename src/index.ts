@@ -118,6 +118,7 @@ export type {
   MissingComponentInfo,
   MissingComponentKind,
   OnChangeHandler,
+  OnDirtyChangeHandler,
   OnErrorHandler,
   OnResetHandler,
   OnSubmitHandler,

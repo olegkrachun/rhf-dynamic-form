@@ -661,6 +661,41 @@ const { validation } = useDynamicFormContext();
 const isValid = useSyncExternalStore(validation.subscribe, validation.getIsValid);
 ```
 
+Form-wide dirty UI uses the dedicated `onDirtyChange` prop instead of reading
+imperative getters during render:
+
+```tsx
+const [dirty, setDirty] = useState({ isDirty: false, dirtyFields: {} });
+
+<DynamicForm
+  onDirtyChange={(isDirty, dirtyFields) =>
+    setDirty({ isDirty, dirtyFields })
+  }
+  {...props}
+/>;
+```
+
+The two values are emitted as one consistent RHF snapshot. `getIsDirty()` and
+`getDirtyFields()` remain available on `DynamicFormRef` for reads inside event
+handlers, but calling a getter during render is intentionally non-reactive.
+
+After persistence succeeds, update RHF's baseline without reconstructing the
+form or field arrays:
+
+```tsx
+reset(getValues(), {
+  keepValues: true,
+  keepErrors: true,
+  keepTouched: true,
+  keepIsValid: true,
+});
+```
+
+The library keeps form-wide state out of its root context. Field controls use
+exact local subscriptions, while JSON Logic variable references become RHF
+validation dependencies. Conditional required rules therefore re-run when a
+peer changes without forcing unrelated fields to render.
+
 ### 5.4 Form Initialization with Zod
 
 ```typescript

@@ -147,6 +147,79 @@ describe("FieldRenderer", () => {
       expect(unrelatedRendersAfterChange).toBe(unrelatedRendersBeforeChange);
     });
 
+    it("does not rerender an unrelated field whose existing error is unchanged", async () => {
+      // arrange
+      const renderSpy = vi.fn();
+      const TrackingField: BaseFieldComponent = ({
+        config,
+        field,
+        fieldState,
+      }) => {
+        renderSpy(config.name);
+        return (
+          <label>
+            {config.label}
+            <input {...field} />
+            {fieldState.error ? (
+              <span data-testid={`error-${config.name}`}>
+                {fieldState.error.message}
+              </span>
+            ) : null}
+          </label>
+        );
+      };
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "text",
+            name: "first",
+            label: "First",
+            validation: { minLength: 3, message: "First too short" },
+          },
+          {
+            type: "text",
+            name: "second",
+            label: "Second",
+            validation: { minLength: 3, message: "Second too short" },
+          },
+        ],
+      };
+      render(
+        <DynamicForm
+          components={{ fields: { text: TrackingField } }}
+          config={config}
+          initialData={{ first: "x", second: "x" }}
+          onSubmit={vi.fn()}
+          validateOnMount
+        />
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("error-second")).toBeInTheDocument();
+      });
+      const secondRendersBeforeChange = renderSpy.mock.calls.filter(
+        ([name]) => name === "second"
+      ).length;
+
+      // act
+      const firstInput = document.querySelector('input[name="first"]');
+      expect(firstInput).not.toBeNull();
+      if (!firstInput) {
+        throw new Error("Expected first input to be rendered");
+      }
+      fireEvent.change(firstInput, {
+        target: { value: "xx" },
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("error-first")).toBeInTheDocument();
+      });
+
+      // assert
+      const secondRendersAfterChange = renderSpy.mock.calls.filter(
+        ([name]) => name === "second"
+      ).length;
+      expect(secondRendersAfterChange).toBe(secondRendersBeforeChange);
+    });
+
     it("renders text field with label", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "username", label: "Username" }],

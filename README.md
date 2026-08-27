@@ -671,6 +671,10 @@ interface DynamicFormProps {
   onError?: (errors: unknown) => void;
   onReset?: () => void;
   onValidationChange?: (errors: unknown, isValid: boolean) => void;
+  onDirtyChange?: (
+    isDirty: boolean,
+    dirtyFields: Record<string, unknown>
+  ) => void;
   mode?: "onChange" | "onBlur" | "onSubmit" | "onTouched" | "all";
   validateOnMount?: boolean;
   invisibleFieldValidation?: "skip" | "validate" | "warn";
@@ -684,6 +688,12 @@ interface DynamicFormProps {
 ```
 
 **`invisibleFieldValidation`** controls what happens to validation errors on fields hidden by a `visible` rule: `"skip"` (default) discards them, `"warn"` keeps them with `type: "warning"`, `"validate"` keeps them as regular blocking errors. Hidden state cascades to nested errors — when an array field is hidden, its per-row errors (e.g. `insurers.0.claimNumber.value`) are skipped or downgraded along with it, so a hidden array never blocks submission.
+
+**`onDirtyChange`** is the reactive form-level dirty API. It receives
+`isDirty` and `dirtyFields` from the same RHF update, so Save buttons and
+navigation blockers never display snapshots that lag one user action behind.
+Use the imperative ref getters only for event-time reads; reading them during an
+unrelated parent render does not subscribe that parent to future changes.
 
 ### DynamicFormRef
 
@@ -723,8 +733,26 @@ interface DynamicFormRef {
    * changes?" prompts without hand-rolled deep-equality on form snapshots.
    */
   getIsDirty: () => boolean;
+
+  /** Current dirty-fields tree (non-reactive). */
+  getDirtyFields: () => Record<string, unknown>;
 }
 ```
+
+After a successful save, make the currently displayed values the new baseline
+without replacing field-array rows:
+
+```tsx
+reset(getValues(), {
+  keepValues: true,
+  keepErrors: true,
+  keepTouched: true,
+  keepIsValid: true,
+});
+```
+
+This clears `isDirty` while retaining mounted controls, errors, touched state,
+validity, focus, and stable array row identities.
 
 Example — unsaved-changes guard driven by `getIsDirty`:
 
@@ -831,6 +859,20 @@ The context value keeps a stable identity for the lifetime of the form —
 consuming it never re-renders on keystrokes or validation passes. Fields get
 their own error through `useController`'s `fieldState`, so the reactive
 subscription above is only for form-level consumers such as a submit button.
+
+### Rendering and dependency validation
+
+`DynamicForm` does not publish `errors`, `isDirty`, `dirtyFields`, or `isValid`
+as changing root-context values. Each field owns an exact local RHF
+subscription; therefore a keystroke does not make React revisit the complete
+form tree. Conditional validation still works: variables referenced by a
+field's JSON Logic `validation.condition` are collected as RHF dependencies,
+so changing a peer field revalidates the affected rule without making every
+unrelated field reactive.
+
+React, React DOM, and React Hook Form are peer dependencies. A consuming app
+must supply one compatible instance of each. Do not bundle a second RHF copy;
+controllers and providers must share the consumer's form context.
 
 ### Exports
 

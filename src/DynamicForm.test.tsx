@@ -302,6 +302,234 @@ describe("DynamicForm | form context data access", () => {
         expect(formRef.current?.getIsDirty()).toBe(true);
       });
     });
+
+    it.each([
+      { initialValue: false, checkedValue: true },
+      { initialValue: "NO", checkedValue: "YES" },
+    ])(
+      "tracks checkbox dirty state for $initialValue values",
+      async ({ initialValue, checkedValue }) => {
+        // arrange
+        const formRef = createRef<DynamicFormRef>();
+        const config: FormConfiguration = {
+          elements: [{ type: "boolean", name: "choice", label: "Choice" }],
+        };
+        render(
+          <DynamicForm
+            components={{
+              fields: {
+                ...mockFieldComponents,
+                boolean: ({ config: fieldConfig, field }) => (
+                  <label>
+                    <input
+                      aria-label={fieldConfig.label}
+                      checked={field.value === checkedValue}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      onChange={(event) => {
+                        if (typeof initialValue !== "string") {
+                          field.onChange(event.target.checked);
+                          return;
+                        }
+                        field.onChange(event.target.checked ? "YES" : "NO");
+                      }}
+                      ref={field.ref}
+                      type="checkbox"
+                    />
+                  </label>
+                ),
+              },
+            }}
+            config={config}
+            initialData={{ choice: initialValue }}
+            onSubmit={vi.fn()}
+            ref={formRef}
+          />
+        );
+
+        // act
+        fireEvent.click(screen.getByLabelText("Choice"));
+
+        // assert
+        await waitFor(() => {
+          expect(formRef.current?.getIsDirty()).toBe(true);
+          expect(formRef.current?.getDirtyFields()).toEqual({ choice: true });
+        });
+
+        // act — return to the original baseline
+        fireEvent.click(screen.getByLabelText("Choice"));
+
+        // assert
+        await waitFor(() => {
+          expect(formRef.current?.getIsDirty()).toBe(false);
+          expect(formRef.current?.getDirtyFields()).toEqual({});
+        });
+      }
+    );
+
+    it("tracks date dirty state and clears it when returned to baseline", async () => {
+      // arrange
+      const formRef = createRef<DynamicFormRef>();
+      const config: FormConfiguration = {
+        elements: [{ type: "date", name: "date", label: "Date" }],
+      };
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={config}
+          initialData={{ date: "2026-08-27" }}
+          onSubmit={vi.fn()}
+          ref={formRef}
+        />
+      );
+
+      // act
+      fireEvent.change(screen.getByLabelText("Date"), {
+        target: { value: "2026-08-28" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(formRef.current?.getIsDirty()).toBe(true);
+        expect(formRef.current?.getDirtyFields()).toEqual({ date: true });
+      });
+
+      // act
+      fireEvent.change(screen.getByLabelText("Date"), {
+        target: { value: "2026-08-27" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(formRef.current?.getIsDirty()).toBe(false);
+        expect(formRef.current?.getDirtyFields()).toEqual({});
+      });
+    });
+
+    it("publishes consistent dirty snapshots without lagging one change behind", async () => {
+      // arrange
+      const onDirtyChange = vi.fn();
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [{ type: "text", name: "name", label: "Name" }],
+          }}
+          initialData={{ name: "initial" }}
+          onDirtyChange={onDirtyChange}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      // act
+      fireEvent.change(screen.getByLabelText("Name"), {
+        target: { value: "changed" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(true, { name: true });
+      });
+
+      // act — return to the initial baseline
+      fireEvent.change(screen.getByLabelText("Name"), {
+        target: { value: "initial" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+    });
+
+    it("promotes current nested-array values to a clean baseline without remounting fields", async () => {
+      // arrange
+      const mountSpy = vi.fn();
+      const unmountSpy = vi.fn();
+      const onDirtyChange = vi.fn();
+      const TrackingField: FieldComponentRegistry["text"] = ({
+        config,
+        field,
+      }) => {
+        useEffect(() => {
+          mountSpy(config.name);
+          return () => unmountSpy(config.name);
+        }, [config.name]);
+        return (
+          <label>
+            {config.label}
+            <input {...field} />
+          </label>
+        );
+      };
+      const SaveBaseline = () => {
+        const { form } = useDynamicFormContext();
+        return (
+          <button
+            onClick={() =>
+              form.reset(form.getValues(), {
+                keepValues: true,
+                keepErrors: true,
+                keepTouched: true,
+                keepIsValid: true,
+              })
+            }
+            type="button"
+          >
+            Save baseline
+          </button>
+        );
+      };
+      render(
+        <DynamicForm
+          components={{ fields: { text: TrackingField } }}
+          config={{
+            elements: [
+              { type: "text", name: "items.0.name", label: "Item name" },
+            ],
+          }}
+          initialData={{ items: [{ name: "Initial" }] }}
+          onDirtyChange={onDirtyChange}
+          onSubmit={vi.fn()}
+        >
+          <SaveBaseline />
+        </DynamicForm>
+      );
+      const input = screen.getByLabelText("Item name");
+
+      // act — edit, then make the current values the persisted baseline
+      fireEvent.change(input, { target: { value: "Saved" } });
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(true, {
+          items: [{ name: true }],
+        });
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save baseline" }));
+
+      // assert — the value and mounted row survive while dirty state clears
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+      expect(input).toHaveValue("Saved");
+      expect(mountSpy).toHaveBeenCalledTimes(1);
+      expect(unmountSpy).not.toHaveBeenCalled();
+
+      // act — verify comparisons now use the saved value as the baseline
+      fireEvent.change(input, { target: { value: "Changed again" } });
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(true, {
+          items: [{ name: true }],
+        });
+      });
+      fireEvent.change(input, { target: { value: "Saved" } });
+
+      // assert
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+      expect(mountSpy).toHaveBeenCalledTimes(1);
+      expect(unmountSpy).not.toHaveBeenCalled();
+    });
   });
 });
 

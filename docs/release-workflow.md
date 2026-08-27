@@ -1,5 +1,50 @@
 # NPM Package Release Automation with release-please
 
+## Local consumer verification
+
+Before publishing, build and pack the exact artifact that a consumer will
+install:
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm lint
+pnpm build
+pnpm pack
+```
+
+Point the consumer at the generated archive and reinstall it:
+
+```json
+{
+  "rhf-dynamic-forms": "file:../release/dynamic-form/rhf-dynamic-forms-2.0.0.tgz"
+}
+```
+
+```bash
+pnpm install --force
+pnpm install --frozen-lockfile
+```
+
+Verify both the installed version and a newly added symbol in the installed
+`dist`; checking only `package.json` is not enough to prove that Vite is using
+the rebuilt code. Restart the Vite process after reinstalling. Clearing
+`node_modules/.vite` is normally unnecessary and should be reserved for a
+confirmed stale optimized-dependency cache.
+
+The regression suite must cover the production contract:
+
+- unrelated fields do not render during a keystroke;
+- `FieldPresentation` forwards standard/custom field props, wrapper accessors,
+  component props, and missing-component fallback metadata;
+- conditional and cross-field validation follows declared dependencies;
+- text, date, boolean, and string-backed checkbox values enter and leave dirty
+  state correctly;
+- `onDirtyChange` publishes matching `isDirty` and `dirtyFields` snapshots;
+- promoting saved values to the new baseline clears dirty state without
+  remounting nested or array fields;
+- validation notifications are independent from dirty-only updates.
+
 This guide sets up automated versioning, changelog generation, and npm publishing using `release-please` with GitHub Actions.
 
 ## Overview

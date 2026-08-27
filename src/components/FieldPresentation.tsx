@@ -1,5 +1,10 @@
 import { memo } from "react";
-import type { ControllerFieldState, useController } from "react-hook-form";
+import type {
+  Control,
+  ControllerFieldState,
+  UseFormReturn,
+  useController,
+} from "react-hook-form";
 import {
   type CustomComponentRenderProps,
   normalizeComponentDefinition,
@@ -143,20 +148,24 @@ const StandardField = (props: RenderFieldProps) => {
 
 export interface FieldPresentationProps {
   components: ComponentRegistry;
+  control: Control<FormData>;
   config: FieldElement;
   field: ControllerField;
   fieldState: ControllerFieldState;
   fieldWrapper?: FieldWrapperFunction;
+  getFieldState: UseFormReturn<FormData>["getFieldState"];
   getValues: () => FormData;
   setValue: (name: string, value: unknown) => void;
 }
 
 const FieldPresentationComponent = ({
   components,
+  control,
   config,
   field,
   fieldState,
   fieldWrapper,
+  getFieldState,
   getValues,
   setValue,
 }: FieldPresentationProps) => {
@@ -180,9 +189,12 @@ const FieldPresentationComponent = ({
   }
   return fieldWrapper(
     {
+      control,
       name: config.name,
       config,
       fieldState,
+      getFieldState,
+      getValues,
       value: field.value,
       formValues,
       setValue,

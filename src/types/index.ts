@@ -53,6 +53,7 @@ export {
 export type {
   FormData,
   OnChangeHandler,
+  OnDirtyChangeHandler,
   OnErrorHandler,
   OnResetHandler,
   OnSubmitHandler,

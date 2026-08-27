@@ -37,6 +37,14 @@ export type OnValidationChangeHandler = (
 ) => void;
 
 /**
+ * Handler called with one consistent snapshot whenever dirty state changes.
+ */
+export type OnDirtyChangeHandler = (
+  isDirty: boolean,
+  dirtyFields: Record<string, unknown>
+) => void;
+
+/**
  * Handler called when form is reset.
  */
 export type OnResetHandler = () => void;

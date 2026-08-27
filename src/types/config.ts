@@ -1,11 +1,16 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { ControllerFieldState } from "react-hook-form";
+import type {
+  Control,
+  ControllerFieldState,
+  UseFormGetFieldState,
+} from "react-hook-form";
 import type { CustomComponentDefinition } from "../customComponents";
 import type { FieldElement, FormElement } from "./elements";
 
 import type {
   FormData,
   OnChangeHandler,
+  OnDirtyChangeHandler,
   OnErrorHandler,
   OnResetHandler,
   OnSubmitHandler,
@@ -19,6 +24,12 @@ import type { InvisibleFieldValidation } from "./validation";
  * Contains field metadata for custom wrapper implementations.
  */
 export interface FieldWrapperProps {
+  /** Stable form control for narrowly scoped useWatch/useFormState subscriptions */
+  control?: Control<FormData>;
+
+  /** Read field state together with a narrowly scoped useFormState snapshot */
+  getFieldState?: UseFormGetFieldState<FormData>;
+
   /** Field path (e.g., "contact.email") */
   name: string;
 
@@ -33,6 +44,9 @@ export interface FieldWrapperProps {
 
   /** All current form values (for reading other fields) */
   formValues: FormData;
+
+  /** Read current form values without subscribing to the whole form */
+  getValues?: () => FormData;
 
   /** Set any field value (for dependent field logic) */
   setValue: (name: string, value: unknown) => void;
@@ -123,6 +137,9 @@ export interface DynamicFormProps {
 
   /** Called when validation state changes */
   onValidationChange?: OnValidationChangeHandler;
+
+  /** Called with an atomic snapshot whenever dirty state changes. */
+  onDirtyChange?: OnDirtyChangeHandler;
 
   /** Called when form is reset */
   onReset?: OnResetHandler;
