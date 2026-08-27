@@ -1,11 +1,12 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ConfigurationError } from "../customComponents";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
 import type {
+  BaseFieldComponent,
   FallbackComponent,
   FieldWrapperFunction,
   FormConfiguration,
@@ -13,6 +14,139 @@ import type {
 
 describe("FieldRenderer", () => {
   describe("standard field rendering", () => {
+    it("revalidates a conditional field when its controlling field changes", async () => {
+      const ToggleField: BaseFieldComponent = ({ config, field }) => (
+        <label>
+          {config.label}
+          <input
+            checked={Boolean(field.value)}
+            name={field.name}
+            onBlur={field.onBlur}
+            onChange={field.onChange}
+            ref={field.ref}
+            type="checkbox"
+          />
+        </label>
+      );
+      const DetailField: BaseFieldComponent = ({
+        config,
+        field,
+        fieldState,
+      }) => (
+        <label>
+          {config.label}
+          <input {...field} />
+          {fieldState.error ? (
+            <span role="alert">{fieldState.error.message}</span>
+          ) : null}
+        </label>
+      );
+      const config: FormConfiguration = {
+        elements: [
+          { type: "boolean", name: "enabled", label: "Enabled" },
+          {
+            type: "text",
+            name: "detail",
+            label: "Detail",
+            validation: {
+              condition: {
+                if: [{ var: "enabled" }, { "!!": { var: "detail" } }, true],
+              },
+              message: "Detail is required when enabled",
+            },
+          },
+        ],
+      };
+
+      render(
+        <DynamicForm
+          components={{
+            fields: { boolean: ToggleField, text: DetailField },
+          }}
+          config={config}
+          initialData={{ enabled: false, detail: "" }}
+          onSubmit={vi.fn()}
+          validateOnMount
+        />
+      );
+      await waitFor(() => {
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByLabelText("Enabled"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Detail is required when enabled"
+        );
+      });
+
+      fireEvent.click(screen.getByLabelText("Enabled"));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+    });
+
+    it("does not propagate unrelated resolver state updates into field UI", async () => {
+      const renderSpy = vi.fn();
+      const TrackingField: BaseFieldComponent = ({
+        config,
+        field,
+        fieldState,
+      }) => {
+        renderSpy(config.name);
+        return (
+          <label>
+            {config.label}
+            <input {...field} />
+            {fieldState.error ? (
+              <span role="alert">{fieldState.error.message}</span>
+            ) : null}
+          </label>
+        );
+      };
+      const config: FormConfiguration = {
+        elements: [
+          {
+            type: "text",
+            name: "first",
+            label: "First",
+            validation: { minLength: 3, message: "Too short" },
+          },
+          { type: "text", name: "second", label: "Second" },
+        ],
+      };
+
+      render(
+        <DynamicForm
+          components={{ fields: { text: TrackingField } }}
+          config={config}
+          initialData={{ first: "valid", second: "stable" }}
+          onSubmit={vi.fn()}
+          validateOnMount
+        />
+      );
+      await waitFor(() => {
+        expect(screen.getByLabelText("First")).toHaveValue("valid");
+      });
+      const unrelatedRendersBeforeChange = renderSpy.mock.calls.filter(
+        ([name]) => name === "second"
+      ).length;
+
+      fireEvent.change(screen.getByLabelText("First"), {
+        target: { value: "x" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      });
+      const unrelatedRendersAfterChange = renderSpy.mock.calls.filter(
+        ([name]) => name === "second"
+      ).length;
+      expect(unrelatedRendersAfterChange).toBe(unrelatedRendersBeforeChange);
+    });
+
     it("renders text field with label", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "username", label: "Username" }],
@@ -475,6 +609,43 @@ describe("FieldRenderer", () => {
   });
 
   describe("field wrapper", () => {
+    it("does not rerender an unrelated field wrapper", async () => {
+      const config: FormConfiguration = {
+        elements: [
+          { type: "text", name: "first", label: "First" },
+          { type: "text", name: "second", label: "Second" },
+        ],
+      };
+      const wrapperCalls = new Map<string, number>();
+      const fieldWrapper: FieldWrapperFunction = (props, children) => {
+        wrapperCalls.set(props.name, (wrapperCalls.get(props.name) ?? 0) + 1);
+        return <div data-testid={`wrapper-${props.name}`}>{children}</div>;
+      };
+
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={config}
+          fieldWrapper={fieldWrapper}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("wrapper-second")).toBeInTheDocument();
+      });
+      const secondCallsBeforeChange = wrapperCalls.get("second");
+
+      fireEvent.change(screen.getByLabelText("First"), {
+        target: { value: "changed" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("First")).toHaveValue("changed");
+      });
+      expect(wrapperCalls.get("second")).toBe(secondCallsBeforeChange);
+    });
+
     it("wraps field with custom wrapper", async () => {
       const config: FormConfiguration = {
         elements: [{ type: "text", name: "wrapped", label: "Wrapped Field" }],

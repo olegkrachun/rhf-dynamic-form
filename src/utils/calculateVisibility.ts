@@ -1,12 +1,59 @@
 import type { ContainerElement, FieldElement, FormElement } from "../types";
 import { isContainerElement, isFieldElement } from "../types";
 import { evaluateCondition } from "../validation";
+import { collectVars } from "./collectVars";
 
 /**
  * Visibility state for all fields in the form.
  * Maps field names to their visibility (true = visible).
  */
 export type VisibilityState = Record<string, boolean>;
+
+/**
+ * Collects the form paths that can change field/container visibility.
+ * DynamicForm uses this index to avoid walking the entire configuration for
+ * changes that cannot possibly affect visibility.
+ */
+export const collectVisibilityDependencies = (
+  elements: FormElement[]
+): Set<string> => {
+  const dependencies = new Set<string>();
+
+  const visit = (element: FormElement): void => {
+    if (element.visible) {
+      for (const path of collectVars(element.visible)) {
+        dependencies.add(path);
+      }
+    }
+    if (isContainerElement(element)) {
+      for (const child of element.children ?? []) {
+        visit(child);
+      }
+    }
+  };
+
+  for (const element of elements) {
+    visit(element);
+  }
+  return dependencies;
+};
+
+export const canAffectVisibility = (
+  changedPath: string,
+  dependencies: Set<string>
+): boolean => {
+  for (const dependency of dependencies) {
+    if (
+      dependency === "" ||
+      dependency === changedPath ||
+      dependency.startsWith(`${changedPath}.`) ||
+      changedPath.startsWith(`${dependency}.`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
 
 /**
  * Compare two visibility states and return the new state only if changed.

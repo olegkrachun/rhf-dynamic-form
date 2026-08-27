@@ -1,5 +1,9 @@
-import { useContext } from "react";
-import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
+import { useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  DynamicFormContext,
+  type DynamicFormContextValue,
+  type DynamicFormValidationValue,
+} from "@/context";
 
 /**
  * Hook to access the DynamicForm context.
@@ -58,3 +62,25 @@ export const useDynamicFormContext = (): DynamicFormContextValue => {
  */
 export const useDynamicFormContextSafe = (): DynamicFormContextValue | null =>
   useContext(DynamicFormContext);
+
+/**
+ * Subscribe to form-wide validation state.
+ *
+ * Use this only in consumers that render global validation UI, such as action
+ * buttons. Field renderers should use their local react-hook-form field state.
+ */
+export const useDynamicFormValidation = (): DynamicFormValidationValue => {
+  const { validation } = useDynamicFormContext();
+  const isValid = useSyncExternalStore(
+    validation.subscribe,
+    validation.getIsValid,
+    validation.getIsValid
+  );
+  const errors = useSyncExternalStore(
+    validation.subscribe,
+    validation.getErrors,
+    validation.getErrors
+  );
+
+  return useMemo(() => ({ errors, isValid }), [errors, isValid]);
+};

@@ -1,5 +1,7 @@
 export {
   calculateVisibility,
+  canAffectVisibility,
+  collectVisibilityDependencies,
   getUpdatedVisibility,
   type VisibilityState,
 } from "./calculateVisibility";
@@ -21,3 +23,4 @@ export {
   mergeDefaults,
   setNestedValue,
 } from "./mergeDefaults";
+export { getValidationDependents } from "./validationDependencies";

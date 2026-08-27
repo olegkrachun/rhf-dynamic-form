@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import { type FC, memo } from "react";
 import type { FormElement } from "../types";
 import { isContainerElement, isFieldElement } from "../types";
 import { ContainerRenderer } from "./ContainerRenderer";
@@ -22,7 +22,7 @@ export interface ElementRendererProps {
  * Columns are NOT rendered by the engine — they are data inside container config.
  * The container component decides how to lay out its columns.
  */
-export const ElementRenderer: FC<ElementRendererProps> = ({ config }) => {
+const ElementRendererComponent: FC<ElementRendererProps> = ({ config }) => {
   if (isFieldElement(config)) {
     return <FieldRenderer config={config} />;
   }
@@ -33,5 +33,7 @@ export const ElementRenderer: FC<ElementRendererProps> = ({ config }) => {
 
   return null;
 };
+
+export const ElementRenderer = memo(ElementRendererComponent);
 
 ElementRenderer.displayName = "ElementRenderer";

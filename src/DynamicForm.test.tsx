@@ -4,7 +4,7 @@ import { createRef, useEffect, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "./customComponents";
 import { DynamicForm } from "./DynamicForm";
-import { useDynamicFormContext } from "./hooks";
+import { useDynamicFormContext, useDynamicFormValidation } from "./hooks";
 import { mockFieldComponents } from "./test-utils/mockFieldComponents";
 import type {
   DynamicFormRef,
@@ -340,6 +340,46 @@ describe("DynamicForm | pull-based validation access", () => {
 
     return null;
   };
+
+  const ReactiveValidationProbe = () => {
+    const { errors, isValid } = useDynamicFormValidation();
+    return (
+      <output data-testid="validation-state">
+        {isValid ? "valid" : `invalid:${Object.keys(errors).join(",")}`}
+      </output>
+    );
+  };
+
+  it("exposes reactive form validity without subscribing field renderers", async () => {
+    // arrange
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailOnlyConfig}
+        initialData={{ contactEmail: "not-an-email" }}
+        onSubmit={vi.fn()}
+        validateOnMount
+      >
+        <ReactiveValidationProbe />
+      </DynamicForm>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("validation-state")).toHaveTextContent(
+        "invalid:contactEmail"
+      );
+    });
+
+    // act
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+
+    // assert
+    await waitFor(() => {
+      expect(screen.getByTestId("validation-state")).toHaveTextContent("valid");
+    });
+  });
 
   it("reports the current field error without re-rendering the consumer", async () => {
     // arrange

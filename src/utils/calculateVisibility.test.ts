@@ -2,8 +2,48 @@ import { describe, expect, it } from "vitest";
 import type { BaseFieldElement, ContainerElement, FormElement } from "../types";
 import {
   calculateVisibility,
+  canAffectVisibility,
+  collectVisibilityDependencies,
   getUpdatedVisibility,
 } from "./calculateVisibility";
+
+describe("visibility dependency index", () => {
+  it("collects dependencies from nested fields and containers", () => {
+    const elements: FormElement[] = [
+      {
+        type: "container",
+        visible: { "==": [{ var: "matter.status" }, "open"] },
+        children: [
+          {
+            type: "text",
+            name: "reason",
+            visible: { "!!": { var: "showReason" } },
+          },
+        ],
+      },
+    ];
+
+    const dependencies = collectVisibilityDependencies(elements);
+
+    expect(dependencies).toEqual(new Set(["matter.status", "showReason"]));
+  });
+
+  it("matches exact, parent, child, and whole-form dependency paths", () => {
+    expect(
+      canAffectVisibility("matter.status", new Set(["matter.status"]))
+    ).toBe(true);
+    expect(canAffectVisibility("matter", new Set(["matter.status"]))).toBe(
+      true
+    );
+    expect(
+      canAffectVisibility("matter.status.code", new Set(["matter.status"]))
+    ).toBe(true);
+    expect(canAffectVisibility("unrelated", new Set(["matter.status"]))).toBe(
+      false
+    );
+    expect(canAffectVisibility("anything", new Set([""]))).toBe(true);
+  });
+});
 
 describe("calculateVisibility", () => {
   describe("field visibility", () => {

@@ -1,246 +1,48 @@
 import { useMemo } from "react";
 import { useController } from "react-hook-form";
-import {
-  type CustomComponentRenderProps,
-  normalizeComponentDefinition,
-} from "../customComponents";
 import { useDynamicFormContext } from "../hooks";
-import type {
-  BaseFieldComponent,
-  CustomFieldElement,
-  FallbackComponent,
-  FieldElement,
-  FormData,
-  MissingComponentInfo,
-} from "../types";
-import { isCustomFieldElement } from "../types";
-import { collectVars, resolveFallbackComponent } from "../utils";
+import type { FieldElement } from "../types";
+import { getValidationDependents } from "../utils";
+import { FieldPresentation } from "./FieldPresentation";
 
 export interface FieldRendererProps {
   config: FieldElement;
 }
 
-interface InternalFieldRendererProps {
-  config: FieldElement;
-  field: ReturnType<typeof useController>["field"];
-  fieldState: ReturnType<typeof useController>["fieldState"];
-  formValues: FormData;
-  setValue: (name: string, value: unknown) => void;
-}
-
-interface MissingComponentFallbackProps extends InternalFieldRendererProps {
-  FallbackComponent: FallbackComponent;
-  missingComponent: MissingComponentInfo;
-  componentProps?: Record<string, unknown>;
-}
-
-const MissingComponentFallback = ({
-  FallbackComponent,
-  config,
-  field,
-  fieldState,
-  formValues,
-  setValue,
-  missingComponent,
-  componentProps,
-}: MissingComponentFallbackProps) => {
-  return (
-    <FallbackComponent
-      componentProps={componentProps}
-      config={config}
-      field={field}
-      fieldState={fieldState}
-      formValues={formValues}
-      missingComponent={missingComponent}
-      setValue={setValue}
-    />
-  );
-};
-
-const CustomFieldRenderer = ({
-  config,
-  field,
-  fieldState,
-  formValues,
-  setValue,
-}: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
-  const customComponents = components.custom ?? {};
-
-  if (config.type !== "custom") {
-    return null;
-  }
-
-  const customConfig = config as CustomFieldElement;
-  const entry = customComponents[customConfig.component];
-
-  if (!entry) {
-    const FallbackComponent = resolveFallbackComponent(
-      components.fallback,
-      "custom"
-    );
-
-    if (!FallbackComponent) {
-      console.warn(
-        `No custom component registered for: "${customConfig.component}". ` +
-          "Make sure to pass it in components.custom."
-      );
-      return null;
-    }
-
-    return (
-      <MissingComponentFallback
-        componentProps={customConfig.componentProps}
-        config={customConfig}
-        FallbackComponent={FallbackComponent}
-        field={field}
-        fieldState={fieldState}
-        formValues={formValues}
-        missingComponent={{
-          kind: "custom",
-          requested: customConfig.component,
-        }}
-        setValue={setValue}
-      />
-    );
-  }
-
-  const definition = normalizeComponentDefinition(
-    entry,
-    customConfig.component
-  );
-  const FieldComponent = definition.component as React.ComponentType<
-    CustomComponentRenderProps<Record<string, unknown>>
-  >;
-
-  return (
-    <FieldComponent
-      componentProps={customConfig.componentProps ?? {}}
-      config={customConfig}
-      field={field}
-      fieldState={fieldState}
-      formValues={formValues}
-      setValue={setValue}
-    />
-  );
-};
-
-const StandardFieldRenderer = ({
-  config,
-  field,
-  fieldState,
-  formValues,
-  setValue,
-}: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
-  const FieldComponent = components.fields[config.type] as BaseFieldComponent;
-
-  if (!FieldComponent) {
-    const FallbackComponent = resolveFallbackComponent(
-      components.fallback,
-      "field"
-    );
-
-    if (!FallbackComponent) {
-      console.warn(
-        `No field component registered for type: "${config.type}". ` +
-          "Make sure to provide all field types in components.fields."
-      );
-      return null;
-    }
-
-    return (
-      <MissingComponentFallback
-        config={config}
-        FallbackComponent={FallbackComponent}
-        field={field}
-        fieldState={fieldState}
-        formValues={formValues}
-        missingComponent={{ kind: "field", requested: config.type }}
-        setValue={setValue}
-      />
-    );
-  }
-
-  return (
-    <FieldComponent
-      config={config}
-      field={field}
-      fieldState={fieldState}
-      formValues={formValues}
-      setValue={setValue}
-    />
-  );
-};
-
 export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
-  const { form, visibility, fieldWrapper } = useDynamicFormContext();
-
-  // Cross-field re-validation: every `var` referenced by this field's
-  // condition is a peer whose change should re-trigger this field's
-  // validation. RHF handles the dispatch natively via `rules.deps`.
-  const peers = useMemo(() => {
-    const condition = config.validation?.condition;
-    if (!condition) {
-      return undefined;
-    }
-    const vars = collectVars(condition).filter((path) => path !== config.name);
-    return vars.length > 0 ? vars : undefined;
-  }, [config.validation?.condition, config.name]);
-
+  const {
+    components,
+    config: formConfig,
+    fieldWrapper,
+    form,
+    visibility,
+  } = useDynamicFormContext();
+  const dependents = useMemo(
+    () => getValidationDependents(formConfig, config.name),
+    [formConfig, config.name]
+  );
+  const validationDeps = dependents?.length === 1 ? dependents[0] : dependents;
   const { field, fieldState } = useController({
     name: config.name,
     control: form.control,
-    rules: peers ? { deps: peers } : undefined,
+    rules: validationDeps ? { deps: validationDeps } : undefined,
   });
 
-  const isVisible = visibility[config.name] !== false;
-  if (!isVisible) {
+  if (visibility[config.name] === false) {
     return null;
   }
 
-  const formValues = form.getValues();
-  const setValue = (name: string, value: unknown) => form.setValue(name, value);
-
-  let fieldElement: React.ReactNode;
-
-  if (isCustomFieldElement(config)) {
-    fieldElement = (
-      <CustomFieldRenderer
-        config={config}
-        field={field}
-        fieldState={fieldState}
-        formValues={formValues}
-        setValue={setValue}
-      />
-    );
-  } else {
-    fieldElement = (
-      <StandardFieldRenderer
-        config={config}
-        field={field}
-        fieldState={fieldState}
-        formValues={formValues}
-        setValue={setValue}
-      />
-    );
-  }
-
-  if (fieldWrapper) {
-    return fieldWrapper(
-      {
-        name: config.name,
-        config,
-        fieldState,
-        value: field.value,
-        formValues,
-        setValue,
-      },
-      fieldElement
-    );
-  }
-
-  return fieldElement;
+  return (
+    <FieldPresentation
+      components={components}
+      config={config}
+      field={field}
+      fieldState={fieldState}
+      fieldWrapper={fieldWrapper}
+      getValues={form.getValues}
+      setValue={form.setValue}
+    />
+  );
 };
 
 FieldRenderer.displayName = "FieldRenderer";

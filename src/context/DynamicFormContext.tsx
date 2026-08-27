@@ -57,6 +57,15 @@ export interface DynamicFormValidationApi {
   subscribe: (listener: () => void) => () => void;
 }
 
+/** Reactive validation state returned by useDynamicFormValidation. */
+export interface DynamicFormValidationValue {
+  /** Whether the form as a whole is currently valid. */
+  isValid: boolean;
+
+  /** Current form errors, keyed by field name. */
+  errors: Record<string, unknown>;
+}
+
 /**
  * Value provided by the DynamicFormContext.
  * Contains everything needed by child components to render and interact with the form.

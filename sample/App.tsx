@@ -3,13 +3,37 @@ import {
   type ComponentRegistry,
   DynamicForm,
   type DynamicFormRef,
+  type FormConfiguration,
   type FormData,
 } from "../src";
 import { sampleContainerComponents } from "./containers";
-import { sampleFieldComponents } from "./fields";
+import { BooleanField, sampleFieldComponents, TextField } from "./fields";
 import { RatingField } from "./fields/RatingField";
 import { sampleResolvers } from "./resolvers";
-import { sampleFormConfig } from "./sampleFormConfig";
+import reviewPipelineFixture from "./reviewPipelineFixture.json";
+
+const camelizeKey = (key: string) =>
+  key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+
+const camelizeDeep = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(camelizeDeep);
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => [
+      camelizeKey(key),
+      camelizeDeep(nestedValue),
+    ])
+  );
+};
+
+const reviewPipelineConfig = reviewPipelineFixture.config as FormConfiguration;
+const reviewPipelineInitialData = camelizeDeep(
+  reviewPipelineFixture.initialData
+) as FormData;
 
 /**
  * Component registry — single entry point for all visual implementations.
@@ -20,11 +44,19 @@ import { sampleFormConfig } from "./sampleFormConfig";
  *   container → components.containers[variant]
  */
 const components: ComponentRegistry = {
-  fields: sampleFieldComponents,
+  fields: {
+    ...sampleFieldComponents,
+    checkbox: BooleanField,
+  },
   custom: {
     RatingField,
+    currency: TextField,
   },
-  containers: sampleContainerComponents,
+  containers: {
+    ...sampleContainerComponents,
+    rowTotal: sampleContainerComponents.row,
+    rowBooleanGroup: sampleContainerComponents.row,
+  },
   // Named option resolvers for select fields using `options: { type: "resolver" }`.
   resolvers: sampleResolvers,
 };
@@ -85,11 +117,13 @@ export function App() {
           <DynamicForm
             className="sample-form"
             components={components}
-            config={sampleFormConfig}
+            config={reviewPipelineConfig}
+            initialData={reviewPipelineInitialData}
             onChange={handleChange}
             onError={handleError}
             onSubmit={handleSubmit}
             ref={formRef}
+            validateOnMount
           >
             <div className="form-actions">
               <button className="btn btn--primary" type="submit">

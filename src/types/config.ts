@@ -177,6 +177,8 @@ export interface DynamicFormProps {
    * Optional wrapper function for each field.
    * Receives field metadata and children, returns wrapped element.
    * Use this for adding confidence indicators, status badges, edit tracking, etc.
+   * Keep the function reference stable (for example, with useCallback) so
+   * unchanged field presentations can skip rendering.
    *
    * @example
    * ```tsx
