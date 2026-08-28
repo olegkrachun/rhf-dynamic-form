@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef, useEffect, useRef } from "react";
+import { createRef, useEffect, useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DateField } from "../sample/fields/DateField";
 import { ConfigurationError } from "./customComponents";
@@ -911,6 +911,81 @@ describe("DynamicForm | pull-based validation access", () => {
       expect(errors).toHaveProperty("contactEmail");
       expect(isValid).toBe(false);
     });
+  });
+
+  it("does not resubscribe when an inline validation callback changes identity", async () => {
+    // arrange
+    const renderSpy = vi.fn();
+    const InlineValidationConsumer = () => {
+      const [, setSnapshot] = useState<Record<string, unknown>>({});
+      renderSpy();
+      return (
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [{ type: "text", name: "name", label: "Name" }],
+          }}
+          initialData={{ name: "" }}
+          onSubmit={vi.fn()}
+          onValidationChange={(errors, isValid) =>
+            setSnapshot({ errors, isValid })
+          }
+        />
+      );
+    };
+
+    // act
+    render(<InlineValidationConsumer />);
+
+    // assert — the initial notification causes one parent update, not a loop
+    await waitFor(() => {
+      expect(renderSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("keeps an unvalidated required form invalid without validateOnMount", async () => {
+    // arrange
+    const onValidationChange = vi.fn();
+    const ref = createRef<DynamicFormRef>();
+    const UnvalidatedErrorsBroadcast = () => {
+      const { form } = useDynamicFormContext();
+      useEffect(() => {
+        form.control._subjects.state.next({ errors: {} });
+      }, [form]);
+      return null;
+    };
+
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={{
+          elements: [
+            {
+              type: "text",
+              name: "requiredField",
+              label: "Required field",
+              validation: { required: true },
+            },
+          ],
+        }}
+        initialData={{ requiredField: "" }}
+        onSubmit={vi.fn()}
+        onValidationChange={onValidationChange}
+        ref={ref}
+      >
+        <UnvalidatedErrorsBroadcast />
+      </DynamicForm>
+    );
+
+    // assert — an empty error tree before the first validation is not proof
+    // that the form is valid
+    await waitFor(() => {
+      expect(onValidationChange).toHaveBeenCalled();
+    });
+    const [errors, isValid] = onValidationChange.mock.calls.at(-1) ?? [];
+    expect(errors).toEqual({});
+    expect(isValid).toBe(false);
+    expect(ref.current?.getIsValid()).toBe(false);
   });
 });
 

@@ -52,6 +52,16 @@ export const useFormStateSnapshot = (
   }, [form]);
 
   useIsomorphicLayoutEffect(() => {
+    // RHF only computes and publishes form-wide validity when it has an
+    // isValid subscriber. This callback is intentionally inert: the state
+    // subject below consumes the same event without coupling React rendering
+    // to global formState.
+    const unsubscribeValidity = form.subscribe({
+      formState: { isValid: true },
+      callback: () => {
+        // The state subject subscription below owns snapshot updates.
+      },
+    });
     const unsubscribe = form.subscribe({
       formState: { isDirty: true, dirtyFields: true },
       callback: ({ isDirty, dirtyFields }) => {
@@ -82,17 +92,26 @@ export const useFormStateSnapshot = (
     });
     const subjectSubscription = form.control._subjects.state.subscribe({
       next: (payload) => {
-        if (!("errors" in payload)) {
+        if (!("errors" in payload) && typeof payload.isValid !== "boolean") {
           return;
         }
         // RHF state-subject payloads are patches. `payload.errors` can contain
         // only the field validated by the current interaction, so deriving
         // validity from it can incorrectly hide errors on other fields.
-        const errors = form.control._formState.errors;
+        const errors =
+          "errors" in payload
+            ? form.control._formState.errors
+            : stateRef.current.errors;
+        let isValid = stateRef.current.isValid;
+        if (typeof payload.isValid === "boolean") {
+          isValid = payload.isValid;
+        } else if (Object.keys(errors).length > 0) {
+          isValid = false;
+        }
         stateRef.current = {
           ...stateRef.current,
           errors,
-          isValid: Object.keys(errors).length === 0,
+          isValid,
         };
         for (const listener of listenersRef.current) {
           listener();
@@ -105,6 +124,7 @@ export const useFormStateSnapshot = (
       stateRef.current.dirtyFields
     );
     return () => {
+      unsubscribeValidity();
       unsubscribe();
       subjectSubscription.unsubscribe();
     };
@@ -134,9 +154,10 @@ export const useFormStateSnapshot = (
 
   const onValidationChangeRef = useRef(onValidationChange);
   onValidationChangeRef.current = onValidationChange;
+  const hasOnValidationChange = Boolean(onValidationChange);
 
   useEffect(() => {
-    if (!onValidationChange) {
+    if (!hasOnValidationChange) {
       return;
     }
     const notify = () => {
@@ -147,7 +168,7 @@ export const useFormStateSnapshot = (
     };
     notify();
     return validation.subscribe(notify);
-  }, [onValidationChange, validation]);
+  }, [hasOnValidationChange, validation]);
 
   return { stateRef, validation };
 };
