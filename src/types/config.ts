@@ -42,7 +42,11 @@ export interface FieldWrapperProps {
   /** Current field value */
   value: unknown;
 
-  /** All current form values (for reading other fields) */
+  /**
+   * Values captured when this field renders. For reactive cross-field UI,
+   * subscribe to explicit paths with `control` and `useWatch`; for event-time
+   * reads, call `getValues`.
+   */
   formValues: FormData;
 
   /** Read current form values without subscribing to the whole form */

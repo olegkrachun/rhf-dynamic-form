@@ -250,4 +250,35 @@ describe("FieldPresentation", () => {
       setValue: props.setValue,
     });
   });
+
+  it("uses getValues for a fresh event-time cross-field read", () => {
+    // arrange
+    const getValues = vi
+      .fn<() => FormData>()
+      .mockReturnValueOnce({ profile: { name: "Ada", role: "Engineer" } })
+      .mockReturnValue({ profile: { name: "Ada", role: "Architect" } });
+    const fieldWrapper: FieldWrapperFunction = (wrapperProps, children) => (
+      <section>
+        {children}
+        <button onClick={() => wrapperProps.getValues?.()} type="button">
+          Read peer
+        </button>
+      </section>
+    );
+    const props = createProps({
+      fieldWrapper,
+      getValues,
+    });
+    render(<FieldPresentation {...props} />);
+
+    // act
+    fireEvent.click(screen.getByRole("button", { name: "Read peer" }));
+
+    // assert — first call created the render snapshot; the event calls the
+    // accessor again instead of relying on that intentionally static snapshot
+    expect(getValues).toHaveBeenCalledTimes(2);
+    expect(getValues).toHaveLastReturnedWith({
+      profile: { name: "Ada", role: "Architect" },
+    });
+  });
 });

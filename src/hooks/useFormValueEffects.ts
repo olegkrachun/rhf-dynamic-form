@@ -67,7 +67,9 @@ export const useFormValueEffects = ({
         const field = findFieldByName(config.elements, dependent);
         if (field && field.resetOnParentChange !== false) {
           resettingFieldsRef.current.add(dependent);
-          form.setValue(dependent, getFieldDefault(field));
+          form.setValue(dependent, getFieldDefault(field), {
+            shouldDirty: true,
+          });
         }
       }
     };

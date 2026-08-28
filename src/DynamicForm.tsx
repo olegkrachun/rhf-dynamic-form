@@ -21,6 +21,8 @@ interface DynamicFormPropsWithRef extends DynamicFormProps {
   ref?: React.Ref<DynamicFormRef>;
 }
 
+const EMPTY_CUSTOM_COMPONENTS = {};
+
 export const DynamicForm = ({
   config,
   initialData,
@@ -41,7 +43,7 @@ export const DynamicForm = ({
   fieldWrapper,
   ref,
 }: DynamicFormPropsWithRef): React.ReactElement => {
-  const customComponents = components.custom ?? {};
+  const customComponents = components.custom ?? EMPTY_CUSTOM_COMPONENTS;
   const allowMissingCustomComponents = hasFallbackComponent(
     components.fallback,
     "custom"

@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef, useEffect, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { DateField } from "../sample/fields/DateField";
 import { ConfigurationError } from "./customComponents";
 import { DynamicForm } from "./DynamicForm";
 import { useDynamicFormContext, useDynamicFormValidation } from "./hooks";
@@ -375,9 +376,11 @@ describe("DynamicForm | form context data access", () => {
       };
       render(
         <DynamicForm
-          components={{ fields: mockFieldComponents }}
+          components={{
+            fields: { ...mockFieldComponents, date: DateField },
+          }}
           config={config}
-          initialData={{ date: "2026-08-27" }}
+          initialData={{ date: "08/27/2026" }}
           onSubmit={vi.fn()}
           ref={formRef}
         />
@@ -439,6 +442,153 @@ describe("DynamicForm | form context data access", () => {
       // assert
       await waitFor(() => {
         expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+    });
+
+    it("rejects a stale dirty broadcast when values still equal the baseline", async () => {
+      // arrange
+      const onDirtyChange = vi.fn();
+      const formRef = createRef<DynamicFormRef>();
+      const StaleDirtyBroadcast = () => {
+        const { form } = useDynamicFormContext();
+        return (
+          <button
+            onClick={() =>
+              form.control._subjects.state.next({
+                isDirty: true,
+                dirtyFields: {},
+              })
+            }
+            type="button"
+          >
+            Broadcast stale dirty
+          </button>
+        );
+      };
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [{ type: "text", name: "name", label: "Name" }],
+          }}
+          initialData={{ name: "initial" }}
+          onDirtyChange={onDirtyChange}
+          onSubmit={vi.fn()}
+          ref={formRef}
+        >
+          <StaleDirtyBroadcast />
+        </DynamicForm>
+      );
+
+      // act — mirrors RHF useFieldArray re-broadcasting a stale formState
+      fireEvent.click(
+        screen.getByRole("button", { name: "Broadcast stale dirty" })
+      );
+
+      // assert — values are authoritative, so consumers remain clean
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+      expect(formRef.current?.getIsDirty()).toBe(false);
+    });
+
+    it("ignores undefined fields that RHF registers outside the baseline", async () => {
+      // arrange
+      const onDirtyChange = vi.fn();
+      const formRef = createRef<DynamicFormRef>();
+      const DirtyBroadcast = () => {
+        const { form } = useDynamicFormContext();
+        return (
+          <button
+            onClick={() =>
+              form.control._subjects.state.next({
+                isDirty: true,
+                dirtyFields: {},
+              })
+            }
+            type="button"
+          >
+            Broadcast dirty
+          </button>
+        );
+      };
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [
+              { type: "text", name: "name", label: "Name" },
+              {
+                type: "text",
+                name: "rows.0.claimed.value",
+                label: "Claimed",
+              },
+            ],
+          }}
+          initialData={{ name: "initial", rows: [{ claimed: {} }] }}
+          onDirtyChange={onDirtyChange}
+          onSubmit={vi.fn()}
+          ref={formRef}
+        >
+          <DirtyBroadcast />
+        </DynamicForm>
+      );
+
+      // act — RHF has registered rows[0].claimed.value as explicit undefined
+      fireEvent.click(screen.getByRole("button", { name: "Broadcast dirty" }));
+
+      // assert — registration shape is not a user change
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(false, {});
+      });
+      expect(formRef.current?.getIsDirty()).toBe(false);
+    });
+
+    it("tracks programmatic dependent resets as real dirty changes", async () => {
+      // arrange
+      const onDirtyChange = vi.fn();
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [
+              { type: "text", name: "country", label: "Country" },
+              {
+                type: "text",
+                name: "city",
+                label: "City",
+                dependsOn: "country",
+              },
+            ],
+          }}
+          initialData={{ country: "US", city: "New York" }}
+          onDirtyChange={onDirtyChange}
+          onSubmit={vi.fn()}
+        />
+      );
+
+      // act — changing the parent resets City to its configured type default
+      fireEvent.change(screen.getByLabelText("Country"), {
+        target: { value: "CA" },
+      });
+
+      // assert — both the user edit and the resulting data change are dirty
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(true, {
+          country: true,
+          city: true,
+        });
+      });
+      expect(screen.getByLabelText("City")).toHaveValue("");
+
+      // act — returning only Country does not restore the cleared City
+      fireEvent.change(screen.getByLabelText("Country"), {
+        target: { value: "US" },
+      });
+
+      // assert — the form correctly remains dirty because City still differs
+      await waitFor(() => {
+        expect(onDirtyChange).toHaveBeenLastCalledWith(true, { city: true });
       });
     });
 
@@ -683,6 +833,84 @@ describe("DynamicForm | pull-based validation access", () => {
     });
     expect(ref.current?.getErrors()).not.toHaveProperty("contactEmail");
     expect(snapshots.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the complete error tree when only one invalid field is fixed", async () => {
+    // arrange
+    const onValidationChange = vi.fn();
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={{
+          elements: [
+            {
+              type: "text",
+              name: "firstName",
+              label: "First name",
+              validation: { required: true },
+            },
+            {
+              type: "text",
+              name: "lastName",
+              label: "Last name",
+              validation: { required: true },
+            },
+          ],
+        }}
+        initialData={{ firstName: "", lastName: "" }}
+        onSubmit={vi.fn()}
+        onValidationChange={onValidationChange}
+        validateOnMount
+      />
+    );
+    await waitFor(() => {
+      const [errors, isValid] = onValidationChange.mock.calls.at(-1) ?? [];
+      expect(errors).toHaveProperty("firstName");
+      expect(errors).toHaveProperty("lastName");
+      expect(isValid).toBe(false);
+    });
+
+    // act — RHF emits a patch for the field validated by this interaction
+    fireEvent.change(screen.getByLabelText("First name"), {
+      target: { value: "Ada" },
+    });
+
+    // assert — the untouched required field remains in the authoritative tree
+    await waitFor(() => {
+      const [errors, isValid] = onValidationChange.mock.calls.at(-1) ?? [];
+      expect(errors).not.toHaveProperty("firstName");
+      expect(errors).toHaveProperty("lastName");
+      expect(isValid).toBe(false);
+    });
+  });
+
+  it("subscribes an onValidationChange callback supplied after mount", async () => {
+    // arrange
+    const onValidationChange = vi.fn();
+    const props = {
+      components: { fields: mockFieldComponents },
+      config: emailOnlyConfig,
+      initialData: { contactEmail: "not-an-email" },
+      onSubmit: vi.fn(),
+      validateOnMount: true,
+    };
+    const { rerender } = render(<DynamicForm {...props} />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    });
+
+    // act
+    rerender(
+      <DynamicForm {...props} onValidationChange={onValidationChange} />
+    );
+
+    // assert — the newly supplied callback receives the current snapshot
+    await waitFor(() => {
+      expect(onValidationChange).toHaveBeenCalled();
+      const [errors, isValid] = onValidationChange.mock.calls.at(-1) ?? [];
+      expect(errors).toHaveProperty("contactEmail");
+      expect(isValid).toBe(false);
+    });
   });
 });
 

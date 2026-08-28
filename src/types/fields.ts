@@ -63,7 +63,11 @@ export interface BaseFieldProps<
   /** Field configuration from form config */
   config: TConfig;
 
-  /** All current form values (for reading other fields, dependent logic) */
+  /**
+   * Values captured when this field renders. For reactive cross-field UI use
+   * an explicit `useWatch` subscription; event handlers should call a wrapper
+   * or context `getValues` accessor.
+   */
   formValues: FormData;
 
   /** Set any field value (for dependent field logic, cascading updates) */

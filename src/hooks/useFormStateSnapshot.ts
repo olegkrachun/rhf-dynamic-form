@@ -7,6 +7,7 @@ import type {
   OnValidationChangeHandler,
 } from "../types";
 import { getNestedValue } from "../utils";
+import { formValuesEqual } from "../utils/formValuesEqual";
 
 export interface FormStateSnapshot {
   errors: FieldErrors<FormData>;
@@ -54,12 +55,26 @@ export const useFormStateSnapshot = (
     const unsubscribe = form.subscribe({
       formState: { isDirty: true, dirtyFields: true },
       callback: ({ isDirty, dirtyFields }) => {
+        const nextDirtyFields =
+          (dirtyFields as Record<string, unknown> | undefined) ??
+          stateRef.current.dirtyFields;
+        const reportedIsDirty = isDirty ?? stateRef.current.isDirty;
+        // RHF can re-broadcast a stale global isDirty=true from useFieldArray,
+        // and its native deep comparison treats fields registered as explicit
+        // `undefined` as different from absent default-value keys. Re-check
+        // only this rare contradictory state so ordinary keystrokes do not pay
+        // for a full form comparison.
+        const nextIsDirty =
+          reportedIsDirty && Object.keys(nextDirtyFields).length === 0
+            ? !formValuesEqual(
+                form.control._formValues,
+                form.control._defaultValues
+              )
+            : reportedIsDirty;
         const nextState = {
           ...stateRef.current,
-          isDirty: isDirty ?? stateRef.current.isDirty,
-          dirtyFields:
-            (dirtyFields as Record<string, unknown> | undefined) ??
-            stateRef.current.dirtyFields,
+          isDirty: nextIsDirty,
+          dirtyFields: nextDirtyFields,
         };
         stateRef.current = nextState;
         onDirtyChangeRef.current?.(nextState.isDirty, nextState.dirtyFields);
@@ -70,7 +85,10 @@ export const useFormStateSnapshot = (
         if (!("errors" in payload)) {
           return;
         }
-        const errors = payload.errors ?? form.control._formState.errors;
+        // RHF state-subject payloads are patches. `payload.errors` can contain
+        // only the field validated by the current interaction, so deriving
+        // validity from it can incorrectly hide errors on other fields.
+        const errors = form.control._formState.errors;
         stateRef.current = {
           ...stateRef.current,
           errors,
@@ -118,7 +136,7 @@ export const useFormStateSnapshot = (
   onValidationChangeRef.current = onValidationChange;
 
   useEffect(() => {
-    if (!onValidationChangeRef.current) {
+    if (!onValidationChange) {
       return;
     }
     const notify = () => {
@@ -129,7 +147,7 @@ export const useFormStateSnapshot = (
     };
     notify();
     return validation.subscribe(notify);
-  }, [validation]);
+  }, [onValidationChange, validation]);
 
   return { stateRef, validation };
 };

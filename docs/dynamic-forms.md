@@ -696,6 +696,11 @@ exact local subscriptions, while JSON Logic variable references become RHF
 validation dependencies. Conditional required rules therefore re-run when a
 peer changes without forcing unrelated fields to render.
 
+`formValues` is a render-time snapshot, not a whole-form subscription. A field
+or wrapper that displays another field reactively should use its supplied
+`control` with an exact `useWatch` subscription. Code running from a click,
+submit, or other event should call `getValues()` to read the latest values.
+
 ### 5.4 Form Initialization with Zod
 
 ```typescript

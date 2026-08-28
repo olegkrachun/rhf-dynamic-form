@@ -874,6 +874,13 @@ React, React DOM, and React Hook Form are peer dependencies. A consuming app
 must supply one compatible instance of each. Do not bundle a second RHF copy;
 controllers and providers must share the consumer's form context.
 
+`formValues` passed to a field or wrapper is the snapshot from that field's
+latest render; it intentionally does not subscribe every field to the complete
+form. Reactive cross-field presentation must subscribe only to its declared
+paths with `useWatch({ control, name, exact: true })`. Use `getValues()` for
+fresh event-time reads. Conditional validation dependencies declared in the
+configuration remain automatic.
+
 ### Exports
 
 ```typescript
