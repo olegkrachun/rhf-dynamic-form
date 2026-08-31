@@ -127,6 +127,9 @@ export const useFormStateSnapshot = (
       },
     });
     syncState();
+    if (!validateOnMount) {
+      form.control._setValid();
+    }
     onDirtyChangeRef.current?.(
       stateRef.current.isDirty,
       stateRef.current.dirtyFields

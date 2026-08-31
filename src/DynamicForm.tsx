@@ -10,7 +10,12 @@ import { useFormValueEffects } from "./hooks/useFormValueEffects";
 import { parseConfiguration } from "./parser";
 import { createVisibilityAwareResolver } from "./resolver";
 import { generateZodSchema } from "./schema";
-import type { DynamicFormProps, DynamicFormRef, FormData } from "./types";
+import type {
+  ComponentRegistry,
+  DynamicFormProps,
+  DynamicFormRef,
+  FormData,
+} from "./types";
 import {
   calculateVisibility,
   hasFallbackComponent,
@@ -22,6 +27,37 @@ interface DynamicFormPropsWithRef extends DynamicFormProps {
 }
 
 const EMPTY_CUSTOM_COMPONENTS = {};
+
+const registriesEqual = (
+  previous: object | undefined,
+  next: object | undefined
+) => {
+  if (previous === next) {
+    return true;
+  }
+  if (!(previous && next)) {
+    return false;
+  }
+  const previousRecord = previous as Record<string, unknown>;
+  const nextRecord = next as Record<string, unknown>;
+  const keys = Object.keys(previousRecord);
+  return (
+    keys.length === Object.keys(nextRecord).length &&
+    keys.every((key) => previousRecord[key] === nextRecord[key])
+  );
+};
+
+const useStableComponents = (components: ComponentRegistry) => {
+  const stableRef = useRef(components);
+  const previous = stableRef.current;
+  const unchanged = (
+    ["fields", "custom", "containers", "fallback", "resolvers"] as const
+  ).every((key) => registriesEqual(previous[key], components[key]));
+  if (!unchanged) {
+    stableRef.current = components;
+  }
+  return stableRef.current;
+};
 
 export const DynamicForm = ({
   config,
@@ -43,9 +79,10 @@ export const DynamicForm = ({
   fieldWrapper,
   ref,
 }: DynamicFormPropsWithRef): React.ReactElement => {
-  const customComponents = components.custom ?? EMPTY_CUSTOM_COMPONENTS;
+  const stableComponents = useStableComponents(components);
+  const customComponents = stableComponents.custom ?? EMPTY_CUSTOM_COMPONENTS;
   const allowMissingCustomComponents = hasFallbackComponent(
-    components.fallback,
+    stableComponents.fallback,
     "custom"
   );
 
@@ -106,12 +143,12 @@ export const DynamicForm = ({
     () => ({
       form,
       config: parsedConfig,
-      components,
+      components: stableComponents,
       visibility,
       fieldWrapper,
       validation,
     }),
-    [form, parsedConfig, components, visibility, fieldWrapper, validation]
+    [form, parsedConfig, stableComponents, visibility, fieldWrapper, validation]
   );
 
   const handleSubmit = form.handleSubmit(onSubmit, (errors) =>

@@ -28,6 +28,20 @@ describe("visibility dependency index", () => {
     expect(dependencies).toEqual(new Set(["matter.status", "showReason"]));
   });
 
+  it("collects fields referenced by the missing operator", () => {
+    const elements: FormElement[] = [
+      {
+        type: "text",
+        name: "complete",
+        visible: { "!": { missing: ["first", "profile.last"] } },
+      },
+    ];
+
+    const dependencies = collectVisibilityDependencies(elements);
+
+    expect(dependencies).toEqual(new Set(["first", "profile.last"]));
+  });
+
   it("matches exact, parent, child, and whole-form dependency paths", () => {
     expect(
       canAffectVisibility("matter.status", new Set(["matter.status"]))

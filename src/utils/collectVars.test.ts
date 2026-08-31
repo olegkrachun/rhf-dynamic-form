@@ -53,6 +53,19 @@ describe("Utils | collectVars", () => {
     expect(vars).toEqual(["a.b", "c"]);
   });
 
+  it("collects literal paths from missing operators", () => {
+    // act
+    const vars = collectVars({
+      and: [
+        { missing: ["first", "profile.last"] },
+        { missing_some: [1, ["email", "phone"]] },
+      ],
+    });
+
+    // assert
+    expect(vars).toEqual(["first", "profile.last", "email", "phone"]);
+  });
+
   it("walks deeply nested operators", () => {
     // act
     const vars = collectVars({

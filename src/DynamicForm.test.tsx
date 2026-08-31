@@ -195,6 +195,62 @@ describe("DynamicForm | validateOnMount", () => {
       expect(lastCall?.[1]).toBe(false);
     });
   });
+
+  it("reports valid pre-filled data without surfacing mount errors", async () => {
+    // arrange
+    const formRef = createRef<DynamicFormRef>();
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "test@example.com" }}
+        onSubmit={vi.fn()}
+        ref={formRef}
+      />
+    );
+
+    // assert
+    await waitFor(() => {
+      expect(formRef.current?.getIsValid()).toBe(true);
+    });
+    expect(formRef.current?.getErrors()).toEqual({});
+  });
+});
+
+describe("DynamicForm | missing-based visibility", () => {
+  it("reveals a field after its missing dependency is filled", async () => {
+    // arrange
+    const config: FormConfiguration = {
+      elements: [
+        { type: "text", name: "source", label: "Source" },
+        {
+          type: "text",
+          name: "dependent",
+          label: "Dependent",
+          visible: { "!": { missing: ["source"] } },
+        },
+      ],
+    };
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={config}
+        initialData={{ source: "", dependent: "" }}
+        onSubmit={vi.fn()}
+      />
+    );
+    expect(screen.queryByLabelText("Dependent")).not.toBeInTheDocument();
+
+    // act
+    fireEvent.change(screen.getByLabelText("Source"), {
+      target: { value: "available" },
+    });
+
+    // assert
+    await waitFor(() => {
+      expect(screen.getByLabelText("Dependent")).toBeInTheDocument();
+    });
+  });
 });
 
 describe("DynamicForm | missing component fallback", () => {
@@ -589,6 +645,48 @@ describe("DynamicForm | form context data access", () => {
       // assert — the form correctly remains dirty because City still differs
       await waitFor(() => {
         expect(onDirtyChange).toHaveBeenLastCalledWith(true, { city: true });
+      });
+    });
+
+    it("does not reset a dependent on the first same-value source event", async () => {
+      // arrange
+      const SetSameCountry = () => {
+        const { form } = useDynamicFormContext();
+        return (
+          <button onClick={() => form.setValue("country", "US")} type="button">
+            Set current country
+          </button>
+        );
+      };
+      render(
+        <DynamicForm
+          components={{ fields: mockFieldComponents }}
+          config={{
+            elements: [
+              { type: "text", name: "country", label: "Country" },
+              {
+                type: "text",
+                name: "city",
+                label: "City",
+                dependsOn: "country",
+              },
+            ],
+          }}
+          initialData={{ country: "US", city: "New York" }}
+          onSubmit={vi.fn()}
+        >
+          <SetSameCountry />
+        </DynamicForm>
+      );
+
+      // act
+      fireEvent.click(
+        screen.getByRole("button", { name: "Set current country" })
+      );
+
+      // assert
+      await waitFor(() => {
+        expect(screen.getByLabelText("City")).toHaveValue("New York");
       });
     });
 

@@ -40,7 +40,7 @@ export const useFormValueEffects = ({
     () => collectVisibilityDependencies(config.elements),
     [config]
   );
-  const previousValuesRef = useRef<Record<string, unknown>>({});
+  const previousValuesRef = useRef<Record<string, unknown>>(form.getValues());
   const resettingFieldsRef = useRef(new Set<string>());
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -83,6 +83,7 @@ export const useFormValueEffects = ({
         );
       }
       if (!name) {
+        previousValuesRef.current = formValues;
         return;
       }
       if (resettingFieldsRef.current.delete(name)) {

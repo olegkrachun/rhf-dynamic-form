@@ -3,6 +3,18 @@ import type { JsonLogicRule } from "../types";
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+const getOperatorPaths = (node: Record<string, unknown>): unknown[] => {
+  if ("missing" in node) {
+    return Array.isArray(node.missing) ? node.missing : [node.missing];
+  }
+  if (Array.isArray(node.missing_some)) {
+    const paths = node.missing_some[1];
+    return Array.isArray(paths) ? paths : [paths];
+  }
+  const variable = Array.isArray(node.var) ? node.var[0] : node.var;
+  return [variable];
+};
+
 /**
  * Walks a JSON Logic rule and returns every distinct `var` reference.
  *
@@ -39,12 +51,9 @@ export const collectVars = (rule: JsonLogicRule): string[] => {
       return;
     }
 
-    if ("var" in node) {
-      const ref = node.var;
-      if (typeof ref === "string") {
-        result.add(ref);
-      } else if (Array.isArray(ref) && typeof ref[0] === "string") {
-        result.add(ref[0]);
+    for (const path of getOperatorPaths(node)) {
+      if (typeof path === "string") {
+        result.add(path);
       }
     }
 

@@ -136,4 +136,37 @@ describe("Review pipeline rendering", () => {
     // assert — parsedConfig remains stable and memoized renderers bail out
     expect(renderSpy).toHaveBeenCalledTimes(2);
   });
+
+  it("does not rerender fields when an equivalent inline registry is recreated", () => {
+    // arrange
+    const renderSpy = vi.fn();
+    const TrackingField: BaseFieldComponent = ({ config, field }) => {
+      renderSpy(config.name);
+      return <input aria-label={config.label} {...field} />;
+    };
+    const config: FormConfiguration = {
+      elements: [
+        { type: "text", name: "first", label: "First" },
+        { type: "text", name: "second", label: "Second" },
+      ],
+    };
+    const onSubmit = vi.fn();
+    const renderForm = (id: string) => (
+      <DynamicForm
+        components={{ fields: { text: TrackingField } }}
+        config={config}
+        id={id}
+        initialData={{ first: "one", second: "two" }}
+        onSubmit={onSubmit}
+      />
+    );
+    const { rerender } = render(renderForm("before"));
+    expect(renderSpy).toHaveBeenCalledTimes(2);
+
+    // act
+    rerender(renderForm("after"));
+
+    // assert
+    expect(renderSpy).toHaveBeenCalledTimes(2);
+  });
 });
