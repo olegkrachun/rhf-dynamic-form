@@ -52,16 +52,19 @@ export const useFormStateSnapshot = (
   }, [form]);
 
   useIsomorphicLayoutEffect(() => {
-    // RHF only computes and publishes form-wide validity when it has an
-    // isValid subscriber. This callback is intentionally inert: the state
-    // subject below consumes the same event without coupling React rendering
-    // to global formState.
-    const unsubscribeValidity = form.subscribe({
-      formState: { isValid: true },
-      callback: () => {
-        // The state subject subscription below owns snapshot updates.
-      },
-    });
+    // Forms validated on mount already have an authoritative error tree. Do
+    // not observe RHF's global isValid there: its unnamed broadcasts wake all
+    // controllers and undo field-level rendering isolation. Forms that skip
+    // mount validation still need RHF's initial validity signal because an
+    // empty error tree does not prove that required fields are valid yet.
+    const unsubscribeValidity = validateOnMount
+      ? undefined
+      : form.subscribe({
+          formState: { isValid: true },
+          callback: () => {
+            // The state subject subscription below owns snapshot updates.
+          },
+        });
     const unsubscribe = form.subscribe({
       formState: { isDirty: true, dirtyFields: true },
       callback: ({ isDirty, dirtyFields }) => {
@@ -105,6 +108,11 @@ export const useFormStateSnapshot = (
         let isValid = stateRef.current.isValid;
         if (typeof payload.isValid === "boolean") {
           isValid = payload.isValid;
+        } else if (validateOnMount) {
+          // The initial trigger has seeded the complete resolver error tree,
+          // so subsequent error broadcasts can derive validity without asking
+          // RHF to publish global isValid updates.
+          isValid = Object.keys(errors).length === 0;
         } else if (Object.keys(errors).length > 0) {
           isValid = false;
         }
@@ -124,11 +132,11 @@ export const useFormStateSnapshot = (
       stateRef.current.dirtyFields
     );
     return () => {
-      unsubscribeValidity();
+      unsubscribeValidity?.();
       unsubscribe();
       subjectSubscription.unsubscribe();
     };
-  }, [form, syncState]);
+  }, [form, syncState, validateOnMount]);
 
   const validation = useRef<DynamicFormValidationApi>({
     getErrors: () => stateRef.current.errors as Record<string, unknown>,
