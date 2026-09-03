@@ -1,5 +1,19 @@
-import { useContext } from "react";
+import { useContext, useMemo } from "react";
+import { useFormState } from "react-hook-form";
 import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
+
+const useRequiredDynamicFormContext = (): DynamicFormContextValue => {
+  const context = useContext(DynamicFormContext);
+
+  if (!context) {
+    throw new Error(
+      "useDynamicFormContext must be used within a DynamicForm component. " +
+        "Make sure your component is a child of <DynamicForm>."
+    );
+  }
+
+  return context;
+};
 
 /**
  * Hook to access the DynamicForm context.
@@ -21,17 +35,21 @@ import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
  * ```
  */
 export const useDynamicFormContext = (): DynamicFormContextValue => {
-  const context = useContext(DynamicFormContext);
+  const context = useRequiredDynamicFormContext();
+  const { errors, isValid } = useFormState({ control: context.form.control });
 
-  if (!context) {
-    throw new Error(
-      "useDynamicFormContext must be used within a DynamicForm component. " +
-        "Make sure your component is a child of <DynamicForm>."
-    );
-  }
-
-  return context;
+  return useMemo(
+    () => ({
+      ...context,
+      errors: errors as Record<string, unknown>,
+      isValid,
+    }),
+    [context, errors, isValid]
+  );
 };
+
+/** Internal stable access that deliberately does not subscribe to form state. */
+export const useDynamicFormInternalContext = useRequiredDynamicFormContext;
 
 /**
  * Hook to safely access the DynamicForm context.

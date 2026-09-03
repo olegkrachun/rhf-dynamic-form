@@ -6,11 +6,10 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 /**
  * Walks a JSON Logic rule and returns every distinct `var` reference.
  *
- * Used by `FieldRenderer` to derive cross-field validation peers from
- * `validation.condition` — every path the rule reads is a field whose
- * change should re-run this field's validation. The lib forwards the
- * resulting list as `useController({ rules: { deps } })`, so RHF handles
- * the actual re-trigger natively.
+ * Used to build a reverse cross-field validation index from
+ * `validation.condition`: every path the rule reads is a field whose change
+ * should re-run this field's validation. The engine resolves dependents by
+ * name so unrelated controllers are not notified.
  *
  * Supports both shapes documented by the json-logic spec:
  *   `{ var: 'a.b.c' }`

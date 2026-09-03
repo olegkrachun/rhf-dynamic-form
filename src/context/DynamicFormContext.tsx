@@ -42,14 +42,14 @@ export interface DynamicFormContextValue {
   fieldWrapper?: FieldWrapperFunction;
 
   /**
-   * Current form validity state.
-   * Reactive - updates when validation state changes.
+   * Current form validity.
+   * Reactive when accessed through `useDynamicFormContext()`.
    */
   isValid: boolean;
 
   /**
    * Current form errors.
-   * Reactive - updates when validation state changes.
+   * Reactive when accessed through `useDynamicFormContext()`.
    *
    * Intentionally typed as `Record<string, unknown>` (not react-hook-form's
    * `FieldErrors`) to decouple the context interface from the form library.

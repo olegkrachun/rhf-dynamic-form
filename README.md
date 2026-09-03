@@ -565,7 +565,7 @@ const components: ComponentRegistry = {
 }
 ```
 
-**Automatic cross-field revalidation** — When `validation.condition` references other fields via `{ var: "otherField" }`, the engine collects those references as peers and re-runs this field's validation whenever any peer value changes. Wired internally through React Hook Form's `useController({ rules: { deps } })`, so no manual `form.trigger()` calls or `watch` subscriptions are needed.
+**Automatic cross-field revalidation** — When `validation.condition` references other fields via `{ var: "otherField" }`, the engine builds a reverse dependency index and re-runs only the affected field validations whenever that value changes. Errors are applied by field name rather than through React Hook Form's `rules.deps`, whose array-trigger notification can wake every controller in a large form. No manual `form.trigger()` call is needed.
 
 ```typescript
 // Changing `hasPhone` automatically revalidates `phone` —
@@ -710,7 +710,7 @@ interface DynamicFormRef {
   /** Run validation for one field or for the whole form. */
   trigger: (name?: string) => Promise<boolean>;
 
-  /** Current overall validity from `formState.isValid`. */
+  /** Current overall validity, derived from the current errors snapshot. */
   getIsValid: () => boolean;
 
   /** Current validation errors tree from `formState.errors`. */
@@ -723,6 +723,9 @@ interface DynamicFormRef {
    * changes?" prompts without hand-rolled deep-equality on form snapshots.
    */
   getIsDirty: () => boolean;
+
+  /** Current dirty-fields tree. */
+  getDirtyFields: () => Record<string, unknown>;
 }
 ```
 
@@ -815,9 +818,25 @@ const components: ComponentRegistry = {
 ### Hooks
 
 ```typescript
-const { config, form } = useDynamicFormContext();
+const { config, form, errors, isValid } = useDynamicFormContext();
 const context = useDynamicFormContextSafe(); // returns null outside form
+const { dirtyFields, isDirty } = useFormState({ control: form.control });
 ```
+
+`useDynamicFormContext()` keeps its existing reactive `errors` and `isValid`
+contract; only the component calling the public hook subscribes to those
+values. Engine renderers use stable internal context access, so a validation
+change does not re-render every field. Use React Hook Form's
+`useFormState({ control: form.control })` when a consumer also needs reactive
+`isDirty` or `dirtyFields`.
+
+For large forms, subscribe to values with `useWatch({ name, exact: true })`.
+Avoid calling `form.watch()` without a field name during render: that subscribes
+the component to every value. Cross-field `validation.condition` dependencies
+are already handled by the engine and should not be duplicated with
+`rules.deps`. The `fieldState.isValidating` property remains available for an
+explicit read, but is intentionally non-enumerable so React 19 development
+instrumentation cannot accidentally subscribe every field to it.
 
 ### Exports
 

@@ -643,6 +643,12 @@ interface DynamicFormContextValue {
 const DynamicFormContext = createContext<DynamicFormContextValue | null>(null);
 ```
 
+The provider value stays stable across validation-state changes so one error
+does not re-render every engine field. The public `useDynamicFormContext()`
+hook preserves reactive `errors` and `isValid` for existing consumers while
+scoping that subscription to the component that calls it. Use
+`useFormState({ control: form.control })` for additional reactive form state.
+
 ### 5.4 Form Initialization with Zod
 
 ```typescript
@@ -1603,8 +1609,8 @@ Once `validation.condition` references another field via `{ "var": "..." }`, the
 How it works internally:
 
 1. `src/utils/collectVars.ts` walks the JSON Logic rule on `validation.condition` and returns every distinct `var` path it references (it handles both `{ var: "a" }` and `{ var: ["a", default] }` shapes).
-2. `FieldRenderer` filters out the field's own name and forwards the remaining paths as `useController({ rules: { deps } })`.
-3. React Hook Form re-runs validation for this field whenever any value at a `deps` path changes.
+2. The engine builds a reverse index from each referenced path to the fields whose conditions read it. Self-references are ignored and `$item.*` references stay scoped to their array row.
+3. On change, the resolver runs once and the engine applies results only to the concrete dependent field names. This avoids the unnamed array notification produced by `rules.deps`, which can re-render every controller.
 
 This means cross-field rules are wired purely declaratively — adding or removing a `var` reference in `validation.condition` automatically updates the peer set on next render. There is no public API to call: `collectVars` is an internal helper and is not exported from the package entry.
 
@@ -1942,7 +1948,7 @@ interface DynamicFormProps {
   
   /** Called when validation state changes */
   onValidationChange?: (errors: FieldErrors, isValid: boolean) => void;
-  
+
   /** Called when form is reset */
   onReset?: () => void;
   
@@ -2853,10 +2859,15 @@ export interface DynamicFormProps {
 // ============================================
 
 export interface DynamicFormContextValue {
+  form: UseFormReturn<FormData>;
   config: FormConfiguration;
   visibility: Record<string, boolean>;
   components: ComponentRegistry;
+  fieldWrapper?: FieldWrapperFunction;
+  isValid: boolean;
+  errors: Record<string, unknown>;
 }
+
 
 // ============================================
 // Resolver Types
