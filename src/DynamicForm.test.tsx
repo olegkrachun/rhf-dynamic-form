@@ -1,9 +1,11 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
+import { useFormState } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { ConfigurationError } from "./customComponents";
 import { DynamicForm } from "./DynamicForm";
+import { useDynamicFormContext } from "./hooks";
 import { mockFieldComponents } from "./test-utils/mockFieldComponents";
 import type {
   DynamicFormRef,
@@ -35,7 +37,7 @@ const checkboxFields: FieldComponentRegistry = {
   ),
 };
 
-describe("DynamicForm | cross-field validation via rules.deps", () => {
+describe("DynamicForm | targeted cross-field validation", () => {
   const buildPairConfig = (): FormConfiguration => ({
     elements: [
       {
@@ -85,10 +87,10 @@ describe("DynamicForm | cross-field validation via rules.deps", () => {
       expect(lastCall?.[1]).toBe(false);
     });
 
-    // act 2 — uncheck No; the engine derives `deps: ['yes']` from the
-    // condition's `var` refs and forwards them to RHF, so changing `no`
-    // automatically re-validates `yes`. Without that wiring `yes` would
-    // keep its stale error and the form would stay invalid.
+    // act 2 — uncheck No; the engine derives the reverse dependency from the
+    // condition's `var` refs and re-validates `yes` by name. Without that
+    // targeted pass `yes` would keep its stale error and the form would stay
+    // invalid.
     fireEvent.click(noCheckbox);
 
     // assert 2 — peer field's stale error is cleared, form is valid again
@@ -100,7 +102,7 @@ describe("DynamicForm | cross-field validation via rules.deps", () => {
     expect(noCheckbox.checked).toBe(false);
   });
 
-  it("does not wire deps when a field has no validation.condition", async () => {
+  it("does not schedule dependents when a field has no validation.condition", async () => {
     // arrange — plain form, no cross-field rules; just sanity-check that
     // the engine doesn't crash and validation still runs per-field.
     const config: FormConfiguration = {
@@ -127,7 +129,7 @@ describe("DynamicForm | cross-field validation via rules.deps", () => {
     });
   });
 
-  it("ignores self-references in the condition (does not wire a field as its own dep)", async () => {
+  it("ignores self-references in the condition", async () => {
     // arrange — single field whose condition refers only to itself
     const config: FormConfiguration = {
       elements: [
@@ -151,8 +153,8 @@ describe("DynamicForm | cross-field validation via rules.deps", () => {
     );
     const checkbox = screen.getByLabelText("I accept") as HTMLInputElement;
 
-    // act — toggle the checkbox; with self filtered out of `deps`, RHF
-    // should not crash with a circular self-reference
+    // act — toggle the checkbox; a self-reference must not create a circular
+    // dependent validation pass
     fireEvent.click(checkbox);
 
     // assert
@@ -260,18 +262,100 @@ describe("DynamicForm | missing component fallback", () => {
 });
 
 describe("DynamicForm | form context data access", () => {
-  describe("getIsDirty", () => {
-    const emailConfig: FormConfiguration = {
-      elements: [
-        {
-          type: "email",
-          name: "contactEmail",
-          label: "Email",
-        },
-      ],
+  const emailConfig: FormConfiguration = {
+    elements: [
+      {
+        type: "email",
+        name: "contactEmail",
+        label: "Email",
+        validation: { required: true },
+      },
+    ],
+  };
+
+  it("keeps the public context form state reactive", async () => {
+    // arrange
+    const ContextProbe = () => {
+      const { errors, isValid } = useDynamicFormContext();
+      return (
+        <output data-testid="context-form-state">
+          {isValid ? "valid" : "invalid"}:{Object.keys(errors).length}
+        </output>
+      );
     };
 
-    it("returns true if the form is dirty", async () => {
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "" }}
+        mode="onChange"
+        onSubmit={vi.fn()}
+        validateOnMount
+      >
+        <ContextProbe />
+      </DynamicForm>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("context-form-state")).toHaveTextContent(
+        "invalid:1"
+      );
+    });
+
+    // act
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+
+    // assert — the existing context API updates without an extra subscription.
+    await waitFor(() => {
+      expect(screen.getByTestId("context-form-state")).toHaveTextContent(
+        "valid:0"
+      );
+    });
+  });
+
+  it("keeps useFormState reactive for context consumers", async () => {
+    // arrange
+    const FormStateProbe = () => {
+      const { form } = useDynamicFormContext();
+      const { errors, isDirty } = useFormState({ control: form.control });
+      return (
+        <output data-testid="form-state">
+          {isDirty ? "dirty" : "pristine"}:{Object.keys(errors).length}
+        </output>
+      );
+    };
+
+    render(
+      <DynamicForm
+        components={{ fields: mockFieldComponents }}
+        config={emailConfig}
+        initialData={{ contactEmail: "" }}
+        mode="onChange"
+        onSubmit={vi.fn()}
+        validateOnMount
+      >
+        <FormStateProbe />
+      </DynamicForm>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("form-state")).toHaveTextContent("pristine:1");
+    });
+
+    // act
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "test@example.com" },
+    });
+
+    // assert — consumers can keep using the existing RHF form-state API.
+    await waitFor(() => {
+      expect(screen.getByTestId("form-state")).toHaveTextContent("dirty:0");
+    });
+  });
+
+  describe("getIsDirty", () => {
+    it("keeps all ref snapshots in sync", async () => {
       // arrange
       const onValidationChange = vi.fn();
       const formRef = createRef<DynamicFormRef>();
@@ -279,7 +363,8 @@ describe("DynamicForm | form context data access", () => {
         <DynamicForm
           components={{ fields: mockFieldComponents }}
           config={emailConfig}
-          initialData={{ contactEmail: "not-an-email" }}
+          initialData={{ contactEmail: "start@example.com" }}
+          mode="onChange"
           onSubmit={vi.fn()}
           onValidationChange={onValidationChange}
           ref={formRef}
@@ -289,16 +374,36 @@ describe("DynamicForm | form context data access", () => {
 
       await waitFor(() => {
         expect(formRef.current?.getIsDirty()).toBe(false);
+        expect(formRef.current?.getIsValid()).toBe(true);
+        expect(formRef.current?.getErrors()).toEqual({});
       });
 
       // act
       fireEvent.change(screen.getByLabelText("Email"), {
-        target: { value: "test@example.com" },
+        target: { value: "" },
       });
 
       // assert
       await waitFor(() => {
         expect(formRef.current?.getIsDirty()).toBe(true);
+        expect(formRef.current?.getIsValid()).toBe(false);
+        expect(formRef.current?.getErrors()).toHaveProperty("contactEmail");
+        expect(formRef.current?.getDirtyFields()).toEqual({
+          contactEmail: true,
+        });
+      });
+
+      // act — reverting to the default must restore pristine state.
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "start@example.com" },
+      });
+
+      // assert
+      await waitFor(() => {
+        expect(formRef.current?.getIsDirty()).toBe(false);
+        expect(formRef.current?.getIsValid()).toBe(true);
+        expect(formRef.current?.getErrors()).toEqual({});
+        expect(formRef.current?.getDirtyFields()).toEqual({});
       });
     });
   });
