@@ -7,10 +7,6 @@ import { DynamicFormContext, type DynamicFormContextValue } from "@/context";
  * Must be used within a DynamicForm component.
  * Throws an error if used outside of the form context.
  *
- * The returned value has a stable identity for the lifetime of the form, so
- * consuming it does not re-render on form state changes. Validation state is
- * reached through `validation` — see {@link DynamicFormValidationApi}.
- *
  * @returns The DynamicFormContext value
  * @throws Error if used outside of DynamicForm
  *
@@ -56,5 +52,6 @@ export const useDynamicFormContext = (): DynamicFormContextValue => {
  * }
  * ```
  */
-export const useDynamicFormContextSafe = (): DynamicFormContextValue | null =>
-  useContext(DynamicFormContext);
+export const useDynamicFormContextSafe = (): DynamicFormContextValue | null => {
+  return useContext(DynamicFormContext);
+};

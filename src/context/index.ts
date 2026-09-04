@@ -1,5 +1,2 @@
-export type {
-  DynamicFormContextValue,
-  DynamicFormValidationApi,
-} from "./DynamicFormContext";
+export type { DynamicFormContextValue } from "./DynamicFormContext";
 export { DynamicFormContext } from "./DynamicFormContext";
