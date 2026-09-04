@@ -4,7 +4,7 @@ import {
   type CustomComponentRenderProps,
   normalizeComponentDefinition,
 } from "../customComponents";
-import { useDynamicFormContext } from "../hooks";
+import { useDynamicFormInternalContext } from "../hooks";
 import type {
   BaseFieldComponent,
   CustomFieldElement,
@@ -14,7 +14,7 @@ import type {
   MissingComponentInfo,
 } from "../types";
 import { isCustomFieldElement } from "../types";
-import { collectVars, resolveFallbackComponent } from "../utils";
+import { resolveFallbackComponent } from "../utils";
 
 export interface FieldRendererProps {
   config: FieldElement;
@@ -27,6 +27,30 @@ interface InternalFieldRendererProps {
   formValues: FormData;
   setValue: (name: string, value: unknown) => void;
 }
+
+type FieldState = ReturnType<typeof useController>["fieldState"];
+
+/**
+ * React 19's development performance instrumentation recursively enumerates
+ * changed props. React Hook Form exposes `fieldState` as enumerable lazy
+ * getters, so that inspection reads `isValidating` for every field and
+ * accidentally subscribes every controller to form-wide validation updates.
+ *
+ * Keep the complete public contract, but make the expensive validation-status
+ * getter opt-in: explicit `fieldState.isValidating` reads still work, while
+ * generic prop enumeration no longer creates the subscription.
+ */
+const createFieldStateFacade = (fieldState: FieldState): FieldState =>
+  Object.defineProperties({} as FieldState, {
+    invalid: { enumerable: true, get: () => fieldState.invalid },
+    isDirty: { enumerable: true, get: () => fieldState.isDirty },
+    isTouched: { enumerable: true, get: () => fieldState.isTouched },
+    error: { enumerable: true, get: () => fieldState.error },
+    isValidating: {
+      enumerable: false,
+      get: () => fieldState.isValidating,
+    },
+  });
 
 interface MissingComponentFallbackProps extends InternalFieldRendererProps {
   FallbackComponent: FallbackComponent;
@@ -64,7 +88,7 @@ const CustomFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
+  const { components } = useDynamicFormInternalContext();
   const customComponents = components.custom ?? {};
 
   if (config.type !== "custom") {
@@ -132,7 +156,7 @@ const StandardFieldRenderer = ({
   formValues,
   setValue,
 }: InternalFieldRendererProps) => {
-  const { components } = useDynamicFormContext();
+  const { components } = useDynamicFormInternalContext();
   const FieldComponent = components.fields[config.type] as BaseFieldComponent;
 
   if (!FieldComponent) {
@@ -174,25 +198,16 @@ const StandardFieldRenderer = ({
 };
 
 export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
-  const { form, visibility, fieldWrapper } = useDynamicFormContext();
-
-  // Cross-field re-validation: every `var` referenced by this field's
-  // condition is a peer whose change should re-trigger this field's
-  // validation. RHF handles the dispatch natively via `rules.deps`.
-  const peers = useMemo(() => {
-    const condition = config.validation?.condition;
-    if (!condition) {
-      return undefined;
-    }
-    const vars = collectVars(condition).filter((path) => path !== config.name);
-    return vars.length > 0 ? vars : undefined;
-  }, [config.validation?.condition, config.name]);
+  const { form, visibility, fieldWrapper } = useDynamicFormInternalContext();
 
   const { field, fieldState } = useController({
     name: config.name,
     control: form.control,
-    rules: peers ? { deps: peers } : undefined,
   });
+  const publicFieldState = useMemo(
+    () => createFieldStateFacade(fieldState),
+    [fieldState]
+  );
 
   const isVisible = visibility[config.name] !== false;
   if (!isVisible) {
@@ -209,7 +224,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
       <CustomFieldRenderer
         config={config}
         field={field}
-        fieldState={fieldState}
+        fieldState={publicFieldState}
         formValues={formValues}
         setValue={setValue}
       />
@@ -219,7 +234,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
       <StandardFieldRenderer
         config={config}
         field={field}
-        fieldState={fieldState}
+        fieldState={publicFieldState}
         formValues={formValues}
         setValue={setValue}
       />
@@ -231,7 +246,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ config }) => {
       {
         name: config.name,
         config,
-        fieldState,
+        fieldState: publicFieldState,
         value: field.value,
         formValues,
         setValue,

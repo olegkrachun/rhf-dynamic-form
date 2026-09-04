@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { Control, FieldErrors } from "react-hook-form";
 import { FormProvider, useForm, useFormState } from "react-hook-form";
 import { FormRenderer } from "./components";
 import { DynamicFormContext, type DynamicFormContextValue } from "./context";
@@ -26,10 +27,66 @@ import {
   mergeDefaults,
   setNestedValue,
 } from "./utils";
+import {
+  applyDependentErrors,
+  buildReverseValidationDeps,
+  getValidationDependents,
+} from "./validation/reverseValidationDeps";
+
+/** Minimal resolver options; the visibility-aware resolver ignores the rest. */
+const RESOLVER_OPTIONS = { fields: {}, shouldUseNativeValidation: false };
 
 interface DynamicFormPropsWithRef extends DynamicFormProps {
   ref?: React.Ref<DynamicFormRef>;
 }
+
+interface FormStateSnapshot {
+  errors: FieldErrors<FormData>;
+  isValid: boolean;
+  isDirty: boolean;
+  dirtyFields: Record<string, unknown>;
+}
+
+/**
+ * The only reactive form-state subscriber the engine holds, kept in a
+ * null-rendering child so validation churn re-renders this component alone —
+ * not the root, not the context value, not the element tree. The root reads
+ * the latest values imperatively through `snapshotRef`, so everything it
+ * exposes keeps the same values: the ref API is already getters, and the
+ * context serves `isValid` / `errors` as getters over this same snapshot.
+ *
+ * `isValid` is deliberately NOT subscribed. RHF broadcasts a validity flip
+ * with NO field name, which wakes every controller in the form — measured at
+ * 299 of 300 array cells per keystroke. Validity is derived from the
+ * resolver's own output instead: the schema validates the whole form on every
+ * run, so "no errors" IS validity. That holds because dependents are
+ * re-validated by name on every change (see `reverseValidationDeps`).
+ */
+const FormStateObserver = ({
+  control,
+  snapshotRef,
+  onValidationChange,
+}: {
+  control: Control<FormData>;
+  snapshotRef: React.RefObject<FormStateSnapshot>;
+  onValidationChange?: DynamicFormProps["onValidationChange"];
+}) => {
+  const { errors, isDirty, dirtyFields } = useFormState({ control });
+  const isValid = Object.keys(errors).length === 0;
+
+  snapshotRef.current = {
+    errors,
+    isValid,
+    isDirty,
+    dirtyFields: dirtyFields as Record<string, unknown>,
+  };
+
+  useEffect(() => {
+    onValidationChange?.(errors, isValid);
+  }, [errors, isValid, onValidationChange]);
+
+  return null;
+};
 
 export const DynamicForm = ({
   config,
@@ -99,8 +156,13 @@ export const DynamicForm = ({
   );
 
   const form = useForm<FormData>({ defaultValues, resolver, mode });
-  const { isDirty, errors, isValid, dirtyFields } = useFormState({
-    control: form.control,
+  // Latest form state, written by <FormStateObserver>. Starts invalid, which
+  // matches react-hook-form's own initial value before anything is validated.
+  const formStateRef = useRef<FormStateSnapshot>({
+    errors: {},
+    isValid: false,
+    isDirty: false,
+    dirtyFields: {},
   });
 
   // Run validation once after mount so pre-filled invalid values surface
@@ -121,18 +183,29 @@ export const DynamicForm = ({
       watchField: (name: string) => form.watch(name),
       reset: (values?: FormData) => form.reset(values ?? defaultValues),
       trigger: (name?: string) => form.trigger(name),
-      getIsValid: () => isValid,
-      getErrors: () => errors,
-      getIsDirty: () => isDirty,
-      getDirtyFields: () => dirtyFields,
+      getIsValid: () => formStateRef.current.isValid,
+      getErrors: () => formStateRef.current.errors,
+      getIsDirty: () => formStateRef.current.isDirty,
+      getDirtyFields: () => formStateRef.current.dirtyFields,
     }),
-    [form, defaultValues, isValid, errors, isDirty, dirtyFields]
+    [form, defaultValues]
   );
 
   const dependencyMap = useMemo(
     () => buildDependencyMap(parsedConfig.elements),
     [parsedConfig]
   );
+
+  const reverseValidationDeps = useMemo(
+    () => buildReverseValidationDeps(parsedConfig.elements),
+    [parsedConfig]
+  );
+
+  /**
+   * Generation stamp for the dependent re-validation pass — only the newest
+   * pass may write, so a slow earlier one cannot land a stale verdict.
+   */
+  const dependentPassRef = useRef(0);
 
   const previousValuesRef = useRef<Record<string, unknown>>({});
 
@@ -194,43 +267,58 @@ export const DynamicForm = ({
       }
 
       handleDependencyReset(name, formValues);
+
+      const dependents = getValidationDependents(
+        reverseValidationDeps,
+        name,
+        (path) => form.getValues(path)
+      );
+      if (dependents.length > 0) {
+        dependentPassRef.current += 1;
+        const pass = dependentPassRef.current;
+        // `resolver` may answer synchronously or with a promise; normalise.
+        Promise.resolve(
+          resolver(form.getValues(), undefined, RESOLVER_OPTIONS as never)
+        ).then((result) => {
+          if (pass !== dependentPassRef.current) {
+            return;
+          }
+          applyDependentErrors(
+            dependents,
+            (result.errors ?? {}) as Record<string, unknown>,
+            form,
+            getNestedValue
+          );
+        });
+      }
+
       onChangeRef.current?.(values as FormData, name);
     });
 
     return () => subscription.unsubscribe();
-  }, [form, parsedConfig, dependencyMap]);
+  }, [form, parsedConfig, dependencyMap, reverseValidationDeps, resolver]);
 
-  const { errors: formErrors, isValid: formIsValid } = useFormState({
-    control: form.control,
-  });
-
-  useEffect(() => {
-    if (!onValidationChange) {
-      return;
-    }
-    onValidationChange(formErrors, formIsValid);
-  }, [formErrors, formIsValid, onValidationChange]);
-
-  const contextValue: DynamicFormContextValue = useMemo(
-    () => ({
+  // `isValid` / `errors` stay on the context, but as getters over the
+  // snapshot: consumers read the same values while the object IDENTITY stops
+  // changing on validation churn — that identity was re-rendering every
+  // context consumer, and through them every array row, on each keystroke.
+  const contextValue: DynamicFormContextValue = useMemo(() => {
+    const value = {
       form,
       config: parsedConfig,
       components,
       visibility,
       fieldWrapper,
-      isValid: formIsValid,
-      errors: formErrors as Record<string, unknown>,
-    }),
-    [
-      form,
-      parsedConfig,
-      components,
-      visibility,
-      fieldWrapper,
-      formIsValid,
-      formErrors,
-    ]
-  );
+    } as DynamicFormContextValue;
+    Object.defineProperties(value, {
+      isValid: { enumerable: true, get: () => formStateRef.current.isValid },
+      errors: {
+        enumerable: true,
+        get: () => formStateRef.current.errors as Record<string, unknown>,
+      },
+    });
+    return value;
+  }, [form, parsedConfig, components, visibility, fieldWrapper]);
 
   const handleSubmit = form.handleSubmit(onSubmit, (errors) =>
     onError?.(errors)
@@ -244,6 +332,11 @@ export const DynamicForm = ({
   return (
     <FormProvider {...form}>
       <DynamicFormContext.Provider value={contextValue}>
+        <FormStateObserver
+          control={form.control}
+          onValidationChange={onValidationChange}
+          snapshotRef={formStateRef}
+        />
         <form
           className={className}
           id={id}

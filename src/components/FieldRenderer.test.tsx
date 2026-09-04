@@ -1,17 +1,95 @@
 /// <reference types="@testing-library/jest-dom/vitest" />
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ConfigurationError } from "../customComponents";
 import { DynamicForm } from "../DynamicForm";
 import { mockFieldComponents } from "../test-utils/mockFieldComponents";
 import type {
+  BaseFieldProps,
+  ComponentRegistry,
   FallbackComponent,
   FieldWrapperFunction,
   FormConfiguration,
 } from "../types";
 
 describe("FieldRenderer", () => {
+  it("does not subscribe every field to validation when dev tooling enumerates fieldState", async () => {
+    const renderCounts = new Map<string, number>();
+    let isValidatingDescriptor: PropertyDescriptor | undefined;
+    let explicitIsValidating: boolean | undefined;
+    const InspectingField = ({ field, fieldState, config }: BaseFieldProps) => {
+      // React 19's development profiler performs this kind of recursive prop
+      // inspection while recording component timings.
+      Object.values(fieldState);
+      if (field.name === "edited") {
+        isValidatingDescriptor = Object.getOwnPropertyDescriptor(
+          fieldState,
+          "isValidating"
+        );
+        explicitIsValidating = fieldState.isValidating;
+      }
+      renderCounts.set(field.name, (renderCounts.get(field.name) ?? 0) + 1);
+      return (
+        <label>
+          {config.label}
+          <input
+            aria-label={config.label}
+            name={field.name}
+            onBlur={field.onBlur}
+            onChange={field.onChange}
+            ref={field.ref}
+            value={String(field.value ?? "")}
+          />
+          <span data-testid={`${field.name}-error`}>
+            {fieldState.error?.message ?? ""}
+          </span>
+        </label>
+      );
+    };
+    const components: ComponentRegistry = {
+      fields: { text: InspectingField },
+    };
+    const config: FormConfiguration = {
+      elements: [
+        {
+          type: "text",
+          name: "edited",
+          label: "Edited",
+          validation: { required: true },
+        },
+        { type: "text", name: "peer", label: "Peer" },
+      ],
+    };
+
+    render(
+      <DynamicForm
+        components={components}
+        config={config}
+        initialData={{ edited: "", peer: "unchanged" }}
+        mode="onChange"
+        onSubmit={vi.fn()}
+        validateOnMount
+      />
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("edited-error")).not.toHaveTextContent("");
+    });
+    renderCounts.clear();
+
+    fireEvent.change(screen.getByLabelText("Edited"), {
+      target: { value: "fixed" },
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("edited-error")).toHaveTextContent("");
+    });
+
+    expect(renderCounts.get("peer") ?? 0).toBe(0);
+    expect(isValidatingDescriptor?.enumerable).toBe(false);
+    expect(isValidatingDescriptor?.get).toEqual(expect.any(Function));
+    expect(typeof explicitIsValidating).toBe("boolean");
+  });
+
   describe("standard field rendering", () => {
     it("renders text field with label", async () => {
       const config: FormConfiguration = {
