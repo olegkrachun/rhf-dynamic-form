@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 1.x
 
 permissions:
   contents: write
@@ -24,6 +25,7 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          target-branch: ${{ github.ref_name }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
