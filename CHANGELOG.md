@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.12.0...rhf-dynamic-forms-v1.12.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* isolate dynamic form validation renders ([035f827](https://github.com/olegkrachun/rhf-dynamic-form/commit/035f82728de7f9e248943153d001e2e8b838196f))
+
 ## [1.12.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.11.0...rhf-dynamic-forms-v1.12.0) (2026-06-18)
 
 
