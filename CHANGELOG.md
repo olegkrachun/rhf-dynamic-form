@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v2.0.0...rhf-dynamic-forms-v2.0.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **form:** don't lose state updates ([714d89e](https://github.com/olegkrachun/rhf-dynamic-form/commit/714d89edd759ede7560d113ba40fca0b00131be8))
+* **form:** don't lose state updates dispatched before the subscription exists ([76d3fb3](https://github.com/olegkrachun/rhf-dynamic-form/commit/76d3fb36b0e973b66dd3e071aa2b0324a2c58a1f))
+
+## [2.0.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.12.0...rhf-dynamic-forms-v2.0.0) (2026-08-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **context:** `errors` and `isValid` are no longer members of DynamicFormContextValue. Use `validation.getErrors()` and `validation.getIsValid()`, and `validation.subscribe` where a component must re-render on validation changes. Field-level error rendering is unaffected: every field already receives its own error through `fieldState` from useController, and the message text comes from `validation.message` in the configuration.
+
+### Features
+
+* **context:** replace reactive validation state with pull-based accessors ([80cd72e](https://github.com/olegkrachun/rhf-dynamic-form/commit/80cd72ecc2ee0badf8cf133a69a3e7fa9b1707af))
+* **context:** split the form context into control and validation halves ([77e7ae1](https://github.com/olegkrachun/rhf-dynamic-form/commit/77e7ae10bb0cf90f1985c5318542e7f26f997012))
+* **context:** split the form context into control and validation halves ([98ebb21](https://github.com/olegkrachun/rhf-dynamic-form/commit/98ebb2111fc90ec100e77bd86b316279f450626a))
+
+
+### Bug Fixes
+
+* lint ([1716a22](https://github.com/olegkrachun/rhf-dynamic-form/commit/1716a226544b4f237983aeb6f586f89bec01ccea))
+
 ## [1.12.0](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v1.11.0...rhf-dynamic-forms-v1.12.0) (2026-06-18)
 
 
