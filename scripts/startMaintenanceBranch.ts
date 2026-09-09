@@ -57,9 +57,9 @@ const version = `${major}.${minor}.${patch}`;
 const branch = `${major}.${minor}.x`;
 const infraRef = process.env.MAINTENANCE_INFRA_REF ?? "origin/main";
 
-if (git("status", "--porcelain") !== "") {
+if (git("status", "--porcelain", "--untracked-files=no") !== "") {
   throw new Error(
-    "the working tree has uncommitted changes; commit or set them aside first"
+    "there are uncommitted changes to tracked files; commit or set them aside first"
   );
 }
 
