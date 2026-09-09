@@ -5,8 +5,9 @@ const RELEASE_TAG = /^(?:.+-)?v(\d+)\.(\d+)\.(\d+)$/;
 
 const INFRA_PATHS = [
   ".github",
-  "scripts",
   "release-please-config.json",
+  "scripts/releaseChannel.ts",
+  "scripts/emitReleaseChannel.ts",
 ] as const;
 
 const USAGE = `usage: node scripts/startMaintenanceBranch.ts <release-tag>
