@@ -67,6 +67,7 @@ export const formatChannelOutputs = (channel: ReleaseChannel): string =>
   [
     `kind=${channel.kind}`,
     `npm_tag=${channel.npmTag}`,
+    `npm_tag_arg=${channel.kind === "backport" ? `--tag ${channel.npmTag}` : ""}`,
     `mark_github_latest=${channel.markGithubLatest}`,
     "",
   ].join("\n");

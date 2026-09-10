@@ -67,16 +67,29 @@ describe("resolveReleaseChannel", () => {
 });
 
 describe("formatChannelOutputs", () => {
-  it("emits every key the release workflow reads, newline terminated", () => {
+  it("leaves the tag argument empty for a current release so npm keeps its own guard", () => {
     expect(formatChannelOutputs(resolveReleaseChannel("2.1.0", "2.0.1"))).toBe(
-      "kind=current\nnpm_tag=latest\nmark_github_latest=true\n"
+      "kind=current\nnpm_tag=latest\nnpm_tag_arg=\nmark_github_latest=true\n"
     );
   });
 
   it("emits the backport form", () => {
     expect(formatChannelOutputs(resolveReleaseChannel("1.12.1", "2.0.1"))).toBe(
-      "kind=backport\nnpm_tag=v1-lts\nmark_github_latest=false\n"
+      "kind=backport\nnpm_tag=v1-lts\nnpm_tag_arg=--tag v1-lts\nmark_github_latest=false\n"
     );
+  });
+
+  it("never passes --tag latest explicitly, whatever the inputs", () => {
+    for (const [version, latest] of [
+      ["2.1.0", "2.0.1"],
+      ["2.0.1", "2.0.1"],
+      ["0.1.0", null],
+      ["1.12.1", "2.0.1"],
+    ] as const) {
+      expect(
+        formatChannelOutputs(resolveReleaseChannel(version, latest))
+      ).not.toContain("--tag latest");
+    }
   });
 
   it("never emits an empty npm tag", () => {

@@ -84,6 +84,20 @@ if (infraPaths.length === 0) {
   throw new Error(`${infraRef} carries none of: ${INFRA_PATHS.join(", ")}`);
 }
 
+const collidingUntracked = git(
+  "ls-files",
+  "--others",
+  "--exclude-standard",
+  "--",
+  ...infraPaths
+);
+
+if (collidingUntracked !== "") {
+  throw new Error(
+    `git checkout overwrites untracked files at these paths without warning, and they would be lost:\n${collidingUntracked}`
+  );
+}
+
 say(`Opening ${branch} from ${tag} (version ${version})`);
 
 git("switch", "--create", branch, tag);

@@ -11,8 +11,11 @@ permissions:
   id-token: write
   pull-requests: write
 
+# One group for every branch. Two releases resolving their channel against the
+# same registry snapshot can both decide they are `latest`, and the slower
+# publish then moves `latest` backwards.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -49,8 +52,11 @@ jobs:
         id: channel
         run: node scripts/emitReleaseChannel.ts
 
+      # npm_tag_arg is empty for a current release, deliberately. Passing --tag latest
+      # explicitly would disable npm's own refusal to move `latest` backwards, which is
+      # the last line of defence if the resolved channel is ever wrong.
       - name: Publish to npm registry
-        run: pnpm publish --no-git-checks --access public --tag ${{ steps.channel.outputs.npm_tag }}
+        run: pnpm publish --no-git-checks --access public ${{ steps.channel.outputs.npm_tag_arg }}
 
       - name: Keep the newest release marked latest on GitHub
         if: ${{ steps.channel.outputs.mark_github_latest == 'false' }}
