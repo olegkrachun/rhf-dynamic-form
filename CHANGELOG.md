@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v2.0.1...rhf-dynamic-forms-v2.0.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* never let an uncertain channel resolve to the latest dist-tag ([76ca2c5](https://github.com/olegkrachun/rhf-dynamic-form/commit/76ca2c531b5f343a1a3a82bacdff62ada9f718f6))
+
 ## [2.0.1](https://github.com/olegkrachun/rhf-dynamic-form/compare/rhf-dynamic-forms-v2.0.0...rhf-dynamic-forms-v2.0.1) (2026-08-26)
 
 
