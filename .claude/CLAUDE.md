@@ -42,6 +42,7 @@ src/
 │   ├── validateConfiguration.ts # Config-wide validation
 │   └── ConfigurationError.ts    # Error class with path context
 ├── hooks/               # Custom hooks (useDynamicFormContext)
+├── options/             # Select options resolution (static | data-map | resolver)
 ├── parser/              # Configuration parsing and validation
 ├── resolver/            # Visibility-aware Zod resolver
 ├── schema/              # Zod schema generation
@@ -85,13 +86,13 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 - `BaseFieldElement` - Base interface for all fields (`type: string`, `name`, `label`, `validation`, `meta`, etc.)
 - `FieldElement` - `StructuralFieldElement | BaseFieldElement` (any field)
 - `StructuralFieldElement` - `SelectFieldElement | ArrayFieldElement | CustomFieldElement` (types with extra properties)
-- `SelectFieldElement` - Dropdown/multi-select with `options`, `multiple`, `optionsSource`
+- `SelectFieldElement` - Dropdown/multi-select with `options` (static | data-map | resolver), `multiple`, and the deprecated `optionsSource`
 - `ArrayFieldElement` - Repeatable field groups with `itemFields` template
 - `CustomFieldElement` - User-defined component with `component` name and `componentProps`
 - `ContainerElement` - Variant-based layout container with `children` and `meta`
 - `BaseFieldComponent` - Component type for ALL field components
 - `BaseFieldProps` - Props passed to all field components (field, fieldState, config, formValues, setValue)
-- `ComponentRegistry` - Unified registry: `{ fields, custom?, containers? }`
+- `ComponentRegistry` - Unified registry: `{ fields, custom?, containers?, resolvers?, fallback? }`
 - `FieldComponentRegistry` - `Record<string, BaseFieldComponent>` — open-ended, any key valid
 - `CustomComponentRegistry` - Maps custom component names to implementations
 - `CustomContainerRegistry` - Maps container variant strings to components
@@ -110,7 +111,7 @@ The engine is **type-agnostic** — `type` is an open string, not a closed enum.
 
 ## Testing
 
-Tests are colocated with implementation files (296 tests across 23 files):
+Tests are colocated with implementation files (368 tests across 28 files):
 
 **Parser & Schema:**
 - `src/parser/configParser.test.ts` - Configuration parsing
@@ -134,6 +135,11 @@ Tests are colocated with implementation files (296 tests across 23 files):
 - `src/customComponents/validateCustomElement.test.ts` - Element validation
 - `src/customComponents/validateConfiguration.test.ts` - Config validation
 
+**Select Options:**
+- `src/options/resolveSelectOptions.test.ts` - Pure options resolution (static | data-map | resolver)
+- `src/options/useSelectOptions.test.tsx` - Options resolution hook
+- `src/options/useSelectOptions.integration.test.tsx` - Options hook integration
+
 **Utils & Validation:**
 - `src/validation/jsonLogic.test.ts` - JSON Logic evaluation
 - `src/resolver/visibilityAwareResolver.test.ts` - Visibility-aware resolver
@@ -142,6 +148,8 @@ Tests are colocated with implementation files (296 tests across 23 files):
 - `src/utils/mergeDefaults.test.ts` - Default value merging
 - `src/utils/calculateVisibility.test.ts` - Visibility calculation
 - `src/utils/dependencies.test.ts` - Field dependencies
+- `src/utils/fallbackComponents.test.ts` - Fallback component resolution
+- `src/types/elements.test.ts` - Element type guards
 
 Run with: `pnpm test`
 Coverage: `pnpm test -- --coverage`
